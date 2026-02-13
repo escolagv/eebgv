@@ -1673,21 +1673,21 @@ export async function generateAssiduidadeReport() {
                     body[data-print-mode="simple"] .print-full-only { display: none !important; }
                     body[data-print-mode="full"] .print-simple-only { display: none !important; }
                     .printable-area .max-h-96,
-                    .printable-area .overflow-x-auto {
+                    .printable-area .overflow-x-auto,
+                    .printable-area .overflow-y-auto,
+                    .printable-area .overflow-auto {
                         max-height: none !important;
                         overflow: visible !important;
                     }
-                    .print-summary .grid { display: block; }
-                    .print-summary .grid > div { width: 100%; margin-bottom: 16px; }
                 }
                 body[data-print-preview="true"] .print-only { display: block; }
                 body[data-print-preview="true"] .printable-area .max-h-96,
-                body[data-print-preview="true"] .printable-area .overflow-x-auto {
+                body[data-print-preview="true"] .printable-area .overflow-x-auto,
+                body[data-print-preview="true"] .printable-area .overflow-y-auto,
+                body[data-print-preview="true"] .printable-area .overflow-auto {
                     max-height: none !important;
                     overflow: visible !important;
                 }
-                body[data-print-preview="true"] .print-summary .grid { display: block; }
-                body[data-print-preview="true"] .print-summary .grid > div { width: 100%; margin-bottom: 16px; }
             </style>
         </head>
         <body class="bg-gray-100 p-8" data-print-mode="full">
@@ -2037,21 +2037,19 @@ export async function generateAssiduidadeReport() {
 
             const printSummary = `
                 <div class="print-only print-full-only print-summary print-page-break">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md">
-                            <div style="height: 320px; position: relative;"><canvas id="lancamentoChartPrint"></canvas></div>
-                        </div>
-                        <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                            <h3 class="font-bold mb-4">Resumo do Período</h3>
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div class="p-4 rounded border bg-gray-50 text-center">
-                                    <div class="text-xs text-gray-500">Chamadas lançadas</div>
-                                    <div class="text-xl font-bold text-green-700">${totalLancadas}</div>
-                                </div>
-                                <div class="p-4 rounded border bg-gray-50 text-center">
-                                    <div class="text-xs text-gray-500">Chamadas não lançadas</div>
-                                    <div class="text-xl font-bold text-red-700">${totalNaoLancadas}</div>
-                                </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <div style="height: 320px; position: relative; width: 100%;"><canvas id="lancamentoChartPrint"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold mb-4">Resumo do Período</h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="p-4 rounded border bg-gray-50 text-center">
+                                <div class="text-xs text-gray-500">Chamadas lançadas</div>
+                                <div class="text-xl font-bold text-green-700">${totalLancadas}</div>
+                            </div>
+                            <div class="p-4 rounded border bg-gray-50 text-center">
+                                <div class="text-xs text-gray-500">Chamadas não lançadas</div>
+                                <div class="text-xl font-bold text-red-700">${totalNaoLancadas}</div>
                             </div>
                         </div>
                     </div>
@@ -2139,7 +2137,14 @@ export async function generateAssiduidadeReport() {
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
-                            plugins: { legend: { position: 'top' }, title: { display: true, text: 'Visão Geral de Lançamentos' } }
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    align: 'start',
+                                    labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+                                },
+                                title: { display: true, text: 'Visão Geral de Lançamentos' }
+                            }
                         }
                     });
                 };
