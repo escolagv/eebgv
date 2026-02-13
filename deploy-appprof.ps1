@@ -92,6 +92,11 @@ function Build-AndroidApk {
     }
     $apkOut = Join-Path $MobileRoot "android\\app\\build\\outputs\\apk\\release\\app-release.apk"
     if (Test-Path $apkOut) { return $apkOut }
+    $apkUnsigned = Join-Path $MobileRoot "android\\app\\build\\outputs\\apk\\release\\app-release-unsigned.apk"
+    if (Test-Path $apkUnsigned) {
+        Write-Host "APK assinado nao encontrado. Usando APK unsigned." -ForegroundColor Yellow
+        return $apkUnsigned
+    }
     Write-Host "APK nao encontrado apos build: $apkOut" -ForegroundColor Red
     return $null
 }

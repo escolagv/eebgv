@@ -1,6 +1,6 @@
 {
   "appId": "br.sc.eebgv.apoia.professor",
-  "appName": "APOIA Professor",
+  "appName": "Chamada Professor",
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
@@ -11,3 +11,6 @@
     ]
   }
 }
+
+
+
