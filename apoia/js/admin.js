@@ -1642,7 +1642,66 @@ export function openAssiduidadeModal() {
 export async function generateAssiduidadeReport() {
     const baseHref = window.location.href.split('#')[0];
     const newWindow = window.open(baseHref, '_blank');
-    newWindow.document.write(`<html><head><title>Relatorio de Assiduidade</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script><style>body { font-family: 'Inter', sans-serif; } .print-header { display: none; } @media print { .no-print { display: none !important; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; } body * { visibility: hidden; } .printable-area, .printable-area * { visibility: visible; } .print-header { display: flex !important; justify-content: flex-start; gap: 16px; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e7eb; } .print-header img { max-height: 60px; width: auto; } .print-header-info { text-align: left; } .print-header-info h2 { font-size: 1.25rem; font-weight: bold; margin: 0; } .print-header-info p { font-size: 0.875rem; margin: 0; } .print-header-info .print-school-line { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; } body[data-print-mode="simple"] .print-full-only { display: none !important; } body[data-print-mode="full"] .print-simple-only { display: none !important; } } body[data-print-preview="true"] .print-only { display: block; }</style></head><body class="bg-gray-100 p-8" data-print-mode="full"><div class="printable-area"><div id="report-content"><div class="text-center"><div class="loader" style="width: 48px; height: 48px; margin: auto;"></div><p class="mt-4 text-gray-600">Gerando relatorio, por favor aguarde...</p></div></div></div></body></html>`);
+    newWindow.document.write(`
+        <html>
+        <head>
+            <title>Relatorio de Assiduidade</title>
+            <script src="https://cdn.tailwindcss.com"><\/script>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>
+            <style>
+                body { font-family: 'Inter', sans-serif; }
+                .print-header { display: none; }
+                @media print {
+                    .no-print { display: none !important; }
+                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+                    body * { visibility: hidden; }
+                    .printable-area, .printable-area * { visibility: visible; }
+                    .print-header {
+                        display: flex !important;
+                        justify-content: flex-start;
+                        gap: 16px;
+                        align-items: center;
+                        padding-bottom: 1rem;
+                        margin-bottom: 1.5rem;
+                        border-bottom: 2px solid #e5e7eb;
+                    }
+                    .print-header img { max-height: 60px; width: auto; }
+                    .print-header-info { text-align: left; }
+                    .print-header-info h2 { font-size: 1.25rem; font-weight: bold; margin: 0; }
+                    .print-header-info p { font-size: 0.875rem; margin: 0; }
+                    .print-header-info .print-school-line { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; }
+                    body[data-print-mode="simple"] .print-full-only { display: none !important; }
+                    body[data-print-mode="full"] .print-simple-only { display: none !important; }
+                    .printable-area .max-h-96,
+                    .printable-area .overflow-x-auto {
+                        max-height: none !important;
+                        overflow: visible !important;
+                    }
+                    .print-summary .grid { display: block; }
+                    .print-summary .grid > div { width: 100%; margin-bottom: 16px; }
+                }
+                body[data-print-preview="true"] .print-only { display: block; }
+                body[data-print-preview="true"] .printable-area .max-h-96,
+                body[data-print-preview="true"] .printable-area .overflow-x-auto {
+                    max-height: none !important;
+                    overflow: visible !important;
+                }
+                body[data-print-preview="true"] .print-summary .grid { display: block; }
+                body[data-print-preview="true"] .print-summary .grid > div { width: 100%; margin-bottom: 16px; }
+            </style>
+        </head>
+        <body class="bg-gray-100 p-8" data-print-mode="full">
+            <div class="printable-area">
+                <div id="report-content">
+                    <div class="text-center">
+                        <div class="loader" style="width: 48px; height: 48px; margin: auto;"></div>
+                        <p class="mt-4 text-gray-600">Gerando relatorio, por favor aguarde...</p>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
 
     try {
         const formatDateBr = (value) => {
