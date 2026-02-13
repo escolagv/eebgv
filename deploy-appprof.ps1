@@ -65,13 +65,17 @@ function Build-AndroidApk {
         Write-Host "Pasta do app mobile nao encontrada: $MobileRoot" -ForegroundColor Red
         return $null
     }
+    if (-not $env:JAVA_HOME -or !(Test-Path $env:JAVA_HOME)) {
+        Write-Host "JAVA_HOME invalido. Configure para o diretório do JDK (ex: C:\\Program Files\\Eclipse Adoptium\\jdk-17.x)." -ForegroundColor Red
+        return $null
+    }
     if (-not (Ensure-Command "npm")) { return $null }
     if (-not (Ensure-Command "npx")) { return $null }
     Push-Location $MobileRoot
     try {
-        if (!(Test-Path "node_modules")) { npm install }
-        if (!(Test-Path "android")) { npx cap add android }
-        npx cap sync android
+        if (!(Test-Path "node_modules")) { $null = npm install }
+        if (!(Test-Path "android")) { $null = npx cap add android }
+        $null = npx cap sync android
     } finally {
         Pop-Location
     }
@@ -82,7 +86,7 @@ function Build-AndroidApk {
     }
     Push-Location (Join-Path $MobileRoot "android")
     try {
-        & $gradle assembleRelease
+        $null = & $gradle assembleRelease
     } finally {
         Pop-Location
     }
