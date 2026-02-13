@@ -1,0 +1,13 @@
+{
+  "appId": "br.sc.eebgv.apoia.professor",
+  "appName": "APOIA Professor",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://eebgv.vercel.app/apoia/professor.html",
+    "cleartext": false,
+    "allowNavigation": [
+      "https://eebgv.vercel.app"
+    ]
+  }
+}

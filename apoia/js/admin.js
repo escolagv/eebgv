@@ -1681,6 +1681,7 @@ export async function generateAssiduidadeReport() {
                     }
                 }
                 body[data-print-preview="true"] .print-only { display: block; }
+                body[data-print-preview="true"] .no-print { display: none !important; }
                 body[data-print-preview="true"] .printable-area .max-h-96,
                 body[data-print-preview="true"] .printable-area .overflow-x-auto,
                 body[data-print-preview="true"] .printable-area .overflow-y-auto,
@@ -1725,14 +1726,22 @@ export async function generateAssiduidadeReport() {
             scriptEl.textContent = `
                 window.setPrintMode = (mode) => { document.body.dataset.printMode = mode; };
                 window.preparePrint = (mode) => {
+                    if (window.__printInProgress) return;
+                    window.__printInProgress = true;
                     document.body.dataset.printMode = mode || 'full';
                     document.body.dataset.printPreview = 'true';
                     setTimeout(() => {
                         if (window.renderPrintCharts) window.renderPrintCharts();
                         setTimeout(() => { window.print(); }, 300);
                     }, 50);
+                    // Fallback in case afterprint doesn't fire (e.g. canceled dialog)
+                    setTimeout(() => {
+                        window.__printInProgress = false;
+                        document.body.removeAttribute('data-print-preview');
+                    }, 3000);
                 };
                 window.addEventListener('afterprint', () => {
+                    window.__printInProgress = false;
                     document.body.removeAttribute('data-print-preview');
                 });
                 if (!document.body.dataset.printMode) { document.body.dataset.printMode = 'full'; }
@@ -2038,7 +2047,14 @@ export async function generateAssiduidadeReport() {
             const printSummary = `
                 <div class="print-only print-full-only print-summary print-page-break">
                     <div class="bg-white p-4 rounded-lg shadow-md mb-4">
-                        <div style="height: 320px; position: relative; width: 100%;"><canvas id="lancamentoChartPrint"></canvas></div>
+                        <div class="print-chart-wrap">
+                            <div class="print-chart-title">Visão Geral de Lançamentos</div>
+                            <div class="print-chart-canvas"><canvas id="lancamentoChartPrint" width="260" height="260"></canvas></div>
+                            <div class="print-chart-legend">
+                                <span><span class="legend-dot legend-green"></span>Chamadas lançadas</span>
+                                <span><span class="legend-dot legend-red"></span>Chamadas não lançadas</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="font-bold mb-4">Resumo do Período</h3>
@@ -2078,6 +2094,15 @@ export async function generateAssiduidadeReport() {
                     .print-only { display: none; }
                     .professor-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #fff; }
                     .print-summary { margin-bottom: 16px; }
+                    .print-chart-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+                    .print-chart-title { font-weight: 600; font-size: 0.95rem; color: #374151; }
+                    .print-chart-canvas { width: 260px; height: 260px; position: relative; }
+                    .print-chart-canvas canvas { width: 100% !important; height: 100% !important; }
+                    .print-chart-legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-size: 0.75rem; color: #4b5563; }
+                    .print-chart-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+                    .legend-dot { width: 10px; height: 10px; border-radius: 9999px; display: inline-block; }
+                    .legend-green { background: #10B981; }
+                    .legend-red { background: #EF4444; }
                     @media print {
                         .print-only { display: block; }
                         .no-print { display: none !important; }
@@ -2128,25 +2153,33 @@ export async function generateAssiduidadeReport() {
                 };
                 const buildChart = (ctx) => {
                     if (!ctx) return;
-                    new Chart(ctx, {
+                    const isPrint = ctx.id === 'lancamentoChartPrint';
+                    if (isPrint && window.__printChart) window.__printChart.destroy();
+                    if (!isPrint && window.__screenChart) window.__screenChart.destroy();
+                    const chartInstance = new Chart(ctx, {
                         type: 'pie',
                         data: {
                             labels: ['Chamadas Lançadas', 'Chamadas Não Lançadas'],
                             datasets: [{ data: [${totalLancadas}, ${totalNaoLancadas}], backgroundColor: ['#10B981', '#EF4444'] }]
                         },
                         options: {
-                            responsive: true,
+                            responsive: !isPrint,
                             maintainAspectRatio: false,
+                            aspectRatio: isPrint ? 1 : undefined,
+                            animation: false,
                             plugins: {
                                 legend: {
+                                    display: !isPrint,
                                     position: 'top',
                                     align: 'start',
                                     labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
                                 },
-                                title: { display: true, text: 'Visão Geral de Lançamentos' }
+                                title: { display: !isPrint, text: 'Visão Geral de Lançamentos' }
                             }
                         }
                     });
+                    if (isPrint) window.__printChart = chartInstance;
+                    else window.__screenChart = chartInstance;
                 };
                 window.renderPrintCharts = () => ensureChart(() => buildChart(document.getElementById('lancamentoChartPrint')));
                 ensureChart(() => buildChart(document.getElementById('lancamentoChart')));
