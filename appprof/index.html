@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Professor - APOIA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+        }
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 48px 20px 64px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+        .title {
+            font-size: 1.75rem;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+        }
+        .subtitle {
+            margin: 0 0 20px 0;
+            color: #6b7280;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            background: #e0f2fe;
+            color: #0369a1;
+            border-radius: 999px;
+            margin-bottom: 18px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-android { background: #10b981; color: #fff; }
+        .btn-android:hover { background: #059669; }
+        .btn-ios { background: #111827; color: #fff; }
+        .btn-ios:hover { background: #000; }
+        .note {
+            margin-top: 18px;
+            font-size: 0.9rem;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+        .footer {
+            margin-top: 28px;
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+        .muted {
+            color: #6b7280;
+        }
+        code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="badge">App do Professor · Versão <strong>__APP_VERSION__</strong></div>
+            <h1 class="title">APOIA · Área do Professor</h1>
+            <p class="subtitle">Escolha como acessar: abrir no navegador ou instalar o aplicativo.</p>
+
+            <div class="grid">
+                <a class="btn btn-primary" href="__PROFESSOR_URL__" target="_blank" rel="noopener">Abrir no navegador</a>
+                <a class="btn btn-android" href="__APK_URL__" target="_blank" rel="noopener">Baixar APK Android</a>
+                <a class="btn btn-ios" href="__IOS_URL__" target="_blank" rel="noopener">Instalar iOS</a>
+            </div>
+
+            <p class="note">
+                Se o link do iOS estiver vazio, use o acesso pelo navegador e adicione à tela inicial.
+                No iPhone: abra o navegador, toque em <strong>Compartilhar</strong> e selecione
+                <strong>Adicionar à Tela de Início</strong>.
+            </p>
+
+            <p class="note muted">
+                Ajuste os links acima editando este arquivo ou rodando o script
+                <code>deploy-appprof.ps1</code> para atualizar a versão e as URLs.
+            </p>
+
+            <div class="footer">EEB Getúlio Vargas · Sistema APOIA</div>
+        </div>
+    </div>
+</body>
+</html>
