@@ -1642,7 +1642,7 @@ export function openAssiduidadeModal() {
 export async function generateAssiduidadeReport() {
     const baseHref = window.location.href.split('#')[0];
     const newWindow = window.open(baseHref, '_blank');
-    newWindow.document.write(`<html><head><title>Relatorio de Assiduidade</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script><style>body { font-family: 'Inter', sans-serif; } .print-header { display: none; } @media print { .no-print { display: none !important; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; } body * { visibility: hidden; } .printable-area, .printable-area * { visibility: visible; } .print-header { display: flex !important; justify-content: space-between; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e7eb; } .print-header img { max-height: 60px; width: auto; } .print-header-info h2 { font-size: 1.25rem; font-weight: bold; margin: 0; } .print-header-info p { font-size: 0.875rem; margin: 0; } .print-header-info .print-school-line { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; } body[data-print-mode="simple"] .print-full-only { display: none !important; } body[data-print-mode="full"] .print-simple-only { display: none !important; } body[data-print-mode="simple"] .print-header img { display: none !important; } }</style></head><body class="bg-gray-100 p-8" data-print-mode="full"><div class="printable-area"><div id="report-content"><div class="text-center"><div class="loader" style="width: 48px; height: 48px; margin: auto;"></div><p class="mt-4 text-gray-600">Gerando relatorio, por favor aguarde...</p></div></div></div></body></html>`);
+    newWindow.document.write(`<html><head><title>Relatorio de Assiduidade</title><script src="https://cdn.tailwindcss.com"><\/script><script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script><style>body { font-family: 'Inter', sans-serif; } .print-header { display: none; } @media print { .no-print { display: none !important; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; } body * { visibility: hidden; } .printable-area, .printable-area * { visibility: visible; } .print-header { display: flex !important; justify-content: flex-start; gap: 16px; align-items: center; padding-bottom: 1rem; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e7eb; } .print-header img { max-height: 60px; width: auto; } .print-header-info { text-align: left; } .print-header-info h2 { font-size: 1.25rem; font-weight: bold; margin: 0; } .print-header-info p { font-size: 0.875rem; margin: 0; } .print-header-info .print-school-line { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; } body[data-print-mode="simple"] .print-full-only { display: none !important; } body[data-print-mode="full"] .print-simple-only { display: none !important; } } body[data-print-preview="true"] .print-only { display: block; }</style></head><body class="bg-gray-100 p-8" data-print-mode="full"><div class="printable-area"><div id="report-content"><div class="text-center"><div class="loader" style="width: 48px; height: 48px; margin: auto;"></div><p class="mt-4 text-gray-600">Gerando relatorio, por favor aguarde...</p></div></div></div></body></html>`);
 
     try {
         const formatDateBr = (value) => {
@@ -1665,6 +1665,17 @@ export async function generateAssiduidadeReport() {
             const scriptEl = newWindow.document.createElement('script');
             scriptEl.textContent = `
                 window.setPrintMode = (mode) => { document.body.dataset.printMode = mode; };
+                window.preparePrint = (mode) => {
+                    document.body.dataset.printMode = mode || 'full';
+                    document.body.dataset.printPreview = 'true';
+                    setTimeout(() => {
+                        if (window.renderPrintCharts) window.renderPrintCharts();
+                        setTimeout(() => { window.print(); }, 300);
+                    }, 50);
+                };
+                window.addEventListener('afterprint', () => {
+                    document.body.removeAttribute('data-print-preview');
+                });
                 if (!document.body.dataset.printMode) { document.body.dataset.printMode = 'full'; }
                 ${chartScriptContent || ''}
             `;
@@ -1718,7 +1729,7 @@ export async function generateAssiduidadeReport() {
                 `;
             }).join('');
 
-            const reportHTML = `<div class="print-header"><img src="./logo.png"><div class="print-header-info"><h2>Relatorio de Assiduidade de Alunos</h2><p>${periodoTexto}</p></div></div><div class="flex justify-between items-center mb-6 no-print"><h1 class="text-2xl font-bold">Relatorio de Assiduidade de Alunos</h1><p class="text-sm text-gray-600">${periodoTexto}</p><div class="flex gap-2"><button onclick="setPrintMode('simple'); window.print()" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button><button onclick="setPrintMode('full'); window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md print-full-only"><div style="height: 320px; position: relative;"><canvas id="assiduidadeChart"></canvas></div></div><div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-4">Detalhes da Frequencia</h3><div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left">Aluno</th><th class="p-3 text-left">Turma</th><th class="p-3 text-center">Presencas</th><th class="p-3 text-center">Faltas Just.</th><th class="p-3 text-center">Faltas Injust.</th><th class="p-3 text-center">Assiduidade</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
+            const reportHTML = `<div class="print-header"><img src="./logo.png"><div class="print-header-info"><h2>Relatorio de Assiduidade de Alunos</h2><p>${periodoTexto}</p></div></div><div class="flex justify-between items-center mb-6 no-print"><h1 class="text-2xl font-bold">Relatorio de Assiduidade de Alunos</h1><p class="text-sm text-gray-600">${periodoTexto}</p><div class="flex gap-2"><button onclick="preparePrint('simple')" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button><button onclick="preparePrint('full')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md print-full-only"><div style="height: 320px; position: relative;"><canvas id="assiduidadeChart"></canvas></div></div><div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-4">Detalhes da Frequencia</h3><div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left">Aluno</th><th class="p-3 text-left">Turma</th><th class="p-3 text-center">Presencas</th><th class="p-3 text-center">Faltas Just.</th><th class="p-3 text-center">Faltas Injust.</th><th class="p-3 text-center">Assiduidade</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
             const chartScriptContent = `setTimeout(() => { const ctx = document.getElementById('assiduidadeChart'); if (ctx) { new Chart(ctx, { type: 'pie', data: { labels: ['Presencas', 'Faltas Justificadas', 'Faltas Injustificadas'], datasets: [{ data: [${totalPresencas}, ${totalFaltasJ}, ${totalFaltasI}], backgroundColor: ['#10B981', '#F59E0B', '#EF4444'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Visao Geral da Frequencia' } } } }); } }, 100);`;
             renderReport(reportHTML, chartScriptContent);
         } else if (activeTab === 'assiduidade-turmas') {
@@ -1763,7 +1774,7 @@ export async function generateAssiduidadeReport() {
                 `;
             }).join('');
 
-            const reportHTML = `<div class="print-header"><img src="./logo.png"><div class="print-header-info"><h2>Relatorio de Assiduidade por Turma</h2><p>${periodoTexto}</p></div></div><div class="flex justify-between items-center mb-6 no-print"><h1 class="text-2xl font-bold">Relatorio de Assiduidade por Turma</h1><p class="text-sm text-gray-600">${periodoTexto}</p><div class="flex gap-2"><button onclick="setPrintMode('simple'); window.print()" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button><button onclick="setPrintMode('full'); window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md print-full-only"><div style="height: 320px; position: relative;"><canvas id="assiduidadeTurmaChart"></canvas></div></div><div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-4">Dados Consolidados</h3><div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left">Turma</th><th class="p-3 text-center">Presencas</th><th class="p-3 text-center">Faltas</th><th class="p-3 text-center">Assiduidade</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
+            const reportHTML = `<div class="print-header"><img src="./logo.png"><div class="print-header-info"><h2>Relatorio de Assiduidade por Turma</h2><p>${periodoTexto}</p></div></div><div class="flex justify-between items-center mb-6 no-print"><h1 class="text-2xl font-bold">Relatorio de Assiduidade por Turma</h1><p class="text-sm text-gray-600">${periodoTexto}</p><div class="flex gap-2"><button onclick="preparePrint('simple')" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button><button onclick="preparePrint('full')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md print-full-only"><div style="height: 320px; position: relative;"><canvas id="assiduidadeTurmaChart"></canvas></div></div><div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-4">Dados Consolidados</h3><div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left">Turma</th><th class="p-3 text-center">Presencas</th><th class="p-3 text-center">Faltas</th><th class="p-3 text-center">Assiduidade</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
             const chartScriptContent = `setTimeout(() => { const ctx = document.getElementById('assiduidadeTurmaChart'); if(ctx) { new Chart(ctx, { type: 'pie', data: { labels: ['Total de Presencas', 'Total de Faltas'], datasets: [{ label: 'Frequencia Geral', data: [${totalPresencas}, ${totalFaltas}], backgroundColor: ['#10B981', '#EF4444'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Frequencia Geral das Turmas' } } } }); } }, 100);`;
             renderReport(reportHTML, chartScriptContent);
         } else if (activeTab === 'assiduidade-professores') {
@@ -2022,8 +2033,8 @@ export async function generateAssiduidadeReport() {
                         <h1 class="text-2xl font-bold">Relatorio de Assiduidade por Professor</h1>
                         <p class="text-sm text-gray-600">${periodoTexto}</p>
                         <div class="flex gap-2">
-                            <button onclick="setPrintMode('simple'); window.print()" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button>
-                            <button onclick="setPrintMode('full'); window.print()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button>
+                            <button onclick="preparePrint('simple')" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button>
+                            <button onclick="preparePrint('full')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2053,6 +2064,11 @@ export async function generateAssiduidadeReport() {
                 <div class="print-only print-full-only">${printCards || '<p class="text-sm text-gray-600">Nenhum registro.</p>'}</div>
             `;
             const chartScriptContent = `
+                const ensureChart = (fn, tries = 0) => {
+                    if (window.Chart) return fn();
+                    if (tries > 20) return;
+                    setTimeout(() => ensureChart(fn, tries + 1), 100);
+                };
                 const buildChart = (ctx) => {
                     if (!ctx) return;
                     new Chart(ctx, {
@@ -2068,9 +2084,8 @@ export async function generateAssiduidadeReport() {
                         }
                     });
                 };
-                const renderPrintChart = () => buildChart(document.getElementById('lancamentoChartPrint'));
-                setTimeout(() => { buildChart(document.getElementById('lancamentoChart')); }, 100);
-                window.addEventListener('beforeprint', renderPrintChart);
+                window.renderPrintCharts = () => ensureChart(() => buildChart(document.getElementById('lancamentoChartPrint')));
+                ensureChart(() => buildChart(document.getElementById('lancamentoChart')));
             `;
             renderReport(reportHTML, chartScriptContent);
         }
