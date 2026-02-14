@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Manual APOIA</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { background: #f4f4f7; }
+        .help-container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+        .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); }
+        .card h2 { margin-top: 0; }
+        .faq dt { font-weight: 600; margin-top: 16px; }
+        .faq dd { margin-left: 0; margin-bottom: 12px; color: #4b5563; }
+        .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid; font-size: 0.8rem; }
+        .tag-admin { border-color: #2563eb; color: #1d4ed8; }
+        .tag-prof { border-color: #10b981; color: #047857; }
+        .section-list { list-style: disc; padding-left: 20px; color: #111827; }
+        .resource { font-size: 0.85rem; color: #475467; }
+    </style>
+</head>
+<body>
+    <div class="help-container">
+        <div class="card">
+            <h1>Manual APOIA</h1>
+            <p class="resource">A página reúne instruções rápidas, etapas operacionais e respostas para dúvidas recorrentes de administradores e professores.</p>
+            <p class="resource">Use Ctrl+P para imprimir a sessão atual ou salvar em PDF; opção recomendada quando quiser distribuir o guia.</p>
+        </div>
+
+        <div class="card">
+            <h2>Manual do Admin <span class="tag tag-admin">Admin + Professor</span></h2>
+            <p class="resource">A navegação principal começa no dashboard (painel). Cada card expande para filtros detalhados.</p>
+            <h3>Dashboard</h3>
+            <ul class="section-list">
+                <li>Resumo diário com presenças, faltas, acompanhamento e alertas;</li>
+                <li>Calendário visual com eventos e bloqueios (clique para ver detalhes/desabilitar datas);</li>
+                <li>Notificações do sino: limpar e marcar como lidas.</li>
+            </ul>
+            <h3>Professores</h3>
+            <ul class="section-list">
+                <li>Crie usuários com e-mail ou importe pelo cadastro; filtros por status, vínculo e role (efetivo/ACT);</li>
+                <li>Confirme vínculo: marque as turmas e use o botão “Adicionar professor” para novos acessos;</li>
+                <li>Botões de ação permitem resetar senha, ver histórico e abrir painel do professor.</li>
+            </ul>
+            <h3>Turmas</h3>
+            <ul class="section-list">
+                <li>FILTROS AUTOMÁTICOS por ano letivo e código; ordenação crescente garante a leitura linear;</li>
+                <li>Use “Adicionar turma” para criar e vincular professores e série;</li>
+                <li>Os eventos do calendário respeitam exceções definidas aqui.</li>
+            </ul>
+            <h3>Alunos</h3>
+            <ul class="section-list">
+                <li>Filtros por turma, ano e status; ordenar por matrícula ou nome reverso;</li>
+                <li>Use botões para editar dados, histórico e justificar faltas via modal;</li>
+                <li>Consistência mostra alunos sem turma e duplicados.</li>
+            </ul>
+            <h3>Acompanhamento APOIA</h3>
+            <ul class="section-list">
+                <li>Faça anotações sobre alunos em acompanhamento, registre etapas e status;</li>
+                <li>Gere relatórios e use “Imprimir” para exportar PDF;</li>
+                <li>Novas linhas podem ser criadas manualmente ou pelo upload.</li>
+            </ul>
+            <h3>Calendário e Ano Letivo</h3>
+            <ul class="section-list">
+                <li>Programe feriados e aulas suspensas com justificativa;</li>
+                <li>Use o botão “Promover turmas” no painel do ano letivo para migrar alunos para o próximo ano;</li>
+                <li>O calendário respeita eventos específicos e bloqueia dias sem aula.</li>
+            </ul>
+            <h3>Relatórios e Faltas</h3>
+            <ul class="section-list">
+                <li>Filtros sempre no formato ddmmaaaa para manter padrão em todos os relatórios;</li>
+                <li>Chamada rápida permite corrigir registros e exportar PDF;</li>
+                <li>As métricas de consistência mostram alunos sem turma e professores sem vínculo.</li>
+            </ul>
+            <h3>Configurações e Notificações</h3>
+            <ul class="section-list">
+                <li>Configure alertas por tipo (falta sequência, faltas intercaladas) e associe a turmas específicas;</li>
+                <li>Notificações centrais mostram o histórico (manualmente marque como lida);</li>
+                <li>Troque chaves do Supabase ou URLs do app pela seção “Configurações gerais”.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>Manual do Professor <span class="tag tag-prof">Somente Professor</span></h2>
+            <ul class="section-list">
+                <li>Acesse o painel rápido, escolha a turma e confirme a data (sempre ddmmaaaa);</li>
+                <li>Marque faltas/presenças e selecione se são justificadas, adicionando observações se necessário;</li>
+                <li>Botões “Marcar todos presentes” e “Salvar chamada” mantêm histórico em tempo real;</li>
+                <li>Use o link “App do Professor” para abrir a versão móvel e instalar o APK atualizado;</li>
+                <li>Botão “Ajuda” abre este manual com a FAQ específica de professor.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>FAQ inteligente</h2>
+            <p class="resource">Queremos um FAQ responsivo: enquanto o conteúdo abaixo é estático, você pode integrar APIs como Gemini, Qwen ou outro provider gratuito (tokens iniciais disponíveis) via backend para responder perguntas. Basta subir a chave segura e implementar uma rota que receba o prompt e devolva a resposta.</p>
+            <h3>Perguntas rápidas</h3>
+            <dl class="faq">
+                <dt>Como resetar um professor?</dt>
+                <dd>Acesse “Professores”, clique em “Editar”, depois “Resetar senha” e confirme o envio.</dd>
+                <dt>Como limpar uma chamada teste?</dt>
+                <dd>Use o script `scripts/limpar-chamada.ps1` com data e turma; ele remove os registros sem tocar em outras turmas.</dd>
+                <dt>Como definimos notificações para faltas consecutivas?</dt>
+                <dd>Vá em Configurações → Alertas, ative o tipo “Faltas consecutivas” e associe turmas.</dd>
+                <dt>Posso gerar PDF do manual?</dt>
+                <dd>Sim: abra esta página e use imprimir > salvar como PDF ou use o botão “Imprimir” no painel de relatórios.</dd>
+                <dt>Como usar IA (Gemini / Qwen)?</dt>
+                <dd>Configure uma rota backend que receba `prompt`, chame a API com sua key gratuita (Tokens iniciais geralmente cobrem testes) e armazene o histórico, depois apresente o retorno na FAQ.</dd>
+            </dl>
+            <p class="resource">Dica: mantenha a base de perguntas sincronizada com seu time, exportando para PDF ou alimentando a FAQ com Markdown.</p>
+        </div>
+    </div>
+</body>
+</html>

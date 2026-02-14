@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     setupSupportLinks();
 
+    const helpButtons = document.querySelectorAll('[data-open-help]');
+    helpButtons.forEach(el => el.addEventListener('click', () => window.open('help.html', '_blank')));
+
     if (togglePasswordBtn) {
         togglePasswordBtn.addEventListener('click', () => {
             const isPassword = passwordInput.type === 'password';
