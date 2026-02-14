@@ -23,91 +23,100 @@
     <div class="help-container">
         <div class="card">
             <h1>Manual APOIA</h1>
-            <p class="resource">A página reúne instruções rápidas, etapas operacionais e respostas para dúvidas recorrentes de administradores e professores.</p>
-            <p class="resource">Use Ctrl+P para imprimir a sessão atual ou salvar em PDF; opção recomendada quando quiser distribuir o guia.</p>
+            <p class="resource">Este manual explica como operar o sistema e a lógica por trás de cada módulo. Cada seção mostra o que fazer e o que acontece depois da ação.</p>
+            <p class="resource">Use Ctrl+P para imprimir a sessão atual ou salvar em PDF.</p>
         </div>
 
         <div class="card">
             <h2>Manual do Admin <span class="tag tag-admin">Admin + Professor</span></h2>
-            <p class="resource">A navegação principal começa no dashboard (painel). Cada card expande para filtros detalhados.</p>
-            <h3>Dashboard</h3>
+            <p class="resource">O admin controla cadastros, regras de presença, calendário e relatórios. A lógica do sistema é baseada em turmas, datas e status das presenças.</p>
+            <h3>Dashboard (Resumo do dia)</h3>
             <ul class="section-list">
-                <li>Resumo diário com presenças, faltas, acompanhamento e alertas;</li>
-                <li>Calendário visual com eventos e bloqueios (clique para ver detalhes/desabilitar datas);</li>
-                <li>Notificações do sino: limpar e marcar como lidas.</li>
+                <li>Presenças e faltas são calculadas a partir da tabela `presencas`. Se você corrigir uma chamada, o resumo muda automaticamente.</li>
+                <li>Calendário mostra eventos. Se o dia estiver bloqueado, o professor não consegue lançar chamada naquele dia.</li>
+                <li>Notificações: o sino agrega alertas gerados por regras; marcar como lida apenas oculta do painel.</li>
             </ul>
             <h3>Professores</h3>
             <ul class="section-list">
-                <li>Crie usuários com e-mail ou importe pelo cadastro; filtros por status, vínculo e role (efetivo/ACT);</li>
-                <li>Confirme vínculo: marque as turmas e use o botão “Adicionar professor” para novos acessos;</li>
-                <li>Botões de ação permitem resetar senha, ver histórico e abrir painel do professor.</li>
+                <li>Ao cadastrar um professor, o sistema cria vínculo de usuário. Sem vínculo, ele não aparece para lançar chamada.</li>
+                <li>Efetivo/ACT: efetivos podem ser promovidos automaticamente no novo ano; ACTs ficam inativos se não forem atualizados.</li>
+                <li>Reset de senha envia e-mail; se o usuário não confirmar o e-mail, ele continua com acesso pendente.</li>
             </ul>
             <h3>Turmas</h3>
             <ul class="section-list">
-                <li>FILTROS AUTOMÁTICOS por ano letivo e código; ordenação crescente garante a leitura linear;</li>
-                <li>Use “Adicionar turma” para criar e vincular professores e série;</li>
-                <li>Os eventos do calendário respeitam exceções definidas aqui.</li>
+                <li>Turma = código + ano letivo. Se duplicar, a consistência acusará erro.</li>
+                <li>Ao vincular professor, o professor passa a enxergar a turma no painel e consegue lançar chamada.</li>
+                <li>Eventos por turma: se o evento tiver exceções, a chamada do dia é bloqueada somente para as turmas marcadas.</li>
             </ul>
             <h3>Alunos</h3>
             <ul class="section-list">
-                <li>Filtros por turma, ano e status; ordenar por matrícula ou nome reverso;</li>
-                <li>Use botões para editar dados, histórico e justificar faltas via modal;</li>
-                <li>Consistência mostra alunos sem turma e duplicados.</li>
+                <li>Aluno sem turma não entra nas chamadas. O painel de consistência mostra esses casos.</li>
+                <li>Status do aluno (ativo/inativo) controla se ele aparece em filtros e relatórios.</li>
+                <li>Histórico mostra datas e justificativas. Se você alterar uma falta, a assiduidade é recalculada.</li>
             </ul>
             <h3>Acompanhamento APOIA</h3>
             <ul class="section-list">
-                <li>Faça anotações sobre alunos em acompanhamento, registre etapas e status;</li>
-                <li>Gere relatórios e use “Imprimir” para exportar PDF;</li>
-                <li>Novas linhas podem ser criadas manualmente ou pelo upload.</li>
+                <li>Registro manual gera entradas de acompanhamento que não dependem da chamada.</li>
+                <li>Se o status for “Finalizado”, o aluno deixa de aparecer nos filtros de acompanhamento ativo.</li>
+                <li>Relatório APOIA consolida por período e pode ser impresso em PDF.</li>
             </ul>
-            <h3>Calendário e Ano Letivo</h3>
+            <h3>Calendário</h3>
             <ul class="section-list">
-                <li>Programe feriados e aulas suspensas com justificativa;</li>
-                <li>Use o botão “Promover turmas” no painel do ano letivo para migrar alunos para o próximo ano;</li>
-                <li>O calendário respeita eventos específicos e bloqueia dias sem aula.</li>
+                <li>Eventos globais bloqueiam todas as turmas; eventos específicos bloqueiam somente as turmas selecionadas.</li>
+                <li>Se o evento for intervalo (data início e fim), todas as datas do intervalo ficam bloqueadas.</li>
             </ul>
-            <h3>Relatórios e Faltas</h3>
+            <h3>Ano Letivo</h3>
             <ul class="section-list">
-                <li>Filtros sempre no formato ddmmaaaa para manter padrão em todos os relatórios;</li>
-                <li>Chamada rápida permite corrigir registros e exportar PDF;</li>
-                <li>As métricas de consistência mostram alunos sem turma e professores sem vínculo.</li>
+                <li>Promover turmas move alunos e atualiza vínculos. Professores ACT não são promovidos automaticamente.</li>
+                <li>Depois da promoção, sempre revise turmas duplicadas no painel de consistência.</li>
+            </ul>
+            <h3>Relatórios de Faltas</h3>
+            <ul class="section-list">
+                <li>Filtros por data, turma, aluno e professor. Quanto mais filtros, mais preciso o relatório.</li>
+                <li>Se o professor lançou falta e você corrige, o relatório já reflete a correção.</li>
+                <li>Exportação em PDF mantém o layout e cabeçalhos.</li>
+            </ul>
+            <h3>Consistência</h3>
+            <ul class="section-list">
+                <li>Alunos sem turma: não aparecem na chamada; resolva vinculando a turma.</li>
+                <li>Professores sem turma: não conseguem lançar chamada.</li>
+                <li>Turmas duplicadas: geram conflito em filtros e relatórios.</li>
             </ul>
             <h3>Configurações e Notificações</h3>
             <ul class="section-list">
-                <li>Configure alertas por tipo (falta sequência, faltas intercaladas) e associe a turmas específicas;</li>
-                <li>Notificações centrais mostram o histórico (manualmente marque como lida);</li>
-                <li>Troque chaves do Supabase ou URLs do app pela seção “Configurações gerais”.</li>
+                <li>Alertas de faltas consecutivas/intercaladas geram notificações para o admin.</li>
+                <li>Notificação é criada no dia seguinte ao gatilho (ex.: 5 faltas seguidas até dia 15). No início do mês, o sistema reinicia a contagem mensal.</li>
+                <li>Configurações gerais permitem ajustar dados da escola e parâmetros globais do sistema.</li>
             </ul>
         </div>
 
         <div class="card">
             <h2>Manual do Professor <span class="tag tag-prof">Somente Professor</span></h2>
             <ul class="section-list">
-                <li>Acesse o painel rápido, escolha a turma e confirme a data (sempre ddmmaaaa);</li>
-                <li>Marque faltas/presenças e selecione se são justificadas, adicionando observações se necessário;</li>
-                <li>Botões “Marcar todos presentes” e “Salvar chamada” mantêm histórico em tempo real;</li>
-                <li>Use o link “App do Professor” para abrir a versão móvel e instalar o APK atualizado;</li>
-                <li>Botão “Ajuda” abre este manual com a FAQ específica de professor.</li>
+                <li>Selecione a turma e a data. Se a data estiver bloqueada no calendário, o sistema impede o lançamento.</li>
+                <li>Marque presença/falta. Ao marcar falta, escolha justificativa. Sem justificativa, a falta é registrada como injustificada.</li>
+                <li>“Marcar todos presentes” preenche automaticamente; revise antes de salvar.</li>
+                <li>Ao salvar, o sistema grava por aluno. Se salvar novamente na mesma data, ele atualiza a chamada.</li>
+                <li>Link “App do Professor” abre o aplicativo. Se o APK for atualizado, basta instalar por cima.</li>
             </ul>
         </div>
 
         <div class="card">
             <h2>FAQ inteligente</h2>
-            <p class="resource">Queremos um FAQ responsivo: enquanto o conteúdo abaixo é estático, você pode integrar APIs como Gemini, Qwen ou outro provider gratuito (tokens iniciais disponíveis) via backend para responder perguntas. Basta subir a chave segura e implementar uma rota que receba o prompt e devolva a resposta.</p>
-            <h3>Perguntas rápidas</h3>
+            <p class="resource">Abaixo está a base de perguntas frequentes. Para tornar “inteligente”, podemos integrar Gemini/Qwen e responder com contexto do sistema.</p>
+            <h3>Perguntas frequentes</h3>
             <dl class="faq">
-                <dt>Como resetar um professor?</dt>
-                <dd>Acesse “Professores”, clique em “Editar”, depois “Resetar senha” e confirme o envio.</dd>
-                <dt>Como limpar uma chamada teste?</dt>
-                <dd>Use o script `scripts/limpar-chamada.ps1` com data e turma; ele remove os registros sem tocar em outras turmas.</dd>
-                <dt>Como definimos notificações para faltas consecutivas?</dt>
-                <dd>Vá em Configurações → Alertas, ative o tipo “Faltas consecutivas” e associe turmas.</dd>
-                <dt>Posso gerar PDF do manual?</dt>
-                <dd>Sim: abra esta página e use imprimir > salvar como PDF ou use o botão “Imprimir” no painel de relatórios.</dd>
-                <dt>Como usar IA (Gemini / Qwen)?</dt>
-                <dd>Configure uma rota backend que receba `prompt`, chame a API com sua key gratuita (Tokens iniciais geralmente cobrem testes) e armazene o histórico, depois apresente o retorno na FAQ.</dd>
+                <dt>Por que não consigo lançar chamada em um dia?</dt>
+                <dd>Esse dia está bloqueado no calendário (evento global ou exceção por turma). Remova o evento ou ajuste a exceção.</dd>
+                <dt>Se eu corrigir uma chamada, o que muda?</dt>
+                <dd>O sistema atualiza a linha de presença e recalcula assiduidade, faltas e relatórios imediatamente.</dd>
+                <dt>Como funcionam as notificações de faltas?</dt>
+                <dd>As regras geram notificações quando atingem o limite. Ex.: 5 faltas seguidas ou 7 intercaladas no mês → notificação no dia seguinte.</dd>
+                <dt>Por que o professor não aparece para a turma?</dt>
+                <dd>Falta vínculo professor-turma. Verifique o módulo Professores e associe a turma correta.</dd>
+                <dt>O que significa “professor sem turma”?</dt>
+                <dd>O professor está ativo, mas sem vínculo. Ele não consegue lançar chamadas até ser vinculado.</dd>
             </dl>
-            <p class="resource">Dica: mantenha a base de perguntas sincronizada com seu time, exportando para PDF ou alimentando a FAQ com Markdown.</p>
         </div>
     </div>
 </body>
