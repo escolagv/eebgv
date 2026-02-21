@@ -196,6 +196,7 @@
                     </div>
                 </div>
                 <div class="header-actions">
+                    <button id="back-page" class="btn">Voltar</button>
                     <button id="print-page" class="btn btn-primary">Imprimir / PDF</button>
                 </div>
             </div>
@@ -379,6 +380,7 @@
     </div>
     <script>
         const printBtn = document.getElementById('print-page');
+        const backBtn = document.getElementById('back-page');
         const sections = Array.from(document.querySelectorAll('[data-section]'));
         const params = new URLSearchParams(window.location.search);
         const role = params.get('role');
@@ -388,6 +390,23 @@
             if (toc) {
                 Array.from(toc.querySelectorAll('[data-role="admin"]')).forEach(link => link.classList.add('result-hidden'));
             }
+        }
+
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                const sameOriginReferrer = document.referrer && document.referrer.startsWith(window.location.origin);
+                const fallback = role === 'admin' ? 'index.html' : 'professor.html';
+                if (window.history.length > 1) {
+                    window.history.back();
+                    setTimeout(() => {
+                        if (document.visibilityState === 'visible') {
+                            window.location.href = sameOriginReferrer ? document.referrer : fallback;
+                        }
+                    }, 200);
+                } else {
+                    window.location.href = sameOriginReferrer ? document.referrer : fallback;
+                }
+            });
         }
 
         printBtn.addEventListener('click', () => window.print());
