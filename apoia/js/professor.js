@@ -37,7 +37,12 @@ function compareVersions(a, b) {
 function getProfessorAppVersion() {
     const versionEl = document.getElementById('professor-app-version');
     if (!versionEl) return '';
-    return parseVersion(versionEl.dataset.version || versionEl.textContent || '');
+    const dataVersion = parseVersion(versionEl.dataset.version || '');
+    const textVersion = parseVersion(versionEl.textContent || '');
+    if (dataVersion && textVersion && dataVersion !== textVersion) {
+        return compareVersions(textVersion, dataVersion) >= 0 ? textVersion : dataVersion;
+    }
+    return dataVersion || textVersion || '';
 }
 
 export async function checkProfessorAppUpdate() {

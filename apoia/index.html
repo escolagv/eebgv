@@ -64,27 +64,27 @@
         </div>
 
         <div id="professor-view" class="hidden">
-            <header class="bg-white shadow-md p-4 flex flex-col gap-4 sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center">
+            <header class="bg-white shadow-md p-3 flex flex-col gap-2 sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center">
                 <div class="flex justify-center sm:justify-start">
-                    <img src="./logo.png" alt="Logo da Escola" class="h-12 w-12">
+                    <img src="./logo.png" alt="Logo da Escola" class="h-9 w-9">
                 </div>
-                <div class="text-center sm:text-left">
-                    <h1 class="text-xl font-bold">Painel do Professor</h1>
-                    <p id="professor-info" class="text-sm text-gray-600"></p>
+                <div class="text-center">
+                    <h1 class="text-lg font-bold">Painel do Professor</h1>
+                    <p id="professor-info" class="text-xs text-gray-600"></p>
                 </div>
-                <div class="flex flex-col items-center sm:items-end gap-2">
-                    <button id="professor-account-btn" class="relative w-12 h-12 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
+                <div class="flex flex-col items-center sm:items-end gap-1">
+                    <button id="professor-account-btn" class="relative w-10 h-10 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
                         <span id="professor-avatar-fallback" class="text-sm font-semibold"></span>
                         <img id="professor-avatar-img" alt="Foto do professor" class="hidden w-full h-full rounded-full object-cover">
                     </button>
-                    <div class="flex flex-col sm:items-end gap-1">
-                        <a href="../appprof/" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">App do Professor</a>
-                        <button type="button" data-open-help class="text-xs text-blue-600 hover:underline text-left sm:text-right">Ajuda</button>
-                        <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.0">V1.0.5</div>
-                        <button id="professor-logout-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
-                    </div>
+                    <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.6">V1.0.6</div>
+                    <button id="professor-logout-btn" class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                 </div>
             </header>
+            <div class="px-4 mt-1 max-w-4xl mx-auto flex flex-wrap items-center justify-end gap-3 text-xs">
+                <a href="../appprof/" target="_blank" rel="noopener" class="text-blue-600 hover:underline">App do Professor</a>
+                <button type="button" data-open-help class="text-blue-600 hover:underline">Ajuda</button>
+            </div>
             <div class="px-4 mt-4 max-w-4xl mx-auto" id="professor-password-notice">
                 <div class="bg-yellow-50 border border-yellow-200 text-yellow-900 px-4 py-3 rounded-md text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
@@ -161,7 +161,7 @@
                             <p>WhatsApp: (48) 99100-4780</p>
                             <a href="#" id="support-link-admin" class="text-blue-400 hover:underline">Suporte Técnico</a>
                         </div>
-                        <div class="text-xs text-center text-gray-400">V1.0.5</div>
+                        <div class="text-xs text-center text-gray-400">V1.0.6</div>
                         <button id="admin-logout-btn" class="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                     </div>
                 </aside>
@@ -174,7 +174,7 @@
                             <div class="relative ml-auto flex items-center gap-3">
                                 <button type="button" data-open-help class="px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full hover:bg-blue-200">Ajuda</button>
                                 <div id="notification-bell" class="relative cursor-pointer">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V1.0.5a6.002 6.002 0 00-4-5.659V1.0.5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V1.0.6a6.002 6.002 0 00-4-5.659V1.0.6a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                                 </div>
                                 <div id="notification-panel" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-20"><div class="p-4 font-bold border-b flex justify-between items-center"><span>Notificações</span><button id="clear-notifications-btn" class="text-xs text-blue-600 hover:underline font-medium">Limpar Todas</button></div><div id="notification-list" class="p-2 max-h-64 overflow-y-auto"></div></div>
                             </div>
@@ -184,7 +184,7 @@
                                 <div data-type="presencas" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-green-100 rounded-full p-3 mr-4"><svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div><p class="text-sm text-gray-500">Presenças</p><p id="dashboard-presencas" class="text-2xl font-bold">...</p></div></div>
                                 <div data-type="faltas" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-red-100 rounded-full p-3 mr-4"><svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div><p class="text-sm text-gray-500">Faltas</p><p id="dashboard-faltas" class="text-2xl font-bold">...</p></div></div>
                                 <div data-type="acompanhamento" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-yellow-100 rounded-full p-3 mr-4"><svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div><p class="text-sm text-gray-500">Em Acompanhamento</p><p id="dashboard-acompanhamento" class="text-2xl font-bold">...</p></div></div>
-                                <div data-type="assiduidade" id="assiduidade-card" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-purple-100 rounded-full p-3 mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V1.0.5a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V1.0.5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></div><div><p class="text-sm text-gray-500">Análise de Assiduidade</p><p class="text-lg font-bold">Gerar Relatórios</p></div></div>
+                                <div data-type="assiduidade" id="assiduidade-card" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-purple-100 rounded-full p-3 mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V1.0.6a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V1.0.6a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></div><div><p class="text-sm text-gray-500">Análise de Assiduidade</p><p class="text-lg font-bold">Gerar Relatórios</p></div></div>
                             </div><div class="bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-2">Alunos Ausentes</h3><ul id="dashboard-ausentes-list" class="space-y-2 text-sm"></ul></div></div><div class="bg-white p-6 rounded-lg shadow-md"><div id="dashboard-calendar-container"><div class="flex items-center justify-between mb-4"><button id="prev-month-btn" class="p-2 rounded-full hover:bg-gray-200">&lt;</button><h3 id="calendar-month-year" class="text-lg font-bold"></h3><button id="next-month-btn" class="p-2 rounded-full hover:bg-gray-200">&gt;</button></div><div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-gray-600"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div><div id="calendar-grid" class="grid grid-cols-7 text-center mt-2"></div></div></div></div></div>
                             <div id="admin-professores-panel" class="admin-panel hidden"><div class="flex flex-wrap items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-bold">Gerenciar Professores</h2><div class="flex flex-wrap items-center gap-3"><input type="text" id="professor-search-input" class="p-2 border rounded-md bg-white w-64" placeholder="Pesquisar por nome ou email"><select id="professor-status-filter" class="p-2 border rounded-md bg-white"><option value="ativo" selected>Ativos</option><option value="inativo">Inativos</option><option value="">Todos</option></select><button id="add-professor-btn" class="px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Adicionar Professor</button></div></div><div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Telefone</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Status</th><th class="p-3 text-center text-sm font-semibold text-gray-600">Confirmação</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Ações</th></tr></thead><tbody id="professores-table-body"></tbody></table></div></div>
                             <div id="admin-turmas-panel" class="admin-panel hidden"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">Gerenciar Turmas</h2><div class="flex items-center gap-4"><select id="turma-ano-letivo-filter" class="p-2 border rounded-md bg-white"></select><button id="add-turma-btn" class="px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Adicionar Turma</button></div></div><div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-sm font-semibold text-gray-600">Nome da Turma</th><th class="p-3 text-left font-semibold text-gray-600">Professores</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Ações</th></tr></thead><tbody id="turmas-table-body"></tbody></table></div></div>
@@ -585,6 +585,7 @@
     <script type="module" src="script.js"></script>
 </body>
 </html>
+
 
 
 

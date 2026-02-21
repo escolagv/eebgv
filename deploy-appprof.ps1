@@ -223,6 +223,7 @@ if ($UpdateProfessorVersion) {
         if (Test-Path $page) {
             $content = Get-Content $page -Raw
             $content = [regex]::Replace($content, 'V\d+(\.\d+){0,3}', "V$AppVersion")
+            $content = [regex]::Replace($content, 'data-version="[^"]*"', "data-version=""$AppVersion""")
             Set-Content -Path $page -Value $content -Encoding UTF8
             Write-Host "Versao atualizada: $page" -ForegroundColor Green
         }

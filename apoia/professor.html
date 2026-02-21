@@ -61,27 +61,27 @@
         </div>
 
         <div id="professor-view" class="hidden">
-            <header class="bg-white shadow-md p-4 flex flex-col gap-4 sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center">
+            <header class="bg-white shadow-md p-3 flex flex-col gap-2 sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center">
                 <div class="flex justify-center sm:justify-start">
-                    <img src="./logo.png" alt="Logo da Escola" class="h-12 w-12">
+                    <img src="./logo.png" alt="Logo da Escola" class="h-9 w-9">
                 </div>
-                <div class="text-center sm:text-left">
-                    <h1 class="text-xl font-bold">Painel do Professor</h1>
-                    <p id="professor-info" class="text-sm text-gray-600"></p>
+                <div class="text-center">
+                    <h1 class="text-lg font-bold">Painel do Professor</h1>
+                    <p id="professor-info" class="text-xs text-gray-600"></p>
                 </div>
-                <div class="flex flex-col items-center sm:items-end gap-2">
-                    <button id="professor-account-btn" class="relative w-12 h-12 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
+                <div class="flex flex-col items-center sm:items-end gap-1">
+                    <button id="professor-account-btn" class="relative w-10 h-10 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
                         <span id="professor-avatar-fallback" class="text-sm font-semibold"></span>
                         <img id="professor-avatar-img" alt="Foto do professor" class="hidden w-full h-full rounded-full object-cover">
                     </button>
-                    <div class="flex flex-col sm:items-end gap-1">
-                        <a href="../appprof/" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">App do Professor</a>
-                        <button type="button" data-open-help class="text-xs text-blue-600 hover:underline text-left sm:text-right">Ajuda</button>
-                        <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.0">V1.0.5</div>
-                        <button id="professor-logout-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
-                    </div>
+                    <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.6">V1.0.6</div>
+                    <button id="professor-logout-btn" class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                 </div>
             </header>
+            <div class="px-4 mt-1 max-w-4xl mx-auto flex flex-wrap items-center justify-end gap-3 text-xs">
+                <a href="../appprof/" target="_blank" rel="noopener" class="text-blue-600 hover:underline">App do Professor</a>
+                <button type="button" data-open-help class="text-blue-600 hover:underline">Ajuda</button>
+            </div>
             <div class="px-4 mt-3 max-w-4xl mx-auto hidden" id="professor-update-banner">
                 <div class="bg-blue-50 border border-blue-200 text-blue-900 px-4 py-3 rounded-md text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div id="professor-update-text">Nova versão do App do Professor disponível.</div>
@@ -216,6 +216,7 @@
     <script type="module" src="script.js"></script>
 </body>
 </html>
+
 
 
 
