@@ -25,12 +25,37 @@ $mobileRoot = Join-Path $root "appprof-mobile"
 $appprofIndex = Join-Path $root "appprof\\index.html"
 $downloadsRoot = Join-Path $root "appprof\\downloads"
 
+function Load-EnvFile {
+    param([string]$Path)
+    if (!(Test-Path $Path)) { return }
+    foreach ($line in Get-Content $Path) {
+        $trim = $line.Trim()
+        if (-not $trim -or $trim.StartsWith('#')) { continue }
+        $idx = $trim.IndexOf('=')
+        if ($idx -lt 1) { continue }
+        $name = $trim.Substring(0, $idx).Trim()
+        $value = $trim.Substring($idx + 1).Trim()
+        if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        $existing = (Get-Item -Path "Env:$name" -ErrorAction SilentlyContinue).Value
+        if ([string]::IsNullOrWhiteSpace($existing)) {
+            Set-Item -Path "Env:$name" -Value $value
+        }
+    }
+}
+
+Load-EnvFile -Path (Join-Path $root ".env")
+
 if (!(Test-Path $appprofIndex)) {
     Write-Host "Arquivo nao encontrado: $appprofIndex" -ForegroundColor Red
     exit 1
 }
 
 $html = Get-Content $appprofIndex -Raw
+
+if ([string]::IsNullOrWhiteSpace($VercelProjectId)) { $VercelProjectId = $env:VERCEL_PROJECT_ID }
+if ([string]::IsNullOrWhiteSpace($VercelOrgId)) { $VercelOrgId = $env:VERCEL_ORG_ID }
 
 function Get-CurrentAppVersion {
     param([string]$Html)
@@ -221,7 +246,13 @@ if (-not $SkipGit) {
         }
         git add -A | Out-Null
         git commit -m $GitCommitMessage | Out-Null
-        git push -u origin $GitBranch
+        $githubToken = $env:GITHUB_TOKEN
+        if ($githubToken) {
+            $auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$githubToken"))
+            git -c "http.extraheader=AUTHORIZATION: basic $auth" push -u origin $GitBranch
+        } else {
+            git push -u origin $GitBranch
+        }
     } else {
         Write-Host "Git nao encontrado. Pulei commit/push." -ForegroundColor Yellow
     }
@@ -241,7 +272,12 @@ if (-not $SkipVercel) {
                 Write-Host "Vercel project.json atualizado." -ForegroundColor Green
             }
         }
-        vercel --prod
+        $vercelToken = $env:VERCEL_TOKEN
+        if ($vercelToken) {
+            vercel --prod --token $vercelToken
+        } else {
+            vercel --prod
+        }
     } else {
         Write-Host "Vercel CLI nao encontrado. Rode 'npm i -g vercel' e tente novamente." -ForegroundColor Yellow
     }
