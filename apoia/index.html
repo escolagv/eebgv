@@ -65,20 +65,20 @@
 
         <div id="professor-view" class="hidden">
             <header class="bg-white shadow-md p-3 grid grid-cols-[auto_1fr_auto] items-center gap-2">
-                <div class="flex flex-col items-start gap-1">
+                <div class="flex justify-start">
+                    <img src="./logo.png" alt="Logo da Escola" class="h-9 w-9">
+                </div>
+                <div class="text-center">
+                    <h1 class="text-lg font-bold">Painel do Professor</h1>
+                    <p id="professor-info" class="text-xs text-gray-600"></p>
+                </div>
+                <div class="flex flex-col items-end gap-1">
                     <button id="professor-account-btn" class="relative w-10 h-10 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
                         <span id="professor-avatar-fallback" class="text-sm font-semibold"></span>
                         <img id="professor-avatar-img" alt="Foto do professor" class="hidden w-full h-full rounded-full object-cover">
                     </button>
                     <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.6">V1.0.6</div>
                     <button id="professor-logout-btn" class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
-                </div>
-                <div class="text-center">
-                    <h1 class="text-lg font-bold">Painel do Professor</h1>
-                    <p id="professor-info" class="text-xs text-gray-600"></p>
-                </div>
-                <div class="flex justify-end">
-                    <img src="./logo.png" alt="Logo da Escola" class="h-9 w-9">
                 </div>
             </header>
             <div class="px-4 mt-1 max-w-4xl mx-auto flex flex-wrap items-center justify-start gap-3 text-xs">
