@@ -116,7 +116,7 @@
 
             <div class="grid">
                 <button class="btn btn-primary" id="copy-browser-link" data-url="https://eebgv.vercel.app/apoia/professor.html">Abrir no navegador</button>
-                <a class="btn btn-android" href="https://eebgv.vercel.app/appprof/downloads/appprof.apk" target="_blank" rel="noopener">Baixar APK Android</a>
+                <a class="btn btn-android" id="download-apk" href="https://eebgv.vercel.app/appprof/downloads/appprof.apk" download="appprof.apk" rel="noopener">Baixar APK Android</a>
                 <button class="btn btn-ios btn-disabled" type="button" disabled>Instalar iOS <span class="badge-soon">Em breve</span></button>
             </div>
             <p id="copy-feedback" class="note muted" aria-live="polite"></p>
@@ -132,6 +132,7 @@
     </div>
     <script>
         const copyBtn = document.getElementById('copy-browser-link');
+        const apkBtn = document.getElementById('download-apk');
         const feedback = document.getElementById('copy-feedback');
         if (copyBtn) {
             copyBtn.addEventListener('click', async () => {
@@ -142,6 +143,18 @@
                 } catch (err) {
                     if (feedback) feedback.textContent = 'Não foi possível copiar automaticamente. Copie este link: ' + url;
                 }
+            });
+        }
+        if (apkBtn) {
+            apkBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                const url = apkBtn.href;
+                const tempLink = document.createElement('a');
+                tempLink.href = url;
+                tempLink.download = 'appprof.apk';
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                tempLink.remove();
             });
         }
     </script>
