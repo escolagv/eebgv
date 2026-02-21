@@ -34,22 +34,24 @@
             padding: 22px 28px;
             border-bottom: 1px solid var(--border);
             display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 16px;
+            flex-direction: column;
+            gap: 12px;
         }
-        .header-left {
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .header-content {
             display: flex;
             align-items: flex-start;
             gap: 12px;
-            flex: 1 1 auto;
             min-width: 0;
         }
-        .header-left > div { min-width: 0; }
         .header-logo { width: 46px; height: 46px; object-fit: contain; margin-top: 2px; }
-        .header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
         .help-title { font-size: 1.65rem; margin: 0; line-height: 1.15; }
-        .help-sub { color: var(--muted); margin: 4px 0 0; max-width: 220px; }
+        .help-sub { color: var(--muted); margin: 4px 0 0; max-width: 360px; }
         .btn {
             padding: 10px 16px;
             border-radius: 10px;
@@ -152,6 +154,7 @@
             .header-logo { width: 40px; height: 40px; }
             .btn { padding: 8px 12px; font-size: 0.8rem; }
         }
+        .print-only { display: none; }
         @media print {
             @page { margin: 12mm; }
             body { background: #ffffff !important; }
@@ -166,6 +169,7 @@
             .header-logo { width: 40px; height: 40px; }
             .help-title { font-size: 1.4rem; }
             .help-sub { font-size: 0.9rem; }
+            .print-only { display: inline-block; }
             .help-body {
                 grid-template-columns: 1fr;
                 padding: 16px 0 0;
@@ -188,16 +192,16 @@
     <div class="help-overlay">
         <div class="help-window">
             <div class="help-header">
-                <div class="header-left">
-                    <img src="./logo.png" alt="EEB Getúlio Vargas" class="header-logo">
+                <div class="header-top">
+                    <button id="back-page" class="btn">Voltar</button>
+                    <button id="print-page" class="btn btn-primary">Imprimir / PDF</button>
+                </div>
+                <div class="header-content">
+                    <img src="./logo.png" alt="EEB Getúlio Vargas" class="header-logo print-only">
                     <div>
                         <h1 class="help-title">Manual de Chamadas</h1>
                         <p class="help-sub">Guia completo e objetivo para professor e administração.</p>
                     </div>
-                </div>
-                <div class="header-actions">
-                    <button id="back-page" class="btn">Voltar</button>
-                    <button id="print-page" class="btn btn-primary">Imprimir / PDF</button>
                 </div>
             </div>
             <div class="help-body">
