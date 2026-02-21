@@ -61,24 +61,25 @@
         </div>
 
         <div id="professor-view" class="hidden">
-            <header class="bg-white shadow-md p-4 flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-                <div class="flex items-center gap-4">
+            <header class="bg-white shadow-md p-4 flex flex-col gap-4 sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                <div class="flex justify-center sm:justify-start">
+                    <img src="./logo.png" alt="Logo da Escola" class="h-12 w-12">
+                </div>
+                <div class="text-center sm:text-left">
+                    <h1 class="text-xl font-bold">Painel do Professor</h1>
+                    <p id="professor-info" class="text-sm text-gray-600"></p>
+                </div>
+                <div class="flex flex-col items-center sm:items-end gap-2">
                     <button id="professor-account-btn" class="relative w-12 h-12 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
                         <span id="professor-avatar-fallback" class="text-sm font-semibold"></span>
                         <img id="professor-avatar-img" alt="Foto do professor" class="hidden w-full h-full rounded-full object-cover">
                     </button>
-                    <div>
-                        <h1 class="text-xl font-bold">Painel do Professor</h1>
-                        <p id="professor-info" class="text-sm text-gray-600"></p>
+                    <div class="flex flex-col sm:items-end gap-1">
+                        <a href="../appprof/" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">App do Professor</a>
+                        <button type="button" data-open-help class="text-xs text-blue-600 hover:underline text-left sm:text-right">Ajuda</button>
+                        <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.0">V1.0.5</div>
+                        <button id="professor-logout-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                     </div>
-                </div>
-                <div class="flex justify-center">
-                    <img src="./logo.png" alt="Logo da Escola" class="h-12 w-12">
-                </div>
-                <div class="flex flex-col sm:items-end gap-1">
-                    <a href="../appprof/" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">App do Professor</a>
-                    <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.0">V1.0.4</div>
-                    <button id="professor-logout-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                 </div>
             </header>
             <div class="px-4 mt-3 max-w-4xl mx-auto hidden" id="professor-update-banner">
@@ -215,6 +216,7 @@
     <script type="module" src="script.js"></script>
 </body>
 </html>
+
 
 
 
