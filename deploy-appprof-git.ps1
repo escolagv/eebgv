@@ -12,8 +12,14 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 
 $origin = git remote get-url origin 2>$null
-if (-not $origin -and $GitRemoteUrl) {
-    git remote add origin $GitRemoteUrl | Out-Null
+if ($GitRemoteUrl) {
+    if ($origin) {
+        if ($origin -ne $GitRemoteUrl) {
+            git remote set-url origin $GitRemoteUrl | Out-Null
+        }
+    } else {
+        git remote add origin $GitRemoteUrl | Out-Null
+    }
 }
 
 git add -A | Out-Null

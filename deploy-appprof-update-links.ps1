@@ -7,7 +7,9 @@ Param(
     [string]$ApkPath = "",
     [string]$IosPath = "",
     [switch]$UpdateProfessorVersion,
-    [switch]$AutoVersion
+    [switch]$AutoVersion,
+    [string]$VercelProjectId = "",
+    [string]$VercelOrgId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,5 +26,7 @@ $script = Join-Path $root "deploy-appprof.ps1"
   -IosPath $IosPath `
   -UpdateProfessorVersion:$UpdateProfessorVersion `
   -AutoVersion:$AutoVersion `
+  -VercelProjectId $VercelProjectId `
+  -VercelOrgId $VercelOrgId `
   -SkipGit `
   -SkipVercel

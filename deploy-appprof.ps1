@@ -14,7 +14,9 @@ Param(
     [switch]$SkipVercel,
     [string]$GitRemoteUrl = "https://github.com/escolagv/eebgv.git",
     [string]$GitBranch = "main",
-    [string]$GitCommitMessage = "chore: deploy appprof"
+    [string]$GitCommitMessage = "chore: deploy appprof",
+    [string]$VercelProjectId = "",
+    [string]$VercelOrgId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -208,8 +210,14 @@ if (-not $SkipGit) {
     $gitAvailable = Ensure-Command "git"
     if ($gitAvailable) {
         $origin = git remote get-url origin 2>$null
-        if (-not $origin -and $GitRemoteUrl) {
-            git remote add origin $GitRemoteUrl | Out-Null
+        if ($GitRemoteUrl) {
+            if ($origin) {
+                if ($origin -ne $GitRemoteUrl) {
+                    git remote set-url origin $GitRemoteUrl | Out-Null
+                }
+            } else {
+                git remote add origin $GitRemoteUrl | Out-Null
+            }
         }
         git add -A | Out-Null
         git commit -m $GitCommitMessage | Out-Null
@@ -222,6 +230,17 @@ if (-not $SkipGit) {
 if (-not $SkipVercel) {
     Write-Host "Vercel: iniciando deploy..." -ForegroundColor Cyan
     if (Ensure-Command "vercel") {
+        if (-not [string]::IsNullOrWhiteSpace($VercelProjectId)) {
+            $vercelDir = Join-Path $root ".vercel"
+            if (!(Test-Path $vercelDir)) { New-Item -ItemType Directory -Force -Path $vercelDir | Out-Null }
+            if ([string]::IsNullOrWhiteSpace($VercelOrgId)) {
+                Write-Host "Vercel orgId não informado. Execute 'vercel link' ou informe -VercelOrgId para fixar o projeto automaticamente." -ForegroundColor Yellow
+            } else {
+                $projectJson = @{ orgId = $VercelOrgId; projectId = $VercelProjectId } | ConvertTo-Json
+                Set-Content -Path (Join-Path $vercelDir "project.json") -Value $projectJson -Encoding UTF8
+                Write-Host "Vercel project.json atualizado." -ForegroundColor Green
+            }
+        }
         vercel --prod
     } else {
         Write-Host "Vercel CLI nao encontrado. Rode 'npm i -g vercel' e tente novamente." -ForegroundColor Yellow

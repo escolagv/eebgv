@@ -3,7 +3,9 @@ Param(
     [string]$ProfessorUrl = "https://eebgv.vercel.app/apoia/professor.html",
     [string]$BaseUrl = "https://eebgv.vercel.app",
     [switch]$UpdateProfessorVersion,
-    [switch]$AutoVersion
+    [switch]$AutoVersion,
+    [string]$VercelProjectId = "",
+    [string]$VercelOrgId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,5 +19,7 @@ $script = Join-Path $root "deploy-appprof.ps1"
   -BaseUrl $BaseUrl `
   -UpdateProfessorVersion:$UpdateProfessorVersion `
   -AutoVersion:$AutoVersion `
+  -VercelProjectId $VercelProjectId `
+  -VercelOrgId $VercelOrgId `
   -SkipGit `
   -SkipVercel

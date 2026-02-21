@@ -6,7 +6,9 @@ Param(
     [string]$GitBranch = "main",
     [string]$GitCommitMessage = "chore: deploy appprof",
     [switch]$UpdateProfessorVersion,
-    [switch]$AutoVersion
+    [switch]$AutoVersion,
+    [string]$VercelProjectId = "",
+    [string]$VercelOrgId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,4 +24,6 @@ $script = Join-Path $root "deploy-appprof.ps1"
   -GitBranch $GitBranch `
   -GitCommitMessage $GitCommitMessage `
   -UpdateProfessorVersion:$UpdateProfessorVersion `
-  -AutoVersion:$AutoVersion
+  -AutoVersion:$AutoVersion `
+  -VercelProjectId $VercelProjectId `
+  -VercelOrgId $VercelOrgId
