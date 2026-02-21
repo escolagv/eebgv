@@ -8,6 +8,57 @@ let notificationsReloadTimer = null;
 let notificationsRealtimeStopping = false;
 let notificationsChannelToken = 0;
 
+async function fetchAuthUserUidByEmail(email) {
+    try {
+        const { data, error } = await safeQuery(db.rpc('auth_user_uid_by_email', { p_email: email }));
+        if (error) throw error;
+        if (Array.isArray(data)) return data[0];
+        return data;
+    } catch (err) {
+        console.warn('Falha ao buscar auth user:', err?.message || err);
+        return null;
+    }
+}
+
+async function upsertProfessorProfile(userUid, payload) {
+    return await safeQuery(
+        db.from('usuarios')
+            .upsert({ user_uid: userUid, papel: 'professor', status: 'ativo', ...payload }, { onConflict: 'user_uid' })
+            .select()
+            .single()
+    );
+}
+
+function normalizePhoneDigits(value) {
+    return (value || '').toString().replace(/\D/g, '');
+}
+
+function formatPhoneDisplay(value) {
+    const digits = normalizePhoneDigits(value);
+    if (!digits) return '';
+    if (digits.length <= 2) return `(${digits})`;
+    const ddd = digits.slice(0, 2);
+    const rest = digits.slice(2);
+    if (!rest) return `(${ddd})`;
+    if (rest.length <= 5) return `(${ddd})${rest}`;
+    return `(${ddd})${rest.slice(0, 5)}-${rest.slice(5)}`;
+}
+
+function formatTimeForInput(value) {
+    if (!value) return '';
+    const match = String(value).match(/(\d{2}):(\d{2})/);
+    return match ? `${match[1]}:${match[2]}` : '';
+}
+
+function normalizeTimeForDb(value) {
+    if (!value) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    const match = str.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return null;
+    return `${match[1]}:${match[2]}:${match[3] || '00'}`;
+}
+
 // ===============================================================
 // NOTIFICACOES
 // ===============================================================
@@ -133,7 +184,7 @@ export async function loadAdminData() {
     state.turmasCache = (turmas || []).sort((a, b) => a.nome_turma.localeCompare(b.nome_turma, undefined, { numeric: true }));
     const { data: users } = await safeQuery(
         db.from('usuarios')
-            .select('id, user_uid, nome, papel, email_confirmado, status, vinculo')
+            .select('id, user_uid, nome, papel, email_confirmado, status, vinculo, telefone')
             .in('papel', ['professor', 'admin'])
     );
     state.usuariosCache = (users || []).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
@@ -202,6 +253,19 @@ export async function renderDashboardCalendar() {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/'/g, '&#39;');
+    const eventPalette = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ef4444', '#14b8a6', '#eab308', '#0ea5e9'];
+    const hashString = (value) => {
+        let hash = 0;
+        for (let i = 0; i < value.length; i++) {
+            hash = ((hash << 5) - hash) + value.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    };
+    const getEventColor = (evento) => {
+        const seed = String(evento.id || evento.descricao || 'evento');
+        return eventPalette[hashString(seed) % eventPalette.length];
+    };
 
     const { month, year } = state.dashboardCalendar;
     monthYearEl.textContent = `${monthNames[month]} ${year}`;
@@ -220,7 +284,6 @@ export async function renderDashboardCalendar() {
             .or(`data.lte.${monthEnd},data_fim.lte.${monthEnd}`)
     );
 
-    const eventosSet = new Set();
     const eventosByDate = new Map();
     (eventos || []).forEach(ev => {
         const inicio = new Date(ev.data + 'T00:00:00');
@@ -230,11 +293,11 @@ export async function renderDashboardCalendar() {
             labelParts.push('Turmas específicas');
         }
         const label = labelParts.join(' - ');
+        const color = getEventColor(ev);
         for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
             const key = d.toISOString().split('T')[0];
-            eventosSet.add(key);
             const current = eventosByDate.get(key) || [];
-            if (!current.includes(label)) current.push(label);
+            if (!current.some(item => item.label === label)) current.push({ label, color });
             eventosByDate.set(key, current);
         }
     });
@@ -247,13 +310,16 @@ export async function renderDashboardCalendar() {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isSelected = dateStr === state.dashboardSelectedDate;
         const isWeekend = [0, 6].includes(new Date(dateStr + 'T00:00:00').getDay());
-        const hasEvent = eventosSet.has(dateStr);
-        const eventLabels = eventosByDate.get(dateStr);
-        const eventTitle = eventLabels ? escapeAttr(eventLabels.join(' | ')) : '';
+        const eventItems = eventosByDate.get(dateStr) || [];
+        const hasEvent = eventItems.length > 0;
+        const eventTitle = hasEvent ? escapeAttr(eventItems.map(item => item.label).join(' | ')) : '';
+        const primaryColor = hasEvent ? eventItems[0].color : '';
+        const bgColor = primaryColor || '';
+        const bgStyle = bgColor ? `style="background:${bgColor};"` : '';
         html += `
             <div class="calendar-day-container ${isSelected ? 'calendar-day-selected' : ''}" data-date="${dateStr}">
-                <div class="calendar-day-content ${hasEvent ? 'calendar-day-event' : ''} ${isWeekend ? 'calendar-day-weekend' : ''}" ${eventTitle ? `title="${eventTitle}"` : ''}>
-                    ${day}
+                <div class="calendar-day-content ${hasEvent ? 'calendar-day-event' : ''} ${isWeekend ? 'calendar-day-weekend' : ''}" ${bgStyle} ${eventTitle ? `title="${eventTitle}"` : ''}>
+                    <span class="calendar-day-number">${day}</span>
                 </div>
             </div>
         `;
@@ -597,17 +663,22 @@ export async function handleGerarApoiaRelatorio() {
 export async function renderProfessoresPanel() {
     const professoresTableBody = document.getElementById('professores-table-body');
     const searchInput = document.getElementById('professor-search-input');
-    professoresTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">Carregando...</td></tr>';
+    const statusFilterEl = document.getElementById('professor-status-filter');
+    const statusFilterValue = statusFilterEl?.value;
+    professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">Carregando...</td></tr>';
     const { data, error } = await safeQuery(
         db.from('usuarios')
-            .select('id, user_uid, nome, email, status, email_confirmado, vinculo')
+            .select('id, user_uid, nome, email, telefone, status, email_confirmado, vinculo')
             .eq('papel', 'professor')
     );
     if (error) {
-        professoresTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
+        professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
         return;
     }
     let filtered = data || [];
+    if (statusFilterValue) {
+        filtered = filtered.filter(p => p.status === statusFilterValue);
+    }
     const query = (searchInput?.value || '').trim().toLowerCase();
     if (query) {
         filtered = filtered.filter(p =>
@@ -617,7 +688,7 @@ export async function renderProfessoresPanel() {
     }
     if (!filtered || filtered.length === 0) {
         const emptyMessage = query ? 'Nenhum professor encontrado.' : 'Nenhum professor cadastrado.';
-        professoresTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center">${emptyMessage}</td></tr>`;
+        professoresTableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center">${emptyMessage}</td></tr>`;
         return;
     }
     const orderMap = { efetivo: 0, act: 1 };
@@ -628,6 +699,7 @@ export async function renderProfessoresPanel() {
         return (a.nome || '').localeCompare(b.nome || '', undefined, { sensitivity: 'base' });
     });
     professoresTableBody.innerHTML = sorted.map(p => {
+        const telefoneDisplay = formatPhoneDisplay(p.telefone);
         const statusClass = p.status === 'ativo'
             ? 'bg-green-100 text-green-700'
             : 'bg-red-100 text-red-700';
@@ -643,6 +715,7 @@ export async function renderProfessoresPanel() {
                 ${p.nome}
             </td>
             <td class="p-3">${p.email}</td>
+            <td class="p-3">${telefoneDisplay || '-'}</td>
             <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">${p.status}</span></td>
             <td class="p-3 text-center"><span class="inline-block w-3 h-3 rounded-full ${confirmDot}"></span></td>
             <td class="p-3 space-x-4">
@@ -660,12 +733,18 @@ export async function openProfessorModal(editId = null) {
     const statusContainer = document.getElementById('status-field-container');
     const passwordContainer = document.getElementById('password-field-container');
     const vinculoSelect = document.getElementById('professor-vinculo');
+    const passwordInput = document.getElementById('professor-password');
+    const passwordToggle = document.getElementById('professor-password-show');
+    const telefoneInput = document.getElementById('professor-telefone');
     form.reset();
     document.getElementById('professor-id').value = '';
     document.getElementById('professor-modal-title').textContent = editId ? 'Editar Professor' : 'Adicionar Professor';
     document.getElementById('professor-delete-container').classList.toggle('hidden', !editId);
     if (statusContainer) statusContainer.classList.toggle('hidden', !editId);
     if (passwordContainer) passwordContainer.classList.toggle('hidden', !!editId);
+    if (passwordInput) passwordInput.type = 'password';
+    if (passwordToggle) passwordToggle.checked = false;
+    if (passwordInput && !editId) passwordInput.value = '123456';
     if (vinculoSelect) vinculoSelect.value = 'efetivo';
     if (editId) {
         const { data } = await safeQuery(db.from('usuarios').select('*').eq('id', editId).single());
@@ -674,6 +753,7 @@ export async function openProfessorModal(editId = null) {
             document.getElementById('professor-nome').value = data.nome;
             document.getElementById('professor-email').value = data.email;
             document.getElementById('professor-status').value = data.status || 'ativo';
+            if (telefoneInput) telefoneInput.value = formatPhoneDisplay(data.telefone) || '';
             if (vinculoSelect) vinculoSelect.value = data.vinculo || 'efetivo';
         }
     }
@@ -686,32 +766,90 @@ export async function handleProfessorFormSubmit(e) {
     const email = document.getElementById('professor-email').value;
     const status = document.getElementById('professor-status').value || 'ativo';
     const vinculo = document.getElementById('professor-vinculo')?.value || 'efetivo';
+    const telefoneRaw = document.getElementById('professor-telefone')?.value || '';
+    const telefone = normalizePhoneDigits(telefoneRaw);
     if (id) {
-        const { error } = await safeQuery(db.from('usuarios').update({ nome, email, status, vinculo }).eq('id', id));
+        const { error } = await safeQuery(db.from('usuarios').update({ nome, email, status, vinculo, telefone }).eq('id', id));
         if (error) showToast('Erro ao salvar professor: ' + error.message, true);
         else {
-            await logAudit('update', 'professor', id, { nome, email, status, vinculo });
+            await logAudit('update', 'professor', id, { nome, email, status, vinculo, telefone });
             showToast('Professor salvo com sucesso!');
             closeAllModals();
             await renderProfessoresPanel();
         }
     } else {
-        const randomPassword = Math.random().toString(36).slice(-8);
-        const { data: authData, error: authError } = await db.auth.signUp({ email, password: randomPassword });
-        if (authError) {
-            showToast('Erro ao criar usuário: ' + authError.message, true);
-            return;
-        }
-        const { data: profileData, error: profileError } = await safeQuery(
-            db.from('usuarios').insert({ user_uid: authData.user.id, nome: nome, email: email, papel: 'professor', status: 'ativo', vinculo }).select().single()
+        const { data: existingProfessor } = await safeQuery(
+            db.from('usuarios')
+                .select('id, status')
+                .eq('email', email)
+                .eq('papel', 'professor')
+                .maybeSingle()
         );
-        if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
-        else {
-            await logAudit('create', 'professor', profileData?.id || authData.user.id, { nome, email, status: 'ativo', vinculo });
-            showToast('Professor criado com sucesso! Envie um email de boas-vindas com a senha gerada.');
+        if (existingProfessor) {
+            if (existingProfessor.status === 'ativo') {
+                showToast('Professor já cadastrado. Use a opção Editar para ajustar os dados.', true);
+                return;
+            }
+        const { error: reactivateError } = await safeQuery(
+            db.from('usuarios')
+                .update({ nome, email, status: 'ativo', vinculo, telefone, email_confirmado: true })
+                .eq('id', existingProfessor.id)
+        );
+            if (reactivateError) {
+                showToast('Erro ao reativar professor: ' + reactivateError.message, true);
+                return;
+            }
+            await logAudit('reactivate', 'professor', existingProfessor.id, { nome, email, vinculo, telefone });
+            const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+            if (resetError) {
+                showToast('Professor reativado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
+            } else {
+                showToast('Professor reativado com sucesso! Enviamos um link para criar senha.');
+            }
             closeAllModals();
             await renderProfessoresPanel();
+            return;
         }
+        const tempPassword = document.getElementById('professor-password')?.value?.trim();
+        if (tempPassword && tempPassword.length < 6) {
+            showToast('A senha temporária deve ter pelo menos 6 caracteres.', true);
+            return;
+        }
+        const initialPassword = tempPassword || '123456';
+        const existingUid = await fetchAuthUserUidByEmail(email);
+        if (!existingUid) {
+            const { data: authData, error: authError } = await db.auth.signUp({ email, password: initialPassword });
+            if (authError) {
+                showToast('Erro ao criar usuário: ' + authError.message, true);
+                return;
+            }
+            const { data: profileData, error: profileError } = await safeQuery(
+                db.from('usuarios').insert({ user_uid: authData.user.id, nome: nome, email: email, papel: 'professor', status: 'ativo', vinculo, telefone }).select().single()
+            );
+            if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
+            else {
+                await logAudit('create', 'professor', profileData?.id || authData.user.id, { nome, email, status: 'ativo', vinculo, telefone });
+                const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+                if (resetError) {
+                    showToast('Professor criado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
+                } else {
+                    showToast('Professor criado com sucesso! Email de confirmação e link para criar senha enviados.');
+                }
+                closeAllModals();
+                await renderProfessoresPanel();
+            }
+            return;
+        }
+        const { data: profileData, error: profileError } = await upsertProfessorProfile(existingUid, { nome, email, vinculo, telefone });
+        if (profileError) {
+            showToast('Erro ao reativar professor: ' + profileError.message, true);
+            return;
+        }
+        await logAudit('reactivate', 'professor', profileData?.id || null, { nome, email, vinculo, telefone });
+        showToast('Professor reativado. Clique em “Resetar Senha” para enviar o link manualmente.', false);
+        closeAllModals();
+        await renderProfessoresPanel();
+        return;
     }
 }
 
@@ -789,10 +927,22 @@ export async function renderTurmasPanel(options = {}) {
 export async function openTurmaModal(editId = null) {
     const modal = document.getElementById('turma-modal');
     const form = document.getElementById('turma-form');
+    const nomeInput = document.getElementById('turma-nome');
+    const anoInput = document.getElementById('turma-ano-letivo');
+    const editWarning = document.getElementById('turma-edit-warning');
     form.reset();
     document.getElementById('turma-id').value = '';
     document.getElementById('turma-modal-title').textContent = editId ? 'Editar Turma' : 'Adicionar Turma';
     document.getElementById('turma-delete-container').classList.toggle('hidden', !editId);
+    if (editWarning) editWarning.classList.add('hidden');
+    if (nomeInput) {
+        nomeInput.readOnly = false;
+        nomeInput.classList.remove('bg-gray-100', 'text-gray-500');
+    }
+    if (anoInput) {
+        anoInput.readOnly = false;
+        anoInput.classList.remove('bg-gray-100', 'text-gray-500');
+    }
 
     const turmaProfessoresList = document.getElementById('turma-professores-list');
     turmaProfessoresList.innerHTML = '';
@@ -809,8 +959,19 @@ export async function openTurmaModal(editId = null) {
         const { data } = await safeQuery(db.from('turmas').select('*').eq('id', editId).single());
         if (data) {
             document.getElementById('turma-id').value = data.id;
-            document.getElementById('turma-nome').value = data.nome_turma;
-            document.getElementById('turma-ano-letivo').value = data.ano_letivo;
+            if (nomeInput) {
+                nomeInput.value = data.nome_turma;
+                nomeInput.readOnly = true;
+                nomeInput.classList.add('bg-gray-100', 'text-gray-500');
+            }
+            if (anoInput) {
+                anoInput.value = data.ano_letivo;
+                anoInput.readOnly = true;
+                anoInput.classList.add('bg-gray-100', 'text-gray-500');
+            }
+            form.dataset.originalNome = data.nome_turma;
+            form.dataset.originalAno = data.ano_letivo;
+            if (editWarning) editWarning.classList.remove('hidden');
         }
         const { data: profsAtuais } = await safeQuery(db.from('professores_turmas').select('professor_id').eq('turma_id', editId));
         const ids = (profsAtuais || []).map(p => p.professor_id);
@@ -823,8 +984,11 @@ export async function openTurmaModal(editId = null) {
 
 export async function handleTurmaFormSubmit(e) {
     const id = document.getElementById('turma-id').value;
-    const nome = document.getElementById('turma-nome').value;
-    const ano_letivo = document.getElementById('turma-ano-letivo').value;
+    const form = document.getElementById('turma-form');
+    const nomeInput = document.getElementById('turma-nome');
+    const anoInput = document.getElementById('turma-ano-letivo');
+    const nome = (id && form?.dataset.originalNome) ? form.dataset.originalNome : nomeInput.value;
+    const ano_letivo = (id && form?.dataset.originalAno) ? form.dataset.originalAno : anoInput.value;
     const professoresSelecionados = Array.from(document.querySelectorAll('.turma-professor-checkbox:checked')).map(cb => cb.value);
     const rels = professoresSelecionados.map(profId => ({ turma_id: id ? parseInt(id) : null, professor_id: profId }));
 
@@ -945,18 +1109,30 @@ export function handleLimparRelatorio() {
 // ===============================================================
 
 export async function renderConfigPanel() {
-    const { data, error } = await safeQuery(db.from('configuracoes').select('*').limit(1).single());
-    if (error || !data) return;
-    const faltasConsecutivas = data.faltas_consecutivas ?? data.faltas_consecutivas_limite ?? '';
-    const faltasIntercaladas = data.faltas_intercaladas ?? data.faltas_intercaladas_limite ?? '';
-    const faltasDias = data.faltas_dias ?? data.faltas_intercaladas_dias ?? '';
-    const alertaChamada = data.alerta_chamada_ativo ?? data.alerta_chamada_nao_feita_ativo ?? false;
-    document.getElementById('config-faltas-consecutivas').value = faltasConsecutivas;
-    document.getElementById('config-faltas-intercaladas').value = faltasIntercaladas;
-    document.getElementById('config-faltas-dias').value = faltasDias;
-    document.getElementById('config-alerta-horario').value = data.alerta_horario || '';
-    document.getElementById('config-alerta-faltas-ativo').checked = !!data.alerta_faltas_ativo;
-    document.getElementById('config-alerta-chamada-ativo').checked = !!alertaChamada;
+    try {
+        const { data } = await safeQuery(
+            db.from('configuracoes').select('*').order('id', { ascending: true }).limit(1)
+        );
+        const config = data?.[0];
+        if (!config) return;
+        const faltasConsecutivas = config.faltas_consecutivas ?? config.faltas_consecutivas_limite ?? '';
+        const faltasIntercaladas = config.faltas_intercaladas ?? config.faltas_intercaladas_limite ?? '';
+        const faltasDias = config.faltas_dias ?? config.faltas_intercaladas_dias ?? '';
+        const alertaChamada = config.alerta_chamada_ativo ?? config.alerta_chamada_nao_feita_ativo ?? false;
+        document.getElementById('config-faltas-consecutivas').value = faltasConsecutivas;
+        document.getElementById('config-faltas-intercaladas').value = faltasIntercaladas;
+        document.getElementById('config-faltas-dias').value = faltasDias;
+        document.getElementById('config-alerta-horario').value = formatTimeForInput(config.alerta_horario);
+        document.getElementById('config-alerta-faltas-ativo').checked = !!config.alerta_faltas_ativo;
+        document.getElementById('config-alerta-chamada-ativo').checked = !!alertaChamada;
+        const appprofVersionInput = document.getElementById('config-appprof-versao');
+        const appprofApkInput = document.getElementById('config-appprof-apk-url');
+        const defaultApkUrl = new URL('../appprof/downloads/appprof.apk', window.location.href).toString();
+        if (appprofVersionInput) appprofVersionInput.value = config.appprof_versao || '';
+        if (appprofApkInput) appprofApkInput.value = config.appprof_apk_url || defaultApkUrl;
+    } catch (err) {
+        console.warn('Falha ao carregar configuracoes:', err?.message || err);
+    }
 }
 
 export async function handleConfigFormSubmit(e) {
@@ -969,6 +1145,11 @@ export async function handleConfigFormSubmit(e) {
     const faltasIntercaladas = parseNumberOrNull(document.getElementById('config-faltas-intercaladas').value);
     const faltasDias = parseNumberOrNull(document.getElementById('config-faltas-dias').value);
     const alertaChamada = document.getElementById('config-alerta-chamada-ativo').checked;
+    const appprofVersionInput = document.getElementById('config-appprof-versao');
+    const appprofApkInput = document.getElementById('config-appprof-apk-url');
+    const appprofVersao = appprofVersionInput?.value?.trim() || null;
+    const defaultApkUrl = new URL('../appprof/downloads/appprof.apk', window.location.href).toString();
+    const appprofApkUrl = appprofApkInput?.value?.trim() || defaultApkUrl;
     const configData = {
         faltas_consecutivas: faltasConsecutivas,
         faltas_consecutivas_limite: faltasConsecutivas,
@@ -976,19 +1157,22 @@ export async function handleConfigFormSubmit(e) {
         faltas_intercaladas_limite: faltasIntercaladas,
         faltas_dias: faltasDias,
         faltas_intercaladas_dias: faltasDias,
-        alerta_horario: document.getElementById('config-alerta-horario').value || null,
+        alerta_horario: normalizeTimeForDb(document.getElementById('config-alerta-horario').value),
         alerta_faltas_ativo: document.getElementById('config-alerta-faltas-ativo').checked,
         alerta_chamada_ativo: alertaChamada,
-        alerta_chamada_nao_feita_ativo: alertaChamada
+        alerta_chamada_nao_feita_ativo: alertaChamada,
+        appprof_versao: appprofVersao,
+        appprof_apk_url: appprofApkUrl
     };
 
     const { data: existing } = await safeQuery(
-        db.from('configuracoes').select('id').limit(1).maybeSingle()
+        db.from('configuracoes').select('id').order('id', { ascending: true }).limit(1)
     );
 
     let error;
-    if (existing?.id) {
-        ({ error } = await safeQuery(db.from('configuracoes').update(configData).eq('id', existing.id)));
+    const existingId = existing?.[0]?.id;
+    if (existingId) {
+        ({ error } = await safeQuery(db.from('configuracoes').update(configData).eq('id', existingId)));
     } else {
         ({ error } = await safeQuery(db.from('configuracoes').insert(configData)));
     }
@@ -996,6 +1180,7 @@ export async function handleConfigFormSubmit(e) {
     else {
         await logAudit('update', 'configuracoes', null, { configData });
         showToast('Configurações salvas com sucesso!');
+        await renderConfigPanel();
     }
 }
 
@@ -1045,7 +1230,7 @@ export async function renderConsistenciaPanel() {
             safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo')),
             safeQuery(db.from('alunos').select('*', { count: 'exact', head: true }).not('turma_id', 'is', null)),
             safeQuery(db.from('alunos').select('id, turmas!inner(id)', { count: 'exact', head: true }).not('turma_id', 'is', null)),
-            safeQuery(db.from('alunos').select('id, nome_completo, matricula, turma_id, turmas ( id )').not('turma_id', 'is', null).limit(200))
+            safeQuery(db.from('alunos').select('id, nome_completo, matricula, turma_id, turmas ( id )').not('turma_id', 'is', null).limit(500))
         ]);
 
         // Alunos ativos sem turma
@@ -1101,15 +1286,37 @@ export async function renderConsistenciaPanel() {
         const totalComTurma = totalComTurmaRes.count || 0;
         const totalComJoin = totalComJoinRes.count || 0;
         const orfaosCount = Math.max(0, totalComTurma - totalComJoin);
-        alunosOrfaosCountEl.textContent = orfaosCount;
+        alunosOrfaosCountEl.textContent = alunosSemTurmaCount + orfaosCount;
         const alunosComTurma = alunosComTurmaListRes.data || [];
-        const orfaos = alunosComTurma.filter(a => !a.turmas);
-        alunosOrfaosTable.innerHTML = orfaos.length
-            ? orfaos.slice(0, 50).map(a => `
+        const orfaos = alunosComTurma
+            .filter(a => !a.turmas)
+            .map(a => ({
+                id: a.id,
+                nome_completo: a.nome_completo,
+                matricula: a.matricula,
+                turmaInfo: `${a.turma_id} (inexistente)`
+            }));
+        const semTurmaDetalhe = alunosSemTurma.map(a => ({
+            id: a.id,
+            nome_completo: a.nome_completo,
+            matricula: a.matricula,
+            turmaInfo: 'Sem turma'
+        }));
+        const combined = [...semTurmaDetalhe, ...orfaos];
+        const unique = [];
+        const seen = new Set();
+        combined.forEach(item => {
+            if (!seen.has(item.id)) {
+                seen.add(item.id);
+                unique.push(item);
+            }
+        });
+        alunosOrfaosTable.innerHTML = unique.length
+            ? unique.slice(0, 50).map(a => `
                 <tr>
                     <td class="p-3">${a.nome_completo}</td>
                     <td class="p-3">${a.matricula || '-'}</td>
-                    <td class="p-3">${a.turma_id}</td>
+                    <td class="p-3">${a.turmaInfo}</td>
                 </tr>
             `).join('')
             : '<tr><td colspan="3" class="p-4 text-center">Nenhum encontrado.</td></tr>';
@@ -1436,10 +1643,19 @@ export async function handleConfirmPromocaoTurmas() {
 
 export function openDeleteConfirmModal(type, id) {
     const modal = document.getElementById('delete-confirm-modal');
+    const title = document.getElementById('delete-confirm-title');
     const msg = document.getElementById('delete-confirm-message');
     const checkbox = document.getElementById('delete-confirm-checkbox');
     const confirmBtn = document.getElementById('confirm-delete-btn');
-    msg.textContent = `Tem certeza que deseja excluir este ${type}?`;
+    if (type === 'professor') {
+        if (title) title.textContent = 'Confirmar Inativação';
+        msg.textContent = 'Tem certeza que deseja inativar este professor?';
+        confirmBtn.textContent = 'Inativar';
+    } else {
+        if (title) title.textContent = 'Confirmar Exclusão';
+        msg.textContent = `Tem certeza que deseja excluir este ${type}?`;
+        confirmBtn.textContent = 'Excluir Permanentemente';
+    }
     checkbox.checked = false;
     confirmBtn.disabled = true;
     confirmBtn.dataset.type = type;
@@ -1465,13 +1681,14 @@ export async function handleConfirmDelete() {
         } else if (type === 'professor') {
             const { data: prof } = await db.from('usuarios').select('user_uid').eq('id', id).single();
             if (prof) await safeQuery(db.from('professores_turmas').delete().eq('professor_id', prof.user_uid));
-            await safeQuery(db.from('usuarios').delete().eq('id', id));
+            await safeQuery(db.from('usuarios').update({ status: 'inativo' }).eq('id', id));
         } else if (type === 'evento') {
             await safeQuery(db.from('eventos').delete().eq('id', id));
         } else if (type === 'acompanhamento') {
             await safeQuery(db.from('apoia_encaminhamentos').delete().eq('id', id));
         }
-        await logAudit('delete', type, id, null);
+        const auditAction = type === 'professor' ? 'inactivate' : 'delete';
+        await logAudit(auditAction, type, id, null);
         closeAllModals();
         if (type === 'aluno') await renderAlunosPanel();
         if (type === 'professor') await renderProfessoresPanel();
@@ -1703,6 +1920,7 @@ export async function generateAssiduidadeReport() {
         </body>
         </html>
     `);
+    newWindow.document.close();
 
     try {
         const formatDateBr = (value) => {
@@ -1798,7 +2016,41 @@ export async function generateAssiduidadeReport() {
             }).join('');
 
             const reportHTML = `<div class="print-header"><img src="./logo.png"><div class="print-header-info"><h2>Relatorio de Assiduidade de Alunos</h2><p>${periodoTexto}</p></div></div><div class="flex justify-between items-center mb-6 no-print"><h1 class="text-2xl font-bold">Relatorio de Assiduidade de Alunos</h1><p class="text-sm text-gray-600">${periodoTexto}</p><div class="flex gap-2"><button onclick="preparePrint('simple')" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button><button onclick="preparePrint('full')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md print-full-only"><div style="height: 320px; position: relative;"><canvas id="assiduidadeChart"></canvas></div></div><div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-4">Detalhes da Frequencia</h3><div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left">Aluno</th><th class="p-3 text-left">Turma</th><th class="p-3 text-center">Presencas</th><th class="p-3 text-center">Faltas Just.</th><th class="p-3 text-center">Faltas Injust.</th><th class="p-3 text-center">Assiduidade</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
-            const chartScriptContent = `setTimeout(() => { const ctx = document.getElementById('assiduidadeChart'); if (ctx) { new Chart(ctx, { type: 'pie', data: { labels: ['Presencas', 'Faltas Justificadas', 'Faltas Injustificadas'], datasets: [{ data: [${totalPresencas}, ${totalFaltasJ}, ${totalFaltasI}], backgroundColor: ['#10B981', '#F59E0B', '#EF4444'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Visao Geral da Frequencia' } } } }); } }, 100);`;
+            const chartScriptContent = `
+                const ensureChart = (fn, tries = 0) => {
+                    if (window.Chart) return fn();
+                    if (tries > 50) return;
+                    setTimeout(() => ensureChart(fn, tries + 1), 100);
+                };
+                const buildAssiduidadeChart = () => {
+                    const ctx = document.getElementById('assiduidadeChart');
+                    if (!ctx) return;
+                    if (window.__assiduidadeChart) window.__assiduidadeChart.destroy();
+                    const hasData = (${totalPresencas} + ${totalFaltasJ} + ${totalFaltasI}) > 0;
+                    const labels = hasData
+                        ? ['Presencas', 'Faltas Justificadas', 'Faltas Injustificadas']
+                        : ['Sem dados'];
+                    const data = hasData ? [${totalPresencas}, ${totalFaltasJ}, ${totalFaltasI}] : [1];
+                    const colors = hasData ? ['#10B981', '#F59E0B', '#EF4444'] : ['#e5e7eb'];
+                    window.__assiduidadeChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: { labels, datasets: [{ data, backgroundColor: colors }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            devicePixelRatio: 1,
+                            layout: { padding: 8 },
+                            plugins: {
+                                legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 11 } } },
+                                title: { display: true, text: 'Visao Geral da Frequencia' }
+                            }
+                        }
+                    });
+                };
+                window.renderPrintCharts = () => ensureChart(buildAssiduidadeChart);
+                ensureChart(buildAssiduidadeChart);
+            `;
             renderReport(reportHTML, chartScriptContent);
         } else if (activeTab === 'assiduidade-turmas') {
             const dataInicio = document.getElementById('assiduidade-turma-data-inicio').value;
@@ -1843,7 +2095,39 @@ export async function generateAssiduidadeReport() {
             }).join('');
 
             const reportHTML = `<div class="print-header"><img src="./logo.png"><div class="print-header-info"><h2>Relatorio de Assiduidade por Turma</h2><p>${periodoTexto}</p></div></div><div class="flex justify-between items-center mb-6 no-print"><h1 class="text-2xl font-bold">Relatorio de Assiduidade por Turma</h1><p class="text-sm text-gray-600">${periodoTexto}</p><div class="flex gap-2"><button onclick="preparePrint('simple')" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">Imprimir simples</button><button onclick="preparePrint('full')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Imprimir completa</button></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1 bg-white p-4 rounded-lg shadow-md print-full-only"><div style="height: 320px; position: relative;"><canvas id="assiduidadeTurmaChart"></canvas></div></div><div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-4">Dados Consolidados</h3><div class="max-h-96 overflow-y-auto"><table class="w-full text-sm"><thead class="bg-gray-50 sticky top-0"><tr><th class="p-3 text-left">Turma</th><th class="p-3 text-center">Presencas</th><th class="p-3 text-center">Faltas</th><th class="p-3 text-center">Assiduidade</th></tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`;
-            const chartScriptContent = `setTimeout(() => { const ctx = document.getElementById('assiduidadeTurmaChart'); if(ctx) { new Chart(ctx, { type: 'pie', data: { labels: ['Total de Presencas', 'Total de Faltas'], datasets: [{ label: 'Frequencia Geral', data: [${totalPresencas}, ${totalFaltas}], backgroundColor: ['#10B981', '#EF4444'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Frequencia Geral das Turmas' } } } }); } }, 100);`;
+            const chartScriptContent = `
+                const ensureChart = (fn, tries = 0) => {
+                    if (window.Chart) return fn();
+                    if (tries > 50) return;
+                    setTimeout(() => ensureChart(fn, tries + 1), 100);
+                };
+                const buildTurmaChart = () => {
+                    const ctx = document.getElementById('assiduidadeTurmaChart');
+                    if (!ctx) return;
+                    if (window.__assiduidadeTurmaChart) window.__assiduidadeTurmaChart.destroy();
+                    const hasData = (${totalPresencas} + ${totalFaltas}) > 0;
+                    const labels = hasData ? ['Total de Presencas', 'Total de Faltas'] : ['Sem dados'];
+                    const data = hasData ? [${totalPresencas}, ${totalFaltas}] : [1];
+                    const colors = hasData ? ['#10B981', '#EF4444'] : ['#e5e7eb'];
+                    window.__assiduidadeTurmaChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: { labels, datasets: [{ label: 'Frequencia Geral', data, backgroundColor: colors }] },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            devicePixelRatio: 1,
+                            layout: { padding: 8 },
+                            plugins: {
+                                legend: { position: 'bottom', labels: { boxWidth: 10, padding: 10, font: { size: 11 } } },
+                                title: { display: true, text: 'Frequencia Geral das Turmas' }
+                            }
+                        }
+                    });
+                };
+                window.renderPrintCharts = () => ensureChart(buildTurmaChart);
+                ensureChart(buildTurmaChart);
+            `;
             renderReport(reportHTML, chartScriptContent);
         } else if (activeTab === 'assiduidade-professores') {
             const dataInicio = document.getElementById('assiduidade-prof-data-inicio').value;
@@ -1879,6 +2163,7 @@ export async function generateAssiduidadeReport() {
                 if (!turmaId) return false;
                 return ids.includes(parseInt(turmaId, 10));
             };
+            const statusFilter = document.getElementById('assiduidade-prof-status').value;
             const isDateBlocked = (dateStr, turmaId, eventosList) => {
                 return (eventosList || []).some(e => {
                     const inicio = e.data;
@@ -1887,7 +2172,8 @@ export async function generateAssiduidadeReport() {
                 });
             };
 
-            let profQuery = db.from('usuarios').select('user_uid, nome').eq('papel', 'professor').eq('status', 'ativo');
+            let profQuery = db.from('usuarios').select('user_uid, nome, status').eq('papel', 'professor');
+            if (statusFilter) profQuery = profQuery.eq('status', statusFilter);
             if (professorId) profQuery = profQuery.eq('user_uid', professorId);
             const { data: profs, error: profError } = await safeQuery(profQuery);
             if (profError) throw profError;
@@ -1960,9 +2246,11 @@ export async function generateAssiduidadeReport() {
                 const total = lancadas + naoLancadas;
                 const assiduidade = total ? Math.round((lancadas / total) * 100) : 0;
                 const baseName = p.nome || 'Professor';
-                const professorLabel = turmas.length === 0 ? `${baseName} - não vinculado` : baseName;
-                return { professor: professorLabel, lancadas, naoLancadas, assiduidade, detalhes };
+                const suffix = p.status === 'inativo' ? ' <span class="text-xs text-gray-500">(inativo)</span>' : '';
+                const professorLabel = (turmas.length === 0 ? `${baseName} - não vinculado` : baseName) + suffix;
+                return { professor: professorLabel, lancadas, naoLancadas, assiduidade, detalhes, sortKey: baseName };
             });
+            rows.sort((a, b) => (a.sortKey || '').localeCompare((b.sortKey || ''), undefined, { sensitivity: 'base' }));
 
             const totalLancadas = rows.reduce((s, r) => s + r.lancadas, 0);
             const totalNaoLancadas = rows.reduce((s, r) => s + r.naoLancadas, 0);
@@ -2148,7 +2436,7 @@ export async function generateAssiduidadeReport() {
             const chartScriptContent = `
                 const ensureChart = (fn, tries = 0) => {
                     if (window.Chart) return fn();
-                    if (tries > 20) return;
+                    if (tries > 50) return;
                     setTimeout(() => ensureChart(fn, tries + 1), 100);
                 };
                 const buildChart = (ctx) => {
@@ -2156,23 +2444,29 @@ export async function generateAssiduidadeReport() {
                     const isPrint = ctx.id === 'lancamentoChartPrint';
                     if (isPrint && window.__printChart) window.__printChart.destroy();
                     if (!isPrint && window.__screenChart) window.__screenChart.destroy();
+                    const hasData = (${totalLancadas} + ${totalNaoLancadas}) > 0;
+                    const labels = hasData ? ['Chamadas Lançadas', 'Chamadas Não Lançadas'] : ['Sem dados'];
+                    const data = hasData ? [${totalLancadas}, ${totalNaoLancadas}] : [1];
+                    const colors = hasData ? ['#10B981', '#EF4444'] : ['#e5e7eb'];
                     const chartInstance = new Chart(ctx, {
                         type: 'pie',
                         data: {
-                            labels: ['Chamadas Lançadas', 'Chamadas Não Lançadas'],
-                            datasets: [{ data: [${totalLancadas}, ${totalNaoLancadas}], backgroundColor: ['#10B981', '#EF4444'] }]
+                            labels,
+                            datasets: [{ data, backgroundColor: colors }]
                         },
                         options: {
                             responsive: !isPrint,
                             maintainAspectRatio: false,
                             aspectRatio: isPrint ? 1 : undefined,
                             animation: false,
+                            devicePixelRatio: 1,
+                            layout: { padding: 8 },
                             plugins: {
                                 legend: {
                                     display: !isPrint,
-                                    position: 'top',
-                                    align: 'start',
-                                    labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+                                    position: 'bottom',
+                                    align: 'center',
+                                    labels: { boxWidth: 10, padding: 10, font: { size: 11 } }
                                 },
                                 title: { display: !isPrint, text: 'Visão Geral de Lançamentos' }
                             }

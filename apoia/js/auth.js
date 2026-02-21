@@ -1,7 +1,7 @@
 import { db, state, resetApplicationState, resetLoginFormState, resetInactivityTimer, showToast, showView } from './core.js';
 import { safeQuery, setAuthErrorHandler } from './core.js';
 import { loadAdminData, renderDashboardPanel, loadNotifications, startNotificationsRealtime, stopNotificationsRealtime, stopNotificationsPolling } from './admin.js';
-import { loadProfessorData } from './professor.js';
+import { loadProfessorData, initProfessorAccount, refreshProfessorAvatar, checkProfessorAppUpdate } from './professor.js';
 
 export function initAuthHandlers() {
     setAuthErrorHandler(signOutUser);
@@ -53,6 +53,7 @@ export async function handleAuthChange(event, session) {
                 await signOutUser();
                 return;
             }
+            document.body.dataset.userRole = 'admin';
             adminInfo.textContent = nome || state.currentUser.email;
             await loadAdminData();
             await renderDashboardPanel();
@@ -67,11 +68,15 @@ export async function handleAuthChange(event, session) {
                 await signOutUser();
                 return;
             }
+            document.body.dataset.userRole = 'professor';
             professorInfo.textContent = nome || state.currentUser.email;
             await loadProfessorData(state.currentUser.id);
+            await refreshProfessorAvatar();
+            initProfessorAccount();
             stopNotificationsRealtime();
             stopNotificationsPolling();
             showView('professor-view');
+            await checkProfessorAppUpdate();
         } else {
             throw new Error('Papel de usuário desconhecido.');
         }

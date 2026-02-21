@@ -1,11 +1,12 @@
 Param(
-    [string]$AppVersion = "1.0.0",
+    [string]$AppVersion = "",
     [string]$ProfessorUrl = "https://eebgv.vercel.app/apoia/professor.html",
     [string]$BaseUrl = "https://eebgv.vercel.app",
     [string]$GitRemoteUrl = "https://github.com/escolagv/eebgv.git",
     [string]$GitBranch = "main",
     [string]$GitCommitMessage = "chore: deploy appprof",
-    [switch]$UpdateProfessorVersion
+    [switch]$UpdateProfessorVersion,
+    [switch]$AutoVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,4 +21,5 @@ $script = Join-Path $root "deploy-appprof.ps1"
   -GitRemoteUrl $GitRemoteUrl `
   -GitBranch $GitBranch `
   -GitCommitMessage $GitCommitMessage `
-  -UpdateProfessorVersion:$UpdateProfessorVersion
+  -UpdateProfessorVersion:$UpdateProfessorVersion `
+  -AutoVersion:$AutoVersion

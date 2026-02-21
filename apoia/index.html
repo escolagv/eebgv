@@ -64,21 +64,45 @@
         </div>
 
         <div id="professor-view" class="hidden">
-            <header class="bg-white shadow-md p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <header class="bg-white shadow-md p-4 flex flex-col gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
                 <div class="flex items-center gap-4">
-                    <img src="./logo.png" alt="Logo da Escola" class="h-10">
+                    <button id="professor-account-btn" class="relative w-12 h-12 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center shadow-sm hover:shadow-md transition" aria-label="Minha conta">
+                        <span id="professor-avatar-fallback" class="text-sm font-semibold"></span>
+                        <img id="professor-avatar-img" alt="Foto do professor" class="hidden w-full h-full rounded-full object-cover">
+                    </button>
                     <div>
                         <h1 class="text-xl font-bold">Painel do Professor</h1>
                         <p id="professor-info" class="text-sm text-gray-600"></p>
                     </div>
                 </div>
+                <div class="flex justify-center">
+                    <img src="./logo.png" alt="Logo da Escola" class="h-12 w-12">
+                </div>
                 <div class="flex flex-col sm:items-end gap-1">
                     <a href="../appprof/" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">App do Professor</a>
                     <button type="button" data-open-help class="text-xs text-blue-600 hover:underline text-left sm:text-right">Ajuda</button>
-                    <div class="text-xs text-gray-500">V1.0.0</div>
+                    <div id="professor-app-version" class="text-xs text-gray-500" data-version="1.0.0">V1.0.1</div>
                     <button id="professor-logout-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                 </div>
             </header>
+            <div class="px-4 mt-4 max-w-4xl mx-auto" id="professor-password-notice">
+                <div class="bg-yellow-50 border border-yellow-200 text-yellow-900 px-4 py-3 rounded-md text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        Senha padrão inicial: <strong>123456</strong>. Clique em “Resetar Senha” na barra lateral ou use “Esqueci minha senha” no login para trocar a senha em qualquer momento.
+                    </div>
+                    <button id="dismiss-password-notice" class="text-xs font-semibold text-yellow-900 bg-yellow-100 border border-yellow-200 px-3 py-1 rounded-md hover:bg-yellow-200">
+                        Não mostrar mais
+                    </button>
+                </div>
+            </div>
+            <div class="px-4 mt-3 max-w-4xl mx-auto hidden" id="professor-update-banner">
+                <div class="bg-blue-50 border border-blue-200 text-blue-900 px-4 py-3 rounded-md text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div id="professor-update-text">Nova versão do App do Professor disponível.</div>
+                    <a id="professor-update-link" href="../appprof/" target="_blank" rel="noopener" class="text-xs font-semibold text-white bg-blue-600 px-3 py-1 rounded-md hover:bg-blue-700">
+                        Atualizar agora
+                    </a>
+                </div>
+            </div>
             <main class="p-4 md:p-6">
                 <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
                     <h2 class="text-2xl font-bold mb-4">Lançar Chamada</h2>
@@ -137,7 +161,7 @@
                             <p>WhatsApp: (48) 99100-4780</p>
                             <a href="#" id="support-link-admin" class="text-blue-400 hover:underline">Suporte Técnico</a>
                         </div>
-                        <div class="text-xs text-center text-gray-400">V1.0.0</div>
+                        <div class="text-xs text-center text-gray-400">V1.0.1</div>
                         <button id="admin-logout-btn" class="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
                     </div>
                 </aside>
@@ -150,7 +174,7 @@
                             <div class="relative ml-auto flex items-center gap-3">
                                 <button type="button" data-open-help class="px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-full hover:bg-blue-200">Ajuda</button>
                                 <div id="notification-bell" class="relative cursor-pointer">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V1.0.1a6.002 6.002 0 00-4-5.659V1.0.1a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                                 </div>
                                 <div id="notification-panel" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-20"><div class="p-4 font-bold border-b flex justify-between items-center"><span>Notificações</span><button id="clear-notifications-btn" class="text-xs text-blue-600 hover:underline font-medium">Limpar Todas</button></div><div id="notification-list" class="p-2 max-h-64 overflow-y-auto"></div></div>
                             </div>
@@ -160,9 +184,9 @@
                                 <div data-type="presencas" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-green-100 rounded-full p-3 mr-4"><svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div><p class="text-sm text-gray-500">Presenças</p><p id="dashboard-presencas" class="text-2xl font-bold">...</p></div></div>
                                 <div data-type="faltas" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-red-100 rounded-full p-3 mr-4"><svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div><p class="text-sm text-gray-500">Faltas</p><p id="dashboard-faltas" class="text-2xl font-bold">...</p></div></div>
                                 <div data-type="acompanhamento" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-yellow-100 rounded-full p-3 mr-4"><svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div><div><p class="text-sm text-gray-500">Em Acompanhamento</p><p id="dashboard-acompanhamento" class="text-2xl font-bold">...</p></div></div>
-                                <div data-type="assiduidade" id="assiduidade-card" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-purple-100 rounded-full p-3 mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></div><div><p class="text-sm text-gray-500">Análise de Assiduidade</p><p class="text-lg font-bold">Gerar Relatórios</p></div></div>
+                                <div data-type="assiduidade" id="assiduidade-card" class="bg-white p-6 rounded-lg shadow-md flex items-center flex-1 clickable-card"><div class="bg-purple-100 rounded-full p-3 mr-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V1.0.1a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V1.0.1a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg></div><div><p class="text-sm text-gray-500">Análise de Assiduidade</p><p class="text-lg font-bold">Gerar Relatórios</p></div></div>
                             </div><div class="bg-white p-6 rounded-lg shadow-md"><h3 class="font-bold mb-2">Alunos Ausentes</h3><ul id="dashboard-ausentes-list" class="space-y-2 text-sm"></ul></div></div><div class="bg-white p-6 rounded-lg shadow-md"><div id="dashboard-calendar-container"><div class="flex items-center justify-between mb-4"><button id="prev-month-btn" class="p-2 rounded-full hover:bg-gray-200">&lt;</button><h3 id="calendar-month-year" class="text-lg font-bold"></h3><button id="next-month-btn" class="p-2 rounded-full hover:bg-gray-200">&gt;</button></div><div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-gray-600"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div><div id="calendar-grid" class="grid grid-cols-7 text-center mt-2"></div></div></div></div></div>
-                            <div id="admin-professores-panel" class="admin-panel hidden"><div class="flex flex-wrap items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-bold">Gerenciar Professores</h2><div class="flex flex-wrap items-center gap-3"><input type="text" id="professor-search-input" class="p-2 border rounded-md bg-white w-64" placeholder="Pesquisar por nome ou email"><button id="add-professor-btn" class="px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Adicionar Professor</button></div></div><div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Status</th><th class="p-3 text-center text-sm font-semibold text-gray-600">Confirmação</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Ações</th></tr></thead><tbody id="professores-table-body"></tbody></table></div></div>
+                            <div id="admin-professores-panel" class="admin-panel hidden"><div class="flex flex-wrap items-center justify-between gap-3 mb-4"><h2 class="text-2xl font-bold">Gerenciar Professores</h2><div class="flex flex-wrap items-center gap-3"><input type="text" id="professor-search-input" class="p-2 border rounded-md bg-white w-64" placeholder="Pesquisar por nome ou email"><select id="professor-status-filter" class="p-2 border rounded-md bg-white"><option value="ativo" selected>Ativos</option><option value="inativo">Inativos</option><option value="">Todos</option></select><button id="add-professor-btn" class="px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Adicionar Professor</button></div></div><div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Telefone</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Status</th><th class="p-3 text-center text-sm font-semibold text-gray-600">Confirmação</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Ações</th></tr></thead><tbody id="professores-table-body"></tbody></table></div></div>
                             <div id="admin-turmas-panel" class="admin-panel hidden"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">Gerenciar Turmas</h2><div class="flex items-center gap-4"><select id="turma-ano-letivo-filter" class="p-2 border rounded-md bg-white"></select><button id="add-turma-btn" class="px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Adicionar Turma</button></div></div><div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-sm font-semibold text-gray-600">Nome da Turma</th><th class="p-3 text-left font-semibold text-gray-600">Professores</th><th class="p-3 text-left text-sm font-semibold text-gray-600">Ações</th></tr></thead><tbody id="turmas-table-body"></tbody></table></div></div>
                             <div id="admin-alunos-panel" class="admin-panel hidden">
                                 <div class="flex justify-between items-center mb-4">
@@ -212,7 +236,7 @@
                                         <p id="consistencia-turmas-duplicadas-count" class="text-2xl font-bold">...</p>
                                     </div>
                                     <div class="bg-white p-4 rounded-lg shadow-md">
-                                        <p class="text-sm text-gray-500">Alunos com turma inexistente</p>
+                                        <p class="text-sm text-gray-500">Alunos sem turma ou turma inexistente</p>
                                         <p id="consistencia-alunos-orfaos-count" class="text-2xl font-bold">...</p>
                                     </div>
                                 </div>
@@ -257,13 +281,13 @@
                                         </table>
                                     </div>
                                     <div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto">
-                                        <h3 class="text-lg font-semibold mb-3">Alunos com turma inexistente</h3>
+                                        <h3 class="text-lg font-semibold mb-3">Alunos sem turma ou turma inexistente</h3>
                                         <table class="w-full text-sm">
                                             <thead class="bg-gray-50">
                                                 <tr>
                                                     <th class="p-3 text-left font-semibold text-gray-600">Nome</th>
                                                     <th class="p-3 text-left font-semibold text-gray-600">Matrícula</th>
-                                                    <th class="p-3 text-left font-semibold text-gray-600">Turma ID</th>
+                                                    <th class="p-3 text-left font-semibold text-gray-600">Turma / Motivo</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="consistencia-alunos-orfaos-table"></tbody>
@@ -271,7 +295,63 @@
                                     </div>
                                 </div>
                             </div>
-                            <div id="admin-config-panel" class="admin-panel hidden"><h2 class="text-2xl font-bold mb-4">Configurações de Alerta</h2><form id="config-form" class="bg-white p-6 rounded-lg shadow-md space-y-6"><div><h3 class="text-lg font-semibold">Regras de Faltas</h3><div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="config-faltas-consecutivas" class="block text-sm font-medium">Alertar após X faltas consecutivas:</label><input type="number" id="config-faltas-consecutivas" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="config-faltas-intercaladas" class="block text-sm font-medium">Alertar após X faltas intercaladas:</label><input type="number" id="config-faltas-intercaladas" class="w-full mt-1 p-2 border rounded-md"></div><div class="md:col-span-2"><label for="config-faltas-dias" class="block text-sm font-medium">...dentro de um período de X dias:</label><input type="number" id="config-faltas-dias" class="w-full mt-1 p-2 border rounded-md"></div></div></div><div><h3 class="text-lg font-semibold">Configurações de Alerta Automático</h3><div class="mt-2 space-y-2"><div><label for="config-alerta-horario" class="block text-sm font-medium">Horário para verificação diária:</label><input type="time" id="config-alerta-horario" class="w-full mt-1 p-2 border rounded-md"><p class="text-xs text-gray-500 mt-1">A verificação de alertas será executada uma vez por dia, na primeira oportunidade após o horário definido.</p></div><label class="flex items-center"><input type="checkbox" id="config-alerta-faltas-ativo" class="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded"><span class="ml-2">Ativar alerta para excesso de faltas de alunos.</span></label><label class="flex items-center"><input type="checkbox" id="config-alerta-chamada-ativo" class="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded"><span class="ml-2">Ativar alerta para chamadas não realizadas.</span></label></div></div><div class="text-right"><button type="submit" class="px-6 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Salvar Configurações</button></div></form></div>
+                            <div id="admin-config-panel" class="admin-panel hidden">
+                                <h2 class="text-2xl font-bold mb-4">Configurações de Alerta</h2>
+                                <form id="config-form" class="bg-white p-6 rounded-lg shadow-md space-y-6">
+                                    <div>
+                                        <h3 class="text-lg font-semibold">Regras de Faltas</h3>
+                                        <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label for="config-faltas-consecutivas" class="block text-sm font-medium">Alertar após X faltas consecutivas:</label>
+                                                <input type="number" id="config-faltas-consecutivas" class="w-full mt-1 p-2 border rounded-md">
+                                            </div>
+                                            <div>
+                                                <label for="config-faltas-intercaladas" class="block text-sm font-medium">Alertar após X faltas intercaladas:</label>
+                                                <input type="number" id="config-faltas-intercaladas" class="w-full mt-1 p-2 border rounded-md">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label for="config-faltas-dias" class="block text-sm font-medium">...dentro de um período de X dias:</label>
+                                                <input type="number" id="config-faltas-dias" class="w-full mt-1 p-2 border rounded-md">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold">Configurações de Alerta Automático</h3>
+                                        <div class="mt-2 space-y-2">
+                                            <div>
+                                                <label for="config-alerta-horario" class="block text-sm font-medium">Horário para verificação diária:</label>
+                                                <input type="time" id="config-alerta-horario" class="w-full mt-1 p-2 border rounded-md">
+                                                <p class="text-xs text-gray-500 mt-1">A verificação de alertas será executada uma vez por dia, na primeira oportunidade após o horário definido.</p>
+                                            </div>
+                                            <label class="flex items-center">
+                                                <input type="checkbox" id="config-alerta-faltas-ativo" class="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                                <span class="ml-2">Ativar alerta para excesso de faltas de alunos.</span>
+                                            </label>
+                                            <label class="flex items-center">
+                                                <input type="checkbox" id="config-alerta-chamada-ativo" class="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                                <span class="ml-2">Ativar alerta para chamadas não realizadas.</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-semibold">App do Professor</h3>
+                                        <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label for="config-appprof-versao" class="block text-sm font-medium">Versão mais recente do app</label>
+                                                <input type="text" id="config-appprof-versao" class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 1.0.1">
+                                            </div>
+                                            <div>
+                                                <label for="config-appprof-apk-url" class="block text-sm font-medium">URL do APK (opcional)</label>
+                                                <input type="text" id="config-appprof-apk-url" class="w-full mt-1 p-2 border rounded-md" placeholder="https://eebgv.vercel.app/appprof/downloads/appprof.apk">
+                                            </div>
+                                            <p class="text-xs text-gray-500 md:col-span-2">Usamos essa versão para avisar os professores quando há atualização disponível.</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <button type="submit" class="px-6 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Salvar Configurações</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </main>
@@ -298,12 +378,59 @@
         </div>
     </div>
     <div id="aluno-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="aluno-modal-title" class="text-xl font-bold mb-4"></h3><form id="aluno-form"><input type="hidden" id="aluno-id"><div class="space-y-4 max-h-96 overflow-y-auto pr-2"><div><label for="aluno-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="aluno-nome" required class="w-full mt-1 p-2 border rounded-md"></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="aluno-matricula" class="block text-sm font-medium text-gray-700">Matrícula</label><input type="text" id="aluno-matricula" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="aluno-turma" class="block text-sm font-medium text-gray-700">Turma</label><select id="aluno-turma" required class="w-full mt-1 p-2 border rounded-md"></select></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="aluno-telefone" class="block text-sm font-medium text-gray-700">Telefone</label><input type="tel" id="aluno-telefone" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="aluno-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="aluno-email" class="w-full mt-1 p-2 border rounded-md"></div></div><div><label for="aluno-responsavel" class="block text-sm font-medium text-gray-700">Nome do Responsável</label><input type="text" id="aluno-responsavel" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="aluno-status" class="block text-sm font-medium text-gray-700">Status</label><select id="aluno-status" required class="w-full mt-1 p-2 border rounded-md"><option value="ativo">Ativo</option><option value="inativo">Inativo</option><option value="transferido">Transferido</option></select></div></div><div class="mt-6 flex justify-between items-center"><div id="aluno-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="aluno">Excluir Aluno</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
-    <div id="professor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 id="professor-modal-title" class="text-xl font-bold mb-4"></h3><form id="professor-form"><input type="hidden" id="professor-id"><div class="space-y-4"><div><label for="professor-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="professor-nome" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="professor-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="professor-email" required class="w-full mt-1 p-2 border rounded-md"></div><div id="password-field-container"> <label for="professor-password" class="block text-sm font-medium text-gray-700">Senha Temporária</label><input type="password" id="professor-password" class="w-full mt-1 p-2 border rounded-md"></div><div id="status-field-container" class="hidden"><label for="professor-status" class="block text-sm font-medium text-gray-700">Status</label><select id="professor-status" required class="w-full mt-1 p-2 border rounded-md"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></div><div><label for="professor-vinculo" class="block text-sm font-medium text-gray-700">Vínculo</label><select id="professor-vinculo" class="w-full mt-1 p-2 border rounded-md"><option value="efetivo">Efetivo</option><option value="act">ACT (Temporário)</option></select></div><p class="text-xs text-gray-500">O professor deverá confirmar seu e-mail antes do primeiro login.</p></div><div class="mt-6 flex justify-between items-center"><div id="professor-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="professor">Excluir Professor</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
-    <div id="turma-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="turma-modal-title" class="text-xl font-bold mb-4"></h3><form id="turma-form"><input type="hidden" id="turma-id"><div class="space-y-4"><div><label for="turma-nome" class="block text-sm font-medium text-gray-700">Nome da Turma</label><input type="text" id="turma-nome" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 3º Ano A - Matutino"></div><div class="grid grid-cols-2 gap-4"><div><label for="turma-ano-letivo" class="block text-sm font-medium text-gray-700">Ano Letivo</label><input type="number" id="turma-ano-letivo" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 2025"></div></div><div><label class="block text-sm font-medium text-gray-700">Professores</label><div id="turma-professores-list" class="mt-1 max-h-40 overflow-y-auto space-y-2 rounded-md border p-2"></div></div></div><div class="mt-6 flex justify-between items-center"><div id="turma-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="turma">Excluir Turma</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
+    <div id="professor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 id="professor-modal-title" class="text-xl font-bold mb-4"></h3><form id="professor-form"><input type="hidden" id="professor-id"><div class="space-y-4"><div><label for="professor-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="professor-nome" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="professor-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="professor-email" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="professor-telefone" class="block text-sm font-medium text-gray-700">Telefone (contato)</label><input type="text" id="professor-telefone" class="w-full mt-1 p-2 border rounded-md" placeholder="(00) 00000-0000"></div><div id="password-field-container"> <label for="professor-password" class="block text-sm font-medium text-gray-700">Senha Temporária</label><input type="password" id="professor-password" class="w-full mt-1 p-2 border rounded-md" value="123456"><div class="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" id="professor-password-show" class="h-4 w-4"><label for="professor-password-show">Mostrar senha</label></div></div><div id="status-field-container" class="hidden"><label for="professor-status" class="block text-sm font-medium text-gray-700">Status</label><select id="professor-status" required class="w-full mt-1 p-2 border rounded-md"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></div><div><label for="professor-vinculo" class="block text-sm font-medium text-gray-700">Vínculo</label><select id="professor-vinculo" class="w-full mt-1 p-2 border rounded-md"><option value="efetivo">Efetivo</option><option value="act">ACT (Temporário)</option></select></div><p class="text-xs text-gray-500">O professor confirma o e-mail e cria a senha pelo link recebido.</p></div><div class="mt-6 flex justify-between items-center"><div id="professor-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="professor">Inativar Professor</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
+    <div id="turma-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="turma-modal-title" class="text-xl font-bold mb-4"></h3><form id="turma-form"><input type="hidden" id="turma-id"><div class="space-y-4"><div><label for="turma-nome" class="block text-sm font-medium text-gray-700">Nome da Turma</label><input type="text" id="turma-nome" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 3º Ano A - Matutino"></div><div class="grid grid-cols-2 gap-4"><div><label for="turma-ano-letivo" class="block text-sm font-medium text-gray-700">Ano Letivo</label><input type="number" id="turma-ano-letivo" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 2025"></div></div><p id="turma-edit-warning" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">Para evitar conflitos de vínculo, o nome e o ano da turma não podem ser editados. Para alterar, crie uma nova turma ou exclua e recrie.</p><div><label class="block text-sm font-medium text-gray-700">Professores</label><div id="turma-professores-list" class="mt-1 max-h-40 overflow-y-auto space-y-2 rounded-md border p-2"></div></div></div><div class="mt-6 flex justify-between items-center"><div id="turma-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="turma">Excluir Turma</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
     <div id="acompanhamento-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="acompanhamento-modal-title" class="text-xl font-bold mb-4"></h3><form id="acompanhamento-form"><input type="hidden" id="acompanhamento-id"><div class="space-y-4"><div><label for="acompanhamento-aluno-select" class="block text-sm font-medium text-gray-700">Aluno</label><select id="acompanhamento-aluno-select" required class="w-full mt-1 p-2 border rounded-md"></select></div><div><label for="acompanhamento-motivo" class="block text-sm font-medium text-gray-700">Motivo</label><select id="acompanhamento-motivo" required class="w-full mt-1 p-2 border rounded-md"><option value="">Selecione...</option><option value="5 faltas consecutivas">5 faltas consecutivas</option><option value="7 faltas intercaladas">7 faltas intercaladas</option><option value="Adicionado Manualmente">Adicionado Manualmente</option></select></div><div><label for="acompanhamento-status" class="block text-sm font-medium text-gray-700">Status</label><select id="acompanhamento-status" required class="w-full mt-1 p-2 border rounded-md"><option value="Em andamento">Em andamento</option><option value="Finalizado">Finalizado</option></select></div><div><label for="acompanhamento-observacoes" class="block text-sm font-medium text-gray-700">Observações</label><textarea id="acompanhamento-observacoes" rows="3" class="w-full mt-1 p-2 border rounded-md"></textarea></div></div><div class="mt-6 flex justify-between items-center"><div id="acompanhamento-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="acompanhamento">Excluir</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
     <div id="evento-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 id="evento-modal-title" class="text-xl font-bold mb-4"></h3><form id="evento-form"><input type="hidden" id="evento-id"><div class="space-y-4"><div><label for="evento-descricao" class="block text-sm font-medium text-gray-700">Descrição</label><input type="text" id="evento-descricao" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: Feriado Nacional"></div><div><label class="block text-sm font-medium text-gray-700">Aplicação</label><div id="evento-abrangencia-container" class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4"><label class="flex items-center"><input type="radio" name="evento-abrangencia" value="global" class="form-radio h-4 w-4 text-blue-600" checked><span class="ml-2 text-sm">Todas as turmas</span></label><label class="flex items-center"><input type="radio" name="evento-abrangencia" value="turmas" class="form-radio h-4 w-4 text-blue-600"><span class="ml-2 text-sm">Turmas específicas</span></label></div></div><div id="evento-turmas-container" class="hidden"><label for="evento-turmas-ids" class="block text-sm font-medium text-gray-700">Turmas sem aula</label><select id="evento-turmas-ids" multiple class="w-full mt-1 p-2 border rounded-md"></select><p class="text-xs text-gray-500 mt-1">Use Ctrl/Command para selecionar mais de uma turma.</p></div><div class="grid grid-cols-2 gap-4"><div><label for="evento-data-inicio" class="block text-sm font-medium text-gray-700">Data de Início</label><input type="date" id="evento-data-inicio" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="evento-data-fim" class="block text-sm font-medium text-gray-700">Data de Fim (Opcional)</label><input type="date" id="evento-data-fim" class="w-full mt-1 p-2 border rounded-md"></div></div></div><div class="mt-6 flex justify-between items-center"><div id="evento-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="evento">Excluir Evento</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
     <div id="reset-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 class="text-xl font-bold mb-4">Redefinir Senha</h3><form id="reset-password-form"><div class="space-y-4"><div><label for="new-password" class="block text-sm font-medium text-gray-700">Nova Senha</label><input type="password" id="new-password" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="confirm-password" class="block text-sm font-medium text-gray-700">Confirme a Nova Senha</label><input type="password" id="confirm-password" required class="w-full mt-1 p-2 border rounded-md"></div></div><p id="reset-password-error" class="text-sm text-center text-red-600 mt-4"></p><div class="mt-6 flex justify-end gap-4"><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Salvar Nova Senha</button></div></form></div></div>
-    <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 class="text-xl font-bold mb-4 text-red-600">Confirmar Exclusão</h3><p id="delete-confirm-message" class="mb-4"></p><div class="mb-4"><label class="flex items-center"><input type="checkbox" id="delete-confirm-checkbox" class="form-checkbox h-5 w-5 text-red-600"><span class="ml-2 text-sm">Sim, eu entendo e quero continuar.</span></label></div><div class="mt-6 flex justify-end gap-4"><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="button" id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md disabled:bg-red-300" disabled>Excluir Permanentemente</button></div></div></div>
+    <div id="professor-account-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-bold">Minha conta</h3>
+                <button type="button" class="text-gray-500 hover:text-gray-700 cancel-modal-btn">Fechar</button>
+            </div>
+            <div class="flex flex-col md:flex-row gap-6">
+                <div class="flex flex-col items-center gap-3">
+                    <div class="relative w-24 h-24 rounded-full bg-gray-200 text-gray-600 font-semibold flex items-center justify-center">
+                        <span id="professor-account-avatar-fallback" class="text-sm font-semibold"></span>
+                        <img id="professor-account-avatar-img" alt="Foto do professor" class="hidden w-full h-full rounded-full object-cover">
+                    </div>
+                    <label class="text-xs font-medium text-blue-600 cursor-pointer">
+                        Alterar foto
+                        <input type="file" id="professor-avatar-input" accept="image/*" class="hidden">
+                    </label>
+                    <p class="text-[11px] text-gray-500">Até 1MB</p>
+                </div>
+                <div class="flex-1 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nome completo</label>
+                        <input type="text" id="professor-account-name" class="w-full mt-1 p-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Telefone</label>
+                        <input type="text" id="professor-account-phone" class="w-full mt-1 p-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email</label>
+                        <input type="email" id="professor-account-email" class="w-full mt-1 p-2 border border-gray-200 rounded-md bg-gray-50" disabled>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Turmas vinculadas</label>
+                        <div id="professor-account-turmas" class="mt-2 flex flex-wrap gap-2 text-xs text-gray-600"></div>
+                    </div>
+                    <div class="pt-2">
+                        <button type="button" id="professor-account-reset-password" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Alterar senha</button>
+                        <p class="text-xs text-gray-500 mt-2">Enviaremos um link para redefinir sua senha.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button>
+                <button type="button" id="professor-account-save-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Salvar</button>
+            </div>
+        </div>
+    </div>
+    <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 id="delete-confirm-title" class="text-xl font-bold mb-4 text-red-600">Confirmar Exclusão</h3><p id="delete-confirm-message" class="mb-4"></p><div class="mb-4"><label class="flex items-center"><input type="checkbox" id="delete-confirm-checkbox" class="form-checkbox h-5 w-5 text-red-600"><span class="ml-2 text-sm">Sim, eu entendo e quero continuar.</span></label></div><div class="mt-6 flex justify-end gap-4"><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="button" id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-md disabled:bg-red-300" disabled>Excluir Permanentemente</button></div></div></div>
     <div id="correcao-chamada-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6"><h3 class="text-xl font-bold mb-4">Corrigir/Lançar Chamada (Admin)</h3><form id="correcao-chamada-form"><div class="flex flex-col md:flex-row gap-4 mb-6"><div class="flex-1"><label for="correcao-turma-select" class="block text-sm font-medium text-gray-700">Turma</label><select id="correcao-turma-select" class="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm"></select></div><div class="flex-1"><label for="correcao-data-select" class="block text-sm font-medium text-gray-700">Data</label><input type="date" id="correcao-data-select" class="w-full mt-1 p-2 border border-gray-300 rounded-md shadow-sm"></div></div><div id="correcao-calendario-aviso" class="hidden mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2"></div><div id="correcao-chamada-lista-container" class="max-h-96 overflow-y-auto pr-2"><div id="correcao-chamada-lista-alunos" class="space-y-4"></div></div><div class="mt-6 flex justify-end gap-4"><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar Correção</button></div></form></div></div>
     <div id="aluno-historico-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6"><div class="printable-area"><div class="print-header"><img src="./logo.png" alt="Logo da Escola"><div class="print-header-info"><h2 id="historico-titulo-impressao">Histórico de Frequência do Aluno</h2><p id="historico-aluno-nome-impressao"></p></div></div><div id="historico-summary" class="grid grid-cols-3 gap-4 mb-4 text-center"><div><p class="text-sm text-gray-500">Total de Presenças</p><p id="historico-presencas" class="text-xl font-bold text-green-600">0</p></div><div><p class="text-sm text-gray-500">Total de Faltas</p><p id="historico-faltas" class="text-xl font-bold text-red-600">0</p></div><div><p class="text-sm text-gray-500">Taxa de Assiduidade</p><p id="historico-assiduidade" class="text-xl font-bold text-blue-600">0%</p></div></div><div class="max-h-80 overflow-y-auto border-t pt-4"><table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left font-semibold text-gray-600">Data</th><th class="p-2 text-left font-semibold text-gray-600">Hora</th><th class="p-2 text-left font-semibold text-gray-600">Status</th><th class="p-2 text-left font-semibold text-gray-600">Justificativa</th></tr></thead><tbody id="aluno-historico-table-body"></tbody></table></div></div><div class="mt-6 flex justify-end gap-4 no-print"><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Fechar</button><button type="button" id="imprimir-historico-btn" class="px-4 py-2 bg-gray-600 text-white rounded-md ml-2">Imprimir</button></div></div></div>
     <div id="promover-turmas-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -433,6 +560,14 @@
                             <label for="assiduidade-prof-ano" class="block text-sm font-medium">Ano Letivo</label>
                             <select id="assiduidade-prof-ano" class="w-full mt-1 p-2 border rounded-md"></select>
                         </div>
+                        <div>
+                            <label for="assiduidade-prof-status" class="block text-sm font-medium">Status</label>
+                            <select id="assiduidade-prof-status" class="w-full mt-1 p-2 border rounded-md">
+                                <option value="ativo" selected>Ativos</option>
+                                <option value="inativo">Inativos</option>
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
                         <div class="md:col-span-3">
                             <label for="assiduidade-prof-professor" class="block text-sm font-medium">Professor Específico (Opcional)</label>
                             <select id="assiduidade-prof-professor" class="w-full mt-1 p-2 border rounded-md"></select>
@@ -450,6 +585,8 @@
     <script type="module" src="script.js"></script>
 </body>
 </html>
+
+
 
 
 

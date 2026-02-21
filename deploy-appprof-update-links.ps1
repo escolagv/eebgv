@@ -1,12 +1,13 @@
 Param(
-    [string]$AppVersion = "1.0.0",
+    [string]$AppVersion = "",
     [string]$ProfessorUrl = "https://eebgv.vercel.app/apoia/professor.html",
     [string]$BaseUrl = "https://eebgv.vercel.app",
     [string]$ApkUrl = "https://eebgv.vercel.app/appprof/downloads/appprof.apk",
     [string]$IosUrl = "https://eebgv.vercel.app/appprof/downloads/appprof.ipa",
     [string]$ApkPath = "",
     [string]$IosPath = "",
-    [switch]$UpdateProfessorVersion
+    [switch]$UpdateProfessorVersion,
+    [switch]$AutoVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,5 +23,6 @@ $script = Join-Path $root "deploy-appprof.ps1"
   -ApkPath $ApkPath `
   -IosPath $IosPath `
   -UpdateProfessorVersion:$UpdateProfessorVersion `
+  -AutoVersion:$AutoVersion `
   -SkipGit `
   -SkipVercel

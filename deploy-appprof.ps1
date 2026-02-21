@@ -1,5 +1,5 @@
 Param(
-    [string]$AppVersion = "1.0.0",
+    [string]$AppVersion = "",
     [string]$ProfessorUrl = "https://eebgv.vercel.app/apoia/professor.html",
     [string]$BaseUrl = "https://eebgv.vercel.app",
     [string]$ApkUrl = "https://eebgv.vercel.app/appprof/downloads/appprof.apk",
@@ -9,6 +9,7 @@ Param(
     [switch]$BuildAndroid,
     [switch]$BuildIos,
     [switch]$UpdateProfessorVersion,
+    [switch]$AutoVersion,
     [switch]$SkipGit,
     [switch]$SkipVercel,
     [string]$GitRemoteUrl = "https://github.com/escolagv/eebgv.git",
@@ -28,6 +29,41 @@ if (!(Test-Path $appprofIndex)) {
 }
 
 $html = Get-Content $appprofIndex -Raw
+
+function Get-CurrentAppVersion {
+    param([string]$Html)
+    $match = [regex]::Match($Html, 'Versão\s*<strong>([^<]+)</strong>')
+    if ($match.Success) { return $match.Groups[1].Value.Trim() }
+    $match = [regex]::Match($Html, '__APP_VERSION__')
+    if ($match.Success) { return "1.0.0" }
+    return "1.0.0"
+}
+
+function Get-NextAppVersion {
+    param([string]$Current)
+    $parts = $Current -split '\.' | ForEach-Object { [int]($_) }
+    $major = if ($parts.Length -gt 0) { $parts[0] } else { 1 }
+    $minor = if ($parts.Length -gt 1) { $parts[1] } else { 0 }
+    $patch = if ($parts.Length -gt 2) { $parts[2] } else { 0 }
+    if ($patch -ge 9) {
+        $patch = 0
+        if ($minor -ge 9) {
+            $minor = 0
+            $major += 1
+        } else {
+            $minor += 1
+        }
+    } else {
+        $patch += 1
+    }
+    return "$major.$minor.$patch"
+}
+
+if ($AutoVersion -or [string]::IsNullOrWhiteSpace($AppVersion)) {
+    $currentVersion = Get-CurrentAppVersion -Html $html
+    $AppVersion = Get-NextAppVersion -Current $currentVersion
+    Write-Host "Versao automatica: $currentVersion -> $AppVersion" -ForegroundColor Cyan
+}
 
 function Ensure-Command {
     param([string]$Name)

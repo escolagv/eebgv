@@ -3,121 +3,380 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Manual APOIA</title>
+    <title>Manual de Chamadas Professor</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        body { background: #f4f4f7; }
-        .help-container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
-        .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); }
+        :root {
+            --bg: #eef2f7;
+            --ink: #0f172a;
+            --muted: #64748b;
+            --card: #ffffff;
+            --accent: #1d4ed8;
+            --accent-soft: #dbeafe;
+            --border: #e2e8f0;
+        }
+        body {
+            background: radial-gradient(circle at top, #f8fafc 0%, #e2e8f0 50%, #dbe5f3 100%);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+        .help-overlay { padding: 32px 16px 64px; }
+        .help-window {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--card);
+            border-radius: 20px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .help-header {
+            padding: 28px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-logo { width: 56px; height: 56px; object-fit: contain; }
+        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .help-title { font-size: 2rem; margin: 0; }
+        .help-sub { color: var(--muted); margin: 0; }
+        .btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--ink);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .help-body {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 24px;
+            padding: 24px 32px 40px;
+        }
+        .toc {
+            position: sticky;
+            top: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: calc(100vh - 160px);
+            overflow: auto;
+            padding-right: 6px;
+        }
+        .toc a {
+            text-decoration: none;
+            color: var(--ink);
+            font-weight: 600;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+        .toc a:hover { border-color: var(--accent); color: var(--accent); }
+        .content { display: flex; flex-direction: column; gap: 18px; }
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
         .card h2 { margin-top: 0; }
-        .faq dt { font-weight: 600; margin-top: 16px; }
-        .faq dd { margin-left: 0; margin-bottom: 12px; color: #4b5563; }
+        .section { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 18px; }
         .tag { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid; font-size: 0.8rem; }
         .tag-admin { border-color: #2563eb; color: #1d4ed8; }
-        .tag-prof { border-color: #10b981; color: #047857; }
-        .section-list { list-style: disc; padding-left: 20px; color: #111827; }
-        .resource { font-size: 0.85rem; color: #475467; }
+        .tag-prof { border-color: #12b76a; color: #027a48; }
+        .section-list { list-style: disc; padding-left: 20px; color: var(--ink); }
+        .resource { font-size: 0.9rem; color: var(--muted); }
+        .highlight { background: #fff7ed; padding: 0 4px; border-radius: 4px; }
+        .result-hidden { display: none !important; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .steps { counter-reset: step; list-style: none; padding-left: 0; margin: 0; display: grid; gap: 12px; }
+        .steps li {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px 12px 46px;
+            position: relative;
+        }
+        .steps li::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute;
+            left: 14px;
+            top: 12px;
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            background: #1d4ed8;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        @media (max-width: 980px) {
+            .help-body { grid-template-columns: 1fr; }
+            .toc { position: static; max-height: none; flex-direction: row; flex-wrap: wrap; }
+        }
+        @media print {
+            @page { margin: 12mm; }
+            body { background: #ffffff !important; }
+            body * { visibility: visible !important; }
+            a { color: inherit !important; text-decoration: none !important; }
+            .help-overlay { padding: 0 !important; }
+            .help-window { box-shadow: none !important; border: none !important; }
+            .help-header {
+                border-bottom: 1px solid #e2e8f0;
+                padding: 0 0 12px 0;
+            }
+            .header-logo { width: 40px; height: 40px; }
+            .help-title { font-size: 1.4rem; }
+            .help-sub { font-size: 0.9rem; }
+            .help-body {
+                grid-template-columns: 1fr;
+                padding: 16px 0 0;
+                gap: 12px;
+            }
+            .toc { display: none !important; }
+            .btn { display: none !important; }
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #e2e8f0;
+                margin-bottom: 12px;
+                page-break-inside: auto;
+                break-inside: auto;
+            }
+            .section { page-break-inside: auto; break-inside: auto; }
+        }
     </style>
 </head>
 <body>
-    <div class="help-container">
-        <div class="card">
-            <h1>Manual APOIA</h1>
-            <p class="resource">Este manual explica como operar o sistema e a lógica por trás de cada módulo. Cada seção mostra o que fazer e o que acontece depois da ação.</p>
-            <p class="resource">Use Ctrl+P para imprimir a sessão atual ou salvar em PDF.</p>
-        </div>
+    <div class="help-overlay">
+        <div class="help-window">
+            <div class="help-header">
+                <div class="header-left">
+                    <img src="./logo.png" alt="EEB Getúlio Vargas" class="header-logo">
+                    <div>
+                        <h1 class="help-title">Manual de Chamadas</h1>
+                        <p class="help-sub">Guia completo e objetivo para professor e administração.</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="print-page" class="btn btn-primary">Imprimir / PDF</button>
+                </div>
+            </div>
+            <div class="help-body">
+                <nav class="toc" id="help-toc">
+                    <a href="#professor-visao" data-role="professor">Visão geral (Professor)</a>
+                    <a href="#professor-fluxo" data-role="professor">Fluxo da chamada</a>
+                    <a href="#professor-regras" data-role="professor">Regras e bloqueios</a>
+                    <a href="#professor-senha" data-role="professor">Senha e acesso</a>
+                    <a href="#professor-problemas" data-role="professor">Problemas comuns</a>
 
-        <div class="card">
+                    <a href="#admin-manual" data-role="admin">Admin completo</a>
+                    <a href="#admin-dashboard" data-role="admin">Dashboard</a>
+                    <a href="#admin-professores" data-role="admin">Professores</a>
+                    <a href="#admin-turmas" data-role="admin">Turmas</a>
+                    <a href="#admin-alunos" data-role="admin">Alunos</a>
+                    <a href="#admin-apoia" data-role="admin">Acompanhamento APOIA</a>
+                    <a href="#admin-calendario" data-role="admin">Calendário</a>
+                    <a href="#admin-ano" data-role="admin">Ano letivo</a>
+                    <a href="#admin-relatorios" data-role="admin">Relatórios</a>
+                    <a href="#admin-consistencia" data-role="admin">Consistência</a>
+                    <a href="#admin-config" data-role="admin">Configurações</a>
+                </nav>
+
+                <div class="content">
+                    <div class="card" id="professor-visao" data-section>
+                        <div class="pill">Professor</div>
+                        <h2>Visão geral (Professor)</h2>
+                        <p class="resource">O professor registra a chamada do dia atual para as turmas vinculadas ao seu usuário.</p>
+                        <div class="grid-2">
+                            <div>
+                                <h3>O que você faz</h3>
+                                <ul class="section-list">
+                                    <li>Seleciona a turma.</li>
+                                    <li>Marca presença ou falta.</li>
+                                    <li>Define justificativa da falta.</li>
+                                    <li>Salva a chamada.</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3>O que o sistema faz</h3>
+                                <ul class="section-list">
+                                    <li>Grava aluno por aluno.</li>
+                                    <li>Atualiza relatórios automaticamente.</li>
+                                    <li>Bloqueia alterações após o prazo.</li>
+                                    <li>Respeita o calendário letivo.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" id="professor-fluxo" data-section>
+                        <div class="pill">Professor</div>
+                        <h2>Fluxo da chamada</h2>
+                        <ol class="steps">
+                            <li>Selecione a turma no campo “Turma”.</li>
+                            <li>O sistema mostra a data atual automaticamente.</li>
+                            <li>Marque “Faltou” apenas para quem faltou.</li>
+                            <li>Para falta, escolha justificativa (justificada ou injustificada).</li>
+                            <li>Clique em “Salvar Chamada”.</li>
+                        </ol>
+                    </div>
+
+                    <div class="card" id="professor-regras" data-section>
+                        <div class="pill">Professor</div>
+                        <h2>Regras e bloqueios</h2>
+                        <ul class="section-list">
+                            <li>A chamada é liberada somente para o dia atual.</li>
+                            <li>Datas com evento no calendário ficam bloqueadas.</li>
+                            <li>Após o primeiro salvamento, a chamada fica editável por até 1 hora.</li>
+                            <li>Depois desse prazo, apenas o admin consegue corrigir.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" id="professor-senha" data-section>
+                        <div class="pill">Professor</div>
+                        <h2>Senha e acesso</h2>
+                        <ul class="section-list">
+                            <li>Senha padrão inicial: 123456.</li>
+                            <li>Para trocar a senha, use “Resetar Senha” ou “Esqueci minha senha” no login.</li>
+                            <li>Seu acesso só aparece se seu usuário estiver ativo no sistema.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" id="professor-problemas" data-section>
+                        <div class="pill">Professor</div>
+                        <h2>Problemas comuns</h2>
+                        <ul class="section-list">
+                            <li><strong>Não consigo lançar chamada em outro dia:</strong> o professor só registra o dia atual. Para datas anteriores, o admin corrige.</li>
+                            <li><strong>Turma não aparece:</strong> a turma não está vinculada ao seu usuário. Avise a coordenação.</li>
+                            <li><strong>Não consigo alterar depois de salvar:</strong> após o primeiro salvamento, existe um prazo de 1 hora.</li>
+                            <li><strong>Dia bloqueado:</strong> há evento no calendário (feriado/recesso). O admin precisa liberar.</li>
+                        </ul>
+                    </div>
+
+                    <div class="card" id="admin-manual" data-section data-role="admin">
             <h2>Manual do Admin <span class="tag tag-admin">Admin + Professor</span></h2>
             <p class="resource">O admin controla cadastros, regras de presença, calendário e relatórios. A lógica do sistema é baseada em turmas, datas e status das presenças.</p>
-            <h3>Dashboard (Resumo do dia)</h3>
-            <ul class="section-list">
-                <li>Presenças e faltas são calculadas a partir da tabela `presencas`. Se você corrigir uma chamada, o resumo muda automaticamente.</li>
-                <li>Calendário mostra eventos. Se o dia estiver bloqueado, o professor não consegue lançar chamada naquele dia.</li>
-                <li>Notificações: o sino agrega alertas gerados por regras; marcar como lida apenas oculta do painel.</li>
-            </ul>
-            <h3>Professores</h3>
-            <ul class="section-list">
-                <li>Ao cadastrar um professor, o sistema cria vínculo de usuário. Sem vínculo, ele não aparece para lançar chamada.</li>
-                <li>Efetivo/ACT: efetivos podem ser promovidos automaticamente no novo ano; ACTs ficam inativos se não forem atualizados.</li>
-                <li>Reset de senha envia e-mail; se o usuário não confirmar o e-mail, ele continua com acesso pendente.</li>
-            </ul>
-            <h3>Turmas</h3>
-            <ul class="section-list">
-                <li>Turma = código + ano letivo. Se duplicar, a consistência acusará erro.</li>
-                <li>Ao vincular professor, o professor passa a enxergar a turma no painel e consegue lançar chamada.</li>
-                <li>Eventos por turma: se o evento tiver exceções, a chamada do dia é bloqueada somente para as turmas marcadas.</li>
-            </ul>
-            <h3>Alunos</h3>
-            <ul class="section-list">
-                <li>Aluno sem turma não entra nas chamadas. O painel de consistência mostra esses casos.</li>
-                <li>Status do aluno (ativo/inativo) controla se ele aparece em filtros e relatórios.</li>
-                <li>Histórico mostra datas e justificativas. Se você alterar uma falta, a assiduidade é recalculada.</li>
-            </ul>
-            <h3>Acompanhamento APOIA</h3>
-            <ul class="section-list">
-                <li>Registro manual gera entradas de acompanhamento que não dependem da chamada.</li>
-                <li>Se o status for “Finalizado”, o aluno deixa de aparecer nos filtros de acompanhamento ativo.</li>
-                <li>Relatório APOIA consolida por período e pode ser impresso em PDF.</li>
-            </ul>
-            <h3>Calendário</h3>
-            <ul class="section-list">
-                <li>Eventos globais bloqueiam todas as turmas; eventos específicos bloqueiam somente as turmas selecionadas.</li>
-                <li>Se o evento for intervalo (data início e fim), todas as datas do intervalo ficam bloqueadas.</li>
-            </ul>
-            <h3>Ano Letivo</h3>
-            <ul class="section-list">
-                <li>Promover turmas move alunos e atualiza vínculos. Professores ACT não são promovidos automaticamente.</li>
-                <li>Depois da promoção, sempre revise turmas duplicadas no painel de consistência.</li>
-            </ul>
-            <h3>Relatórios de Faltas</h3>
-            <ul class="section-list">
-                <li>Filtros por data, turma, aluno e professor. Quanto mais filtros, mais preciso o relatório.</li>
-                <li>Se o professor lançou falta e você corrige, o relatório já reflete a correção.</li>
-                <li>Exportação em PDF mantém o layout e cabeçalhos.</li>
-            </ul>
-            <h3>Consistência</h3>
-            <ul class="section-list">
-                <li>Alunos sem turma: não aparecem na chamada; resolva vinculando a turma.</li>
-                <li>Professores sem turma: não conseguem lançar chamada.</li>
-                <li>Turmas duplicadas: geram conflito em filtros e relatórios.</li>
-            </ul>
-            <h3>Configurações e Notificações</h3>
-            <ul class="section-list">
-                <li>Alertas de faltas consecutivas/intercaladas geram notificações para o admin.</li>
-                <li>Notificação é criada no dia seguinte ao gatilho (ex.: 5 faltas seguidas até dia 15). No início do mês, o sistema reinicia a contagem mensal.</li>
-                <li>Configurações gerais permitem ajustar dados da escola e parâmetros globais do sistema.</li>
-            </ul>
+            <div class="section" id="admin-dashboard" data-section data-role="admin">
+                <h3>Dashboard (Resumo do dia)</h3>
+                <ul class="section-list">
+                    <li>Presencas/faltas são calculadas da tabela `presencas`. Se você corrigir uma chamada, o resumo muda automaticamente.</li>
+                    <li>Calendario mostra eventos. Se o dia estiver bloqueado, o professor nao consegue lançar chamada.</li>
+                    <li>Notificacoes: o sino agrega alertas gerados por regras; marcar como lida apenas oculta do painel.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-professores" data-section data-role="admin">
+                <h3>Professores</h3>
+                <ul class="section-list">
+                    <li>Ao cadastrar, o sistema cria vinculo de usuario. Sem vinculo, ele nao aparece para lançar chamada.</li>
+                    <li>Efetivo/ACT: efetivos podem ser promovidos automaticamente no novo ano; ACTs ficam inativos se nao forem atualizados.</li>
+                    <li>Reset de senha envia e-mail; se o usuario nao confirmar o e-mail, ele continua com acesso pendente.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-turmas" data-section data-role="admin">
+                <h3>Turmas</h3>
+                <ul class="section-list">
+                    <li>Turma = codigo + ano letivo. Se duplicar, a consistencia acusa erro.</li>
+                    <li>Ao vincular professor, ele passa a enxergar a turma e pode lançar chamada.</li>
+                    <li>Eventos por turma: excecoes bloqueiam a chamada apenas para turmas marcadas.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-alunos" data-section data-role="admin">
+                <h3>Alunos</h3>
+                <ul class="section-list">
+                    <li>Aluno sem turma nao entra nas chamadas. O painel de consistencia mostra esses casos.</li>
+                    <li>Status do aluno (ativo/inativo) controla se ele aparece em filtros e relatorios.</li>
+                    <li>Historico mostra datas/justificativas. Se alterar falta, a assiduidade é recalculada.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-apoia" data-section data-role="admin">
+                <h3>Acompanhamento APOIA</h3>
+                <ul class="section-list">
+                    <li>Registro manual gera entradas que nao dependem da chamada.</li>
+                    <li>Status “Finalizado” remove o aluno dos filtros de acompanhamento ativo.</li>
+                    <li>Relatorio APOIA consolida por periodo e pode ser impresso em PDF.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-calendario" data-section data-role="admin">
+                <h3>Calendario</h3>
+                <ul class="section-list">
+                    <li>Eventos globais bloqueiam todas as turmas; eventos especificos bloqueiam apenas turmas selecionadas.</li>
+                    <li>Se o evento for intervalo, todas as datas do intervalo ficam bloqueadas.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-ano" data-section data-role="admin">
+                <h3>Ano Letivo</h3>
+                <ul class="section-list">
+                    <li>Promover turmas move alunos e atualiza vinculos. Professores ACT nao sao promovidos automaticamente.</li>
+                    <li>Depois da promocao, revise turmas duplicadas no painel de consistencia.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-relatorios" data-section data-role="admin">
+                <h3>Relatorios de Faltas</h3>
+                <ul class="section-list">
+                    <li>Filtros por data, turma, aluno e professor. Quanto mais filtros, mais preciso o relatorio.</li>
+                    <li>Se o professor lançou falta e voce corrige, o relatorio já reflete a correcao.</li>
+                    <li>Exportacao em PDF mantém layout e cabecalhos.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-consistencia" data-section data-role="admin">
+                <h3>Consistencia</h3>
+                <ul class="section-list">
+                    <li>Alunos sem turma: nao aparecem na chamada; resolva vinculando a turma.</li>
+                    <li>Professores sem turma: nao conseguem lançar chamada.</li>
+                    <li>Turmas duplicadas: geram conflito em filtros e relatorios.</li>
+                </ul>
+            </div>
+            <div class="section" id="admin-config" data-section data-role="admin">
+                <h3>Configuracoes e Notificacoes</h3>
+                <ul class="section-list">
+                    <li>Alertas de faltas consecutivas/intercaladas geram notificacoes para o admin.</li>
+                    <li>Notificacao é criada no dia seguinte ao gatilho (ex.: 5 faltas seguidas ate dia 15). No inicio do mes, o sistema reinicia a contagem mensal.</li>
+                    <li>Configuracoes gerais ajustam dados da escola e parametros globais.</li>
+                </ul>
+            </div>
         </div>
-
-        <div class="card">
-            <h2>Manual do Professor <span class="tag tag-prof">Somente Professor</span></h2>
-            <ul class="section-list">
-                <li>Selecione a turma e a data. Se a data estiver bloqueada no calendário, o sistema impede o lançamento.</li>
-                <li>Marque presença/falta. Ao marcar falta, escolha justificativa. Sem justificativa, a falta é registrada como injustificada.</li>
-                <li>“Marcar todos presentes” preenche automaticamente; revise antes de salvar.</li>
-                <li>Ao salvar, o sistema grava por aluno. Se salvar novamente na mesma data, ele atualiza a chamada.</li>
-                <li>Link “App do Professor” abre o aplicativo. Se o APK for atualizado, basta instalar por cima.</li>
-            </ul>
-        </div>
-
-        <div class="card">
-            <h2>FAQ inteligente</h2>
-            <p class="resource">Abaixo está a base de perguntas frequentes. Para tornar “inteligente”, podemos integrar Gemini/Qwen e responder com contexto do sistema.</p>
-            <h3>Perguntas frequentes</h3>
-            <dl class="faq">
-                <dt>Por que não consigo lançar chamada em um dia?</dt>
-                <dd>Esse dia está bloqueado no calendário (evento global ou exceção por turma). Remova o evento ou ajuste a exceção.</dd>
-                <dt>Se eu corrigir uma chamada, o que muda?</dt>
-                <dd>O sistema atualiza a linha de presença e recalcula assiduidade, faltas e relatórios imediatamente.</dd>
-                <dt>Como funcionam as notificações de faltas?</dt>
-                <dd>As regras geram notificações quando atingem o limite. Ex.: 5 faltas seguidas ou 7 intercaladas no mês → notificação no dia seguinte.</dd>
-                <dt>Por que o professor não aparece para a turma?</dt>
-                <dd>Falta vínculo professor-turma. Verifique o módulo Professores e associe a turma correta.</dd>
-                <dt>O que significa “professor sem turma”?</dt>
-                <dd>O professor está ativo, mas sem vínculo. Ele não consegue lançar chamadas até ser vinculado.</dd>
-            </dl>
+                </div>
+            </div>
         </div>
     </div>
+    <script>
+        const printBtn = document.getElementById('print-page');
+        const sections = Array.from(document.querySelectorAll('[data-section]'));
+        const params = new URLSearchParams(window.location.search);
+        const role = params.get('role');
+        if (role === 'professor') {
+            document.querySelectorAll('[data-role="admin"]').forEach(el => el.classList.add('result-hidden'));
+            const toc = document.getElementById('help-toc');
+            if (toc) {
+                Array.from(toc.querySelectorAll('[data-role="admin"]')).forEach(link => link.classList.add('result-hidden'));
+            }
+        }
+
+        printBtn.addEventListener('click', () => window.print());
+    </script>
 </body>
 </html>

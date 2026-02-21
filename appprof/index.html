@@ -64,6 +64,7 @@
             text-decoration: none;
             font-weight: 600;
             border: 1px solid transparent;
+            cursor: pointer;
         }
         .btn-primary { background: #2563eb; color: #fff; }
         .btn-primary:hover { background: #1d4ed8; }
@@ -71,6 +72,19 @@
         .btn-android:hover { background: #059669; }
         .btn-ios { background: #111827; color: #fff; }
         .btn-ios:hover { background: #000; }
+        .btn-disabled {
+            background: #e5e7eb !important;
+            color: #6b7280 !important;
+            cursor: not-allowed;
+        }
+        .badge-soon {
+            font-size: 0.7rem;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 2px 6px;
+            border-radius: 999px;
+            border: 1px solid #fcd34d;
+        }
         .note {
             margin-top: 18px;
             font-size: 0.9rem;
@@ -96,15 +110,16 @@
 <body>
     <div class="container">
         <div class="card">
-            <div class="badge">App do Professor · Versão <strong>1.0.0</strong></div>
+            <div class="badge">App do Professor · Versão <strong>1.0.1</strong></div>
             <h1 class="title">APOIA · Área do Professor</h1>
             <p class="subtitle">Escolha como acessar: abrir no navegador ou instalar o aplicativo.</p>
 
             <div class="grid">
-                <a class="btn btn-primary" href="https://eebgv.vercel.app/apoia/professor.html" target="_blank" rel="noopener">Abrir no navegador</a>
+                <button class="btn btn-primary" id="copy-browser-link" data-url="https://eebgv.vercel.app/apoia/professor.html">Abrir no navegador</button>
                 <a class="btn btn-android" href="https://eebgv.vercel.app/appprof/downloads/appprof.apk" target="_blank" rel="noopener">Baixar APK Android</a>
-                <a class="btn btn-ios" href="https://eebgv.vercel.app/appprof/downloads/appprof.ipa" target="_blank" rel="noopener">Instalar iOS</a>
+                <button class="btn btn-ios btn-disabled" type="button" disabled>Instalar iOS <span class="badge-soon">Em breve</span></button>
             </div>
+            <p id="copy-feedback" class="note muted" aria-live="polite"></p>
 
             <p class="note">
                 Se o link do iOS estiver vazio, use o acesso pelo navegador e adicione à tela inicial.
@@ -112,16 +127,27 @@
                 <strong>Adicionar à Tela de Início</strong>.
             </p>
 
-            <p class="note muted">
-                Ajuste os links acima editando este arquivo ou rodando o script
-                <code>deploy-appprof.ps1</code> para atualizar a versão e as URLs.
-            </p>
-
             <div class="footer">EEB Getúlio Vargas · Sistema APOIA</div>
         </div>
     </div>
+    <script>
+        const copyBtn = document.getElementById('copy-browser-link');
+        const feedback = document.getElementById('copy-feedback');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', async () => {
+                const url = copyBtn.dataset.url;
+                try {
+                    await navigator.clipboard.writeText(url);
+                    if (feedback) feedback.textContent = 'Link copiado. Cole no navegador para acessar.';
+                } catch (err) {
+                    if (feedback) feedback.textContent = 'Não foi possível copiar automaticamente. Copie este link: ' + url;
+                }
+            });
+        }
+    </script>
 </body>
 </html>
+
 
 
 

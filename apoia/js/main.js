@@ -63,6 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const togglePasswordBtn = document.getElementById('toggle-password-btn');
     const eyeIcon = document.getElementById('eye-icon');
     const eyeOffIcon = document.getElementById('eye-off-icon');
+    const professorPasswordInput = document.getElementById('professor-password');
+    const professorPasswordToggle = document.getElementById('professor-password-show');
+    const professorPhoneInput = document.getElementById('professor-telefone');
+    const professorAccountPhoneInput = document.getElementById('professor-account-phone');
     const turmaSelect = document.getElementById('professor-turma-select');
     const salvarChamadaBtn = document.getElementById('salvar-chamada-btn');
     const notificationBell = document.getElementById('notification-bell');
@@ -88,6 +92,46 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
         });
     }
+    if (professorPhoneInput) {
+        professorPhoneInput.addEventListener('input', (e) => {
+            const digits = e.target.value.replace(/\D/g, '');
+            if (!digits) {
+                e.target.value = '';
+                return;
+            }
+            const ddd = digits.slice(0, 2);
+            const rest = digits.slice(2);
+            if (!rest) {
+                e.target.value = `(${ddd})`;
+                return;
+            }
+            if (rest.length <= 5) {
+                e.target.value = `(${ddd})${rest}`;
+                return;
+            }
+            e.target.value = `(${ddd})${rest.slice(0, 5)}-${rest.slice(5)}`;
+        });
+    }
+    if (professorAccountPhoneInput) {
+        professorAccountPhoneInput.addEventListener('input', (e) => {
+            const digits = e.target.value.replace(/\D/g, '');
+            if (!digits) {
+                e.target.value = '';
+                return;
+            }
+            const ddd = digits.slice(0, 2);
+            const rest = digits.slice(2);
+            if (!rest) {
+                e.target.value = `(${ddd})`;
+                return;
+            }
+            if (rest.length <= 5) {
+                e.target.value = `(${ddd})${rest}`;
+                return;
+            }
+            e.target.value = `(${ddd})${rest.slice(0, 5)}-${rest.slice(5)}`;
+        });
+    }
 
     const setupSupportLinks = () => {
         const numero = '5548991004780';
@@ -100,8 +144,27 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     setupSupportLinks();
 
+    const noticeEl = document.getElementById('professor-password-notice');
+    const dismissNoticeBtn = document.getElementById('dismiss-password-notice');
+    if (noticeEl) {
+        const shouldHide = localStorage.getItem('apoia_hide_password_notice') === 'true';
+        if (shouldHide) noticeEl.classList.add('hidden');
+    }
+    if (dismissNoticeBtn) {
+        dismissNoticeBtn.addEventListener('click', () => {
+            localStorage.setItem('apoia_hide_password_notice', 'true');
+            if (noticeEl) noticeEl.classList.add('hidden');
+        });
+    }
+
     const helpButtons = document.querySelectorAll('[data-open-help]');
-    helpButtons.forEach(el => el.addEventListener('click', () => window.open('help.html', '_blank')));
+    helpButtons.forEach(el => el.addEventListener('click', () => {
+        const role = document.body.dataset.userRole || '';
+        const url = role === 'professor'
+            ? 'help.html?role=professor#professor-manual'
+            : 'help.html#admin-manual';
+        window.open(url, '_blank');
+    }));
 
     if (togglePasswordBtn) {
         togglePasswordBtn.addEventListener('click', () => {
@@ -109,6 +172,11 @@ document.addEventListener('DOMContentLoaded', () => {
             passwordInput.type = isPassword ? 'text' : 'password';
             eyeIcon.classList.toggle('hidden', isPassword);
             eyeOffIcon.classList.toggle('hidden', !isPassword);
+        });
+    }
+    if (professorPasswordToggle && professorPasswordInput) {
+        professorPasswordToggle.addEventListener('change', () => {
+            professorPasswordInput.type = professorPasswordToggle.checked ? 'text' : 'password';
         });
     }
     if (turmaSelect) turmaSelect.addEventListener('change', loadChamada);
@@ -517,6 +585,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.matches('#aluno-search-input')) {
             renderAlunosPanel();
         } else if (e.target.matches('#professor-search-input')) {
+            renderProfessoresPanel();
+        }
+    });
+    document.body.addEventListener('change', (e) => {
+        if (e.target.matches('#professor-status-filter')) {
             renderProfessoresPanel();
         }
     });

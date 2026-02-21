@@ -54,19 +54,36 @@ body { font-family: 'Inter', sans-serif; }
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    flex-direction: column;
+    gap: 2px;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 9999px;
+    color: #000;
+    border: 1px solid #e5e7eb;
 }
 
 .calendar-day-event {
-    background-color: #3b82f6;
-    color: white;
-    font-weight: bold;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    font-weight: 600;
 }
 
 .calendar-day-weekend {
-    background-color: #fef08a;
+    background-color: transparent;
+}
+
+.calendar-day-number {
+    line-height: 1;
+    font-size: 0.8rem;
+    color: #000;
+    text-shadow:
+        0 0 2px #fff,
+        0 0 4px #fff,
+        0 0 6px #fff;
+}
+
+.calendar-day-weekend .calendar-day-number {
+    color: #ef4444;
 }
 
 .tooltip {
