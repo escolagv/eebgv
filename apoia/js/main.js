@@ -28,6 +28,7 @@ import {
     handleGerarApoiaRelatorio,
     openAlunoModal,
     openProfessorModal,
+    openProfessorConsultaModal,
     openTurmaModal,
     openAcompanhamentoModal,
     openEventoModal,
@@ -387,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('.edit-aluno-btn')) openAlunoModal(closest('.edit-aluno-btn').dataset.id);
         if (closest('.historico-aluno-btn')) openAlunoHistoricoModal(closest('.historico-aluno-btn').dataset.id);
         if (closest('#add-professor-btn')) openProfessorModal();
+        if (closest('#professor-consulta-btn')) openProfessorConsultaModal();
         if (closest('.edit-professor-btn')) openProfessorModal(closest('.edit-professor-btn').dataset.id);
         if (closest('#add-turma-btn')) openTurmaModal();
         if (closest('.edit-turma-btn')) openTurmaModal(closest('.edit-turma-btn').dataset.id);

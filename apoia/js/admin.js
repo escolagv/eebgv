@@ -732,6 +732,114 @@ export async function renderProfessoresPanel(options = {}) {
     }).join('');
 }
 
+function formatDateTimeSP(value) {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        dateStyle: 'short',
+        timeStyle: 'short',
+        hour12: false
+    }).format(date);
+}
+
+async function fetchAuthStatusByEmails(emails) {
+    if (!emails || emails.length === 0) return [];
+    const { data, error } = await safeQuery(
+        db.rpc('auth_user_status_by_email', { p_emails: emails })
+    );
+    if (error) return [];
+    return Array.isArray(data) ? data : [];
+}
+
+function setConsultaTab(activeTab) {
+    const criadosPanel = document.getElementById('consulta-criados-panel');
+    const confirmadosPanel = document.getElementById('consulta-confirmados-panel');
+    const tabButtons = document.querySelectorAll('.professor-consulta-tab');
+    tabButtons.forEach(btn => {
+        const isActive = btn.dataset.consultaTab === activeTab;
+        btn.classList.toggle('bg-blue-600', isActive);
+        btn.classList.toggle('text-white', isActive);
+        btn.classList.toggle('bg-gray-100', !isActive);
+        btn.classList.toggle('text-gray-700', !isActive);
+        btn.classList.toggle('hover:bg-gray-200', !isActive);
+    });
+    if (criadosPanel) criadosPanel.classList.toggle('hidden', activeTab !== 'criados');
+    if (confirmadosPanel) confirmadosPanel.classList.toggle('hidden', activeTab !== 'confirmados');
+}
+
+function bindProfessorConsultaModal() {
+    const modal = document.getElementById('professor-consulta-modal');
+    if (!modal || modal.dataset.bound === '1') return;
+    modal.addEventListener('click', (e) => {
+        const tabBtn = e.target.closest('.professor-consulta-tab');
+        if (tabBtn) setConsultaTab(tabBtn.dataset.consultaTab);
+    });
+    modal.dataset.bound = '1';
+}
+
+export async function openProfessorConsultaModal() {
+    const modal = document.getElementById('professor-consulta-modal');
+    if (!modal) return;
+    bindProfessorConsultaModal();
+    setConsultaTab('criados');
+    modal.classList.remove('hidden');
+
+    const createdBody = document.getElementById('consulta-criados-body');
+    const confirmedBody = document.getElementById('consulta-confirmados-body');
+    if (createdBody) createdBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
+    if (confirmedBody) confirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
+
+    const { data: professores, error } = await safeQuery(
+        db.from('usuarios')
+            .select('nome, email')
+            .eq('papel', 'professor')
+            .order('nome', { ascending: true })
+    );
+    if (error || !professores) {
+        if (createdBody) createdBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
+        if (confirmedBody) confirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
+        return;
+    }
+
+    const emails = professores.map(p => p.email).filter(Boolean);
+    const statusData = await fetchAuthStatusByEmails(emails);
+    const statusMap = new Map();
+    statusData.forEach(item => statusMap.set(item.email, item));
+
+    const createdRows = professores.map(p => {
+        const auth = statusMap.get(p.email);
+        const createdAt = auth?.created_at ? formatDateTimeSP(auth.created_at) : '-';
+        return `
+            <tr>
+                <td class="p-3">${p.nome || '-'}</td>
+                <td class="p-3">${p.email || '-'}</td>
+                <td class="p-3">${createdAt}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const confirmedRows = professores
+        .map(p => {
+            const auth = statusMap.get(p.email);
+            const confirmedAt = auth?.confirmed_at || auth?.email_confirmed_at;
+            if (!confirmedAt) return null;
+            return `
+                <tr>
+                    <td class="p-3">${p.nome || '-'}</td>
+                    <td class="p-3">${p.email || '-'}</td>
+                    <td class="p-3">${formatDateTimeSP(confirmedAt)}</td>
+                </tr>
+            `;
+        })
+        .filter(Boolean)
+        .join('');
+
+    if (createdBody) createdBody.innerHTML = createdRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum registro encontrado.</td></tr>';
+    if (confirmedBody) confirmedBody.innerHTML = confirmedRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum confirmado ainda.</td></tr>';
+}
+
 async function syncEmailConfirmations(professores) {
     const emails = (professores || [])
         .map(p => p.email)

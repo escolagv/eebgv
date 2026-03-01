@@ -57,6 +57,10 @@ const FORCE = process.argv.includes('--force');
 const SKIP_LOGGED = process.argv.includes('--skip-logged');
 const SKIP_DAYS = Number(getArgValue('--skip-days', '7'));
 const DEFAULT_PASSWORD = getArgValue('--password', '123456');
+const EMAIL_FILTER_RAW = getArgValue('--email', '') || getArgValue('--emails', '');
+const EMAIL_FILTER = EMAIL_FILTER_RAW
+  ? EMAIL_FILTER_RAW.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean)
+  : [];
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -150,11 +154,66 @@ async function createAuthUser({ email, nome, telefone, vinculo }) {
 }
 
 async function updateUsuario(id, userUid) {
-  await callSupabase(`/rest/v1/usuarios?id=eq.${id}`, {
+  const data = await callSupabase(`/rest/v1/usuarios?id=eq.${id}`, {
     method: 'PATCH',
     body: { user_uid: userUid, email_confirmado: false },
     headers: { Prefer: 'return=representation' }
   });
+  return Array.isArray(data) ? data.length > 0 : !!data;
+}
+
+async function updateUsuarioByEmail(email, userUid) {
+  const data = await callSupabase(`/rest/v1/usuarios?email=eq.${encodeURIComponent(email)}&papel=eq.professor`, {
+    method: 'PATCH',
+    body: { user_uid: userUid, email_confirmado: false },
+    headers: { Prefer: 'return=representation' }
+  });
+  return Array.isArray(data) ? data.length > 0 : !!data;
+}
+
+async function insertUsuario(prof, userUid) {
+  await callSupabase('/rest/v1/usuarios', {
+    method: 'POST',
+    body: {
+      user_uid: userUid,
+      nome: prof.nome || '',
+      email: prof.email,
+      telefone: prof.telefone || '',
+      papel: 'professor',
+      status: prof.status || 'ativo',
+      vinculo: prof.vinculo || 'efetivo',
+      email_confirmado: false
+    },
+    headers: { Prefer: 'return=representation' }
+  });
+}
+
+async function upsertUsuario(prof, userUid) {
+  const payloadRetry = { email: prof.email, userUid };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      let updated = false;
+      if (prof.id) {
+        updated = await updateUsuario(prof.id, userUid);
+      }
+      if (!updated) {
+        updated = await updateUsuarioByEmail(prof.email, userUid);
+      }
+      if (!updated) {
+        await insertUsuario(prof, userUid);
+      }
+      return;
+    } catch (error) {
+      const message = error?.message || '';
+      const isFk = message.includes('foreign key') || message.includes('violates foreign key');
+      if (isFk && attempt < 2) {
+        console.warn(`Aviso: FK ao atualizar ${payloadRetry.email}. Tentando novamente...`);
+        await sleep(2000);
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 async function replaceUserUid(oldUid, newUid) {
@@ -211,9 +270,23 @@ async function main() {
     return;
   }
 
-  console.log(`Encontrados ${professores.length} professores para recriar no auth.`);
+  let selecionados = professores;
+  if (EMAIL_FILTER.length > 0) {
+    const filtroSet = new Set(EMAIL_FILTER);
+    selecionados = professores.filter((prof) => {
+      const email = (prof.email || '').trim().toLowerCase();
+      return email && filtroSet.has(email);
+    });
+    if (!selecionados.length) {
+      console.log('Nenhum professor encontrado para os e-mails informados.');
+      return;
+    }
+  }
 
-  for (const prof of professores) {
+  console.log(`Encontrados ${selecionados.length} professores para recriar no auth.`);
+
+  for (let i = 0; i < selecionados.length; i += 1) {
+    const prof = selecionados[i];
     const email = (prof.email || '').trim();
     if (!email) continue;
     if (DRY_RUN) {
@@ -246,7 +319,7 @@ async function main() {
       }
 
       await replaceUserUid(oldUid, newUid);
-      await updateUsuario(prof.id, newUid);
+      await upsertUsuario(prof, newUid);
       const result = await sendConfirmation(email);
       await logEnvio(email, 'sent', `confirmacao ${result.status}`);
       console.log(`✔ Confirmação enviada para ${email}.`);
@@ -255,7 +328,10 @@ async function main() {
       await logEnvio(email, 'error', error.message || 'erro');
     }
 
-    await sleep(DELAY_MS);
+    const isLast = i === selecionados.length - 1;
+    if (!isLast && DELAY_MS > 0) {
+      await sleep(DELAY_MS);
+    }
   }
 }
 
