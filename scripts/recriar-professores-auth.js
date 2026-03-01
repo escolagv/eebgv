@@ -156,7 +156,7 @@ async function createAuthUser({ email, nome, telefone, vinculo }) {
 async function updateUsuario(id, userUid) {
   const data = await callSupabase(`/rest/v1/usuarios?id=eq.${id}`, {
     method: 'PATCH',
-    body: { user_uid: userUid, email_confirmado: false },
+    body: { user_uid: userUid, email_confirmado: false, precisa_trocar_senha: true },
     headers: { Prefer: 'return=representation' }
   });
   return Array.isArray(data) ? data.length > 0 : !!data;
@@ -165,7 +165,7 @@ async function updateUsuario(id, userUid) {
 async function updateUsuarioByEmail(email, userUid) {
   const data = await callSupabase(`/rest/v1/usuarios?email=eq.${encodeURIComponent(email)}&papel=eq.professor`, {
     method: 'PATCH',
-    body: { user_uid: userUid, email_confirmado: false },
+    body: { user_uid: userUid, email_confirmado: false, precisa_trocar_senha: true },
     headers: { Prefer: 'return=representation' }
   });
   return Array.isArray(data) ? data.length > 0 : !!data;
@@ -182,7 +182,8 @@ async function insertUsuario(prof, userUid) {
       papel: 'professor',
       status: prof.status || 'ativo',
       vinculo: prof.vinculo || 'efetivo',
-      email_confirmado: false
+      email_confirmado: false,
+      precisa_trocar_senha: true
     },
     headers: { Prefer: 'return=representation' }
   });

@@ -304,6 +304,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) {
                 errorEl.textContent = 'Erro ao atualizar a senha: ' + error.message;
             } else {
+                if (state.currentUser?.id) {
+                    try {
+                        await safeQuery(
+                            db.from('usuarios')
+                                .update({ precisa_trocar_senha: false })
+                                .eq('user_uid', state.currentUser.id)
+                        );
+                        state.mustChangePassword = false;
+                        const gate = document.getElementById('professor-force-password-modal');
+                        if (gate) gate.classList.add('hidden');
+                    } catch (err) {
+                        console.warn('Falha ao atualizar flag de senha:', err?.message || err);
+                    }
+                }
                 showToast('Senha atualizada com sucesso! Por favor, faça o login com sua nova senha.');
                 closeAllModals();
                 await signOutUser();

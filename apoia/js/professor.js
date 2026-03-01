@@ -79,6 +79,32 @@ export async function checkProfessorAppUpdate() {
     }
 }
 
+export function applyProfessorPasswordGate() {
+    const modal = document.getElementById('professor-force-password-modal');
+    if (!modal) return;
+    const notice = document.getElementById('professor-password-notice');
+    const changeBtn = document.getElementById('professor-force-password-btn');
+    const logoutBtn = document.getElementById('professor-force-logout-btn');
+    if (modal.dataset.bound !== '1') {
+        if (changeBtn) {
+            changeBtn.addEventListener('click', () => {
+                const resetModal = document.getElementById('reset-password-modal');
+                if (resetModal) resetModal.classList.remove('hidden');
+            });
+        }
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                const logout = document.getElementById('professor-logout-btn');
+                if (logout) logout.click();
+            });
+        }
+        modal.dataset.bound = '1';
+    }
+    const shouldShow = !!state.mustChangePassword;
+    modal.classList.toggle('hidden', !shouldShow);
+    if (notice) notice.classList.toggle('hidden', shouldShow);
+}
+
 function setAvatar({ imgEl, fallbackEl, fotoUrl, label }) {
     if (imgEl && fotoUrl) {
         imgEl.src = fotoUrl;

@@ -1,7 +1,7 @@
 import { db, state, resetApplicationState, resetLoginFormState, resetInactivityTimer, showToast, showView } from './core.js';
 import { safeQuery, setAuthErrorHandler } from './core.js';
 import { loadAdminData, renderDashboardPanel, loadNotifications, startNotificationsRealtime, stopNotificationsRealtime, stopNotificationsPolling } from './admin.js';
-import { loadProfessorData, initProfessorAccount, refreshProfessorAvatar, checkProfessorAppUpdate } from './professor.js';
+import { loadProfessorData, initProfessorAccount, refreshProfessorAvatar, checkProfessorAppUpdate, applyProfessorPasswordGate } from './professor.js';
 
 export function initAuthHandlers() {
     setAuthErrorHandler(signOutUser);
@@ -34,7 +34,7 @@ export async function handleAuthChange(event, session) {
     try {
         state.currentUser = session.user;
         const { data, error } = await safeQuery(
-            db.from('usuarios').select('papel, nome, status, vinculo').eq('user_uid', state.currentUser.id).single()
+            db.from('usuarios').select('papel, nome, status, vinculo, precisa_trocar_senha').eq('user_uid', state.currentUser.id).single()
         );
         if (error || !data || data.status !== 'ativo') {
             const errorMessage = !data
@@ -45,6 +45,7 @@ export async function handleAuthChange(event, session) {
             return;
         }
         const { papel, nome } = data;
+        state.mustChangePassword = !!data.precisa_trocar_senha;
         if (papel === 'admin') {
             const adminInfo = document.getElementById('admin-info');
             const adminView = document.getElementById('admin-view');
@@ -77,6 +78,7 @@ export async function handleAuthChange(event, session) {
             stopNotificationsPolling();
             showView('professor-view');
             await checkProfessorAppUpdate();
+            applyProfessorPasswordGate();
         } else {
             throw new Error('Papel de usuário desconhecido.');
         }
