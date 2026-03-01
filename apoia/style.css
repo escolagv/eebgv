@@ -42,9 +42,17 @@ body { font-family: 'Inter', sans-serif; }
     overflow: hidden;
 }
 
-.modal-scroll-body {
+.consulta-scroll {
     overflow-y: auto;
     padding-right: 0.25rem;
+    max-height: calc(100vh - 18rem);
+}
+
+.consulta-sticky-head th {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    z-index: 1;
 }
 
 .calendar-day-container {

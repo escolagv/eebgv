@@ -385,15 +385,15 @@
                 <h3 class="text-xl font-bold">Consulta de Cadastros</h3>
                 <button type="button" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 cancel-modal-btn">Fechar</button>
             </div>
-            <div class="modal-scroll-body">
-                <div class="flex flex-wrap gap-2 mb-4">
-                    <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white" data-consulta-tab="criados">Criados</button>
-                    <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" data-consulta-tab="confirmados">Confirmados</button>
-                </div>
+            <div class="flex flex-wrap gap-2 mb-4">
+                <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white" data-consulta-tab="criados">Criados</button>
+                <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" data-consulta-tab="confirmados">Confirmados</button>
+            </div>
+            <div class="consulta-scroll">
                 <div id="consulta-criados-panel" class="space-y-3">
                     <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="bg-gray-50">
+                            <thead class="bg-gray-50 consulta-sticky-head">
                                 <tr>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
@@ -407,7 +407,7 @@
                 <div id="consulta-confirmados-panel" class="space-y-3 hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="bg-gray-50">
+                            <thead class="bg-gray-50 consulta-sticky-head">
                                 <tr>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
@@ -418,8 +418,8 @@
                         </table>
                     </div>
                 </div>
-                <p class="mt-4 text-xs text-gray-500">Horários exibidos no fuso de Brasília (UTC-3).</p>
             </div>
+            <p class="mt-4 text-xs text-gray-500">Horários exibidos no fuso de Brasília (UTC-3).</p>
         </div>
     </div>
     <div id="turma-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="turma-modal-title" class="text-xl font-bold mb-4"></h3><form id="turma-form"><input type="hidden" id="turma-id"><div class="space-y-4"><div><label for="turma-nome" class="block text-sm font-medium text-gray-700">Nome da Turma</label><input type="text" id="turma-nome" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 3º Ano A - Matutino"></div><div class="grid grid-cols-2 gap-4"><div><label for="turma-ano-letivo" class="block text-sm font-medium text-gray-700">Ano Letivo</label><input type="number" id="turma-ano-letivo" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 2025"></div></div><p id="turma-edit-warning" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">Para evitar conflitos de vínculo, o nome e o ano da turma não podem ser editados. Para alterar, crie uma nova turma ou exclua e recrie.</p><div><label class="block text-sm font-medium text-gray-700">Professores</label><div id="turma-professores-list" class="mt-1 max-h-40 overflow-y-auto space-y-2 rounded-md border p-2"></div></div></div><div class="mt-6 flex justify-between items-center"><div id="turma-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="turma">Excluir Turma</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
