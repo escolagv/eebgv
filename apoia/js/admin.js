@@ -741,23 +741,37 @@ async function syncEmailConfirmations(professores) {
         db.rpc('auth_confirmed_by_email', { p_emails: emails })
     );
     if (error || !data) return professores;
-    const confirmedEmails = new Set(
-        data.filter(item => item.confirmed).map(item => item.email)
-    );
-    const toUpdate = professores
-        .filter(p => confirmedEmails.has(p.email) && !p.email_confirmado)
-        .map(p => p.email);
-    if (toUpdate.length > 0) {
+    const confirmedByEmail = new Map();
+    data.forEach(item => confirmedByEmail.set(item.email, !!item.confirmed));
+    const toUpdateTrue = [];
+    const toUpdateFalse = [];
+    for (const professor of professores) {
+        const confirmed = confirmedByEmail.get(professor.email) === true;
+        if (confirmed && !professor.email_confirmado) {
+            toUpdateTrue.push(professor.email);
+        }
+        if (!confirmed && professor.email_confirmado) {
+            toUpdateFalse.push(professor.email);
+        }
+    }
+    if (toUpdateTrue.length > 0) {
         await safeQuery(
             db.from('usuarios')
                 .update({ email_confirmado: true })
-                .in('email', toUpdate)
+                .in('email', toUpdateTrue)
         );
     }
-    return professores.map(p => (confirmedEmails.has(p.email)
-        ? { ...p, email_confirmado: true }
-        : p
-    ));
+    if (toUpdateFalse.length > 0) {
+        await safeQuery(
+            db.from('usuarios')
+                .update({ email_confirmado: false })
+                .in('email', toUpdateFalse)
+        );
+    }
+    return professores.map(p => ({
+        ...p,
+        email_confirmado: confirmedByEmail.get(p.email) === true
+    }));
 }
 
 export async function openProfessorModal(editId = null) {
@@ -825,7 +839,7 @@ export async function handleProfessorFormSubmit(e) {
             }
         const { error: reactivateError } = await safeQuery(
             db.from('usuarios')
-                .update({ nome, email, status: 'ativo', vinculo, telefone, email_confirmado: true })
+                .update({ nome, email, status: 'ativo', vinculo, telefone })
                 .eq('id', existingProfessor.id)
         );
             if (reactivateError) {
@@ -857,7 +871,7 @@ export async function handleProfessorFormSubmit(e) {
                 return;
             }
             const { data: profileData, error: profileError } = await safeQuery(
-                db.from('usuarios').insert({ user_uid: authData.user.id, nome: nome, email: email, papel: 'professor', status: 'ativo', vinculo, telefone }).select().single()
+                db.from('usuarios').insert({ user_uid: authData.user.id, nome: nome, email: email, papel: 'professor', status: 'ativo', vinculo, telefone, email_confirmado: false }).select().single()
             );
             if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
             else {

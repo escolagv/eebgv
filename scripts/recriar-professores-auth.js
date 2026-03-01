@@ -157,6 +157,20 @@ async function updateUsuario(id, userUid) {
   });
 }
 
+async function replaceUserUid(oldUid, newUid) {
+  if (!oldUid || oldUid === newUid) return;
+  await callSupabase(`/rest/v1/professores_turmas?professor_id=eq.${oldUid}`, {
+    method: 'PATCH',
+    body: { professor_id: newUid },
+    headers: { Prefer: 'return=representation' }
+  });
+  await callSupabase(`/rest/v1/presencas?registrado_por_uid=eq.${oldUid}`, {
+    method: 'PATCH',
+    body: { registrado_por_uid: newUid },
+    headers: { Prefer: 'return=representation' }
+  });
+}
+
 async function sendConfirmation(email) {
   try {
     await callSupabase('/auth/v1/resend', { body: { type: 'signup', email } });
@@ -214,9 +228,8 @@ async function main() {
 
     try {
       const existingUid = await fetchAuthUserUidByEmail(email);
-      if (existingUid) {
-        await deleteAuthUser(existingUid);
-      }
+      const oldUid = prof.user_uid || existingUid || null;
+      if (existingUid) await deleteAuthUser(existingUid);
 
       const created = await createAuthUser({
         email,
@@ -232,6 +245,7 @@ async function main() {
         continue;
       }
 
+      await replaceUserUid(oldUid, newUid);
       await updateUsuario(prof.id, newUid);
       const result = await sendConfirmation(email);
       await logEnvio(email, 'sent', `confirmacao ${result.status}`);
