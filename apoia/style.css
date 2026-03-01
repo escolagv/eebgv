@@ -35,6 +35,18 @@ body { font-family: 'Inter', sans-serif; }
     background-color: rgba(0, 0, 0, 0.5);
 }
 
+.modal-scroll {
+    max-height: calc(100vh - 3rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-scroll-body {
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
 .calendar-day-container {
     cursor: pointer;
     transition: transform 0.2s;

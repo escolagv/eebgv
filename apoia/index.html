@@ -380,44 +380,46 @@
     <div id="aluno-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="aluno-modal-title" class="text-xl font-bold mb-4"></h3><form id="aluno-form"><input type="hidden" id="aluno-id"><div class="space-y-4 max-h-96 overflow-y-auto pr-2"><div><label for="aluno-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="aluno-nome" required class="w-full mt-1 p-2 border rounded-md"></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="aluno-matricula" class="block text-sm font-medium text-gray-700">Matrícula</label><input type="text" id="aluno-matricula" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="aluno-turma" class="block text-sm font-medium text-gray-700">Turma</label><select id="aluno-turma" required class="w-full mt-1 p-2 border rounded-md"></select></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label for="aluno-telefone" class="block text-sm font-medium text-gray-700">Telefone</label><input type="tel" id="aluno-telefone" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="aluno-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="aluno-email" class="w-full mt-1 p-2 border rounded-md"></div></div><div><label for="aluno-responsavel" class="block text-sm font-medium text-gray-700">Nome do Responsável</label><input type="text" id="aluno-responsavel" class="w-full mt-1 p-2 border rounded-md"></div><div><label for="aluno-status" class="block text-sm font-medium text-gray-700">Status</label><select id="aluno-status" required class="w-full mt-1 p-2 border rounded-md"><option value="ativo">Ativo</option><option value="inativo">Inativo</option><option value="transferido">Transferido</option></select></div></div><div class="mt-6 flex justify-between items-center"><div id="aluno-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="aluno">Excluir Aluno</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
     <div id="professor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6"><h3 id="professor-modal-title" class="text-xl font-bold mb-4"></h3><form id="professor-form"><input type="hidden" id="professor-id"><div class="space-y-4"><div><label for="professor-nome" class="block text-sm font-medium text-gray-700">Nome Completo</label><input type="text" id="professor-nome" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="professor-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="professor-email" required class="w-full mt-1 p-2 border rounded-md"></div><div><label for="professor-telefone" class="block text-sm font-medium text-gray-700">Telefone (contato)</label><input type="text" id="professor-telefone" class="w-full mt-1 p-2 border rounded-md" placeholder="(00) 00000-0000"></div><div id="password-field-container"> <label for="professor-password" class="block text-sm font-medium text-gray-700">Senha Temporária</label><input type="password" id="professor-password" class="w-full mt-1 p-2 border rounded-md" value="123456"><div class="mt-2 flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" id="professor-password-show" class="h-4 w-4"><label for="professor-password-show">Mostrar senha</label></div></div><div id="status-field-container" class="hidden"><label for="professor-status" class="block text-sm font-medium text-gray-700">Status</label><select id="professor-status" required class="w-full mt-1 p-2 border rounded-md"><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select></div><div><label for="professor-vinculo" class="block text-sm font-medium text-gray-700">Vínculo</label><select id="professor-vinculo" class="w-full mt-1 p-2 border rounded-md"><option value="efetivo">Efetivo</option><option value="act">ACT (Temporário)</option></select></div><p class="text-xs text-gray-500">O professor confirma o e-mail e cria a senha pelo link recebido.</p></div><div class="mt-6 flex justify-between items-center"><div id="professor-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="professor">Inativar Professor</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
     <div id="professor-consulta-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 modal-scroll">
             <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
                 <h3 class="text-xl font-bold">Consulta de Cadastros</h3>
                 <button type="button" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 cancel-modal-btn">Fechar</button>
             </div>
-            <div class="flex flex-wrap gap-2 mb-4">
-                <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white" data-consulta-tab="criados">Criados</button>
-                <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" data-consulta-tab="confirmados">Confirmados</button>
-            </div>
-            <div id="consulta-criados-panel" class="space-y-3">
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
-                                <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
-                                <th class="p-3 text-left text-sm font-semibold text-gray-600">Criado em</th>
-                            </tr>
-                        </thead>
-                        <tbody id="consulta-criados-body"></tbody>
-                    </table>
+            <div class="modal-scroll-body">
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white" data-consulta-tab="criados">Criados</button>
+                    <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" data-consulta-tab="confirmados">Confirmados</button>
                 </div>
-            </div>
-            <div id="consulta-confirmados-panel" class="space-y-3 hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
-                                <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
-                                <th class="p-3 text-left text-sm font-semibold text-gray-600">Confirmado em</th>
-                            </tr>
-                        </thead>
-                        <tbody id="consulta-confirmados-body"></tbody>
-                    </table>
+                <div id="consulta-criados-panel" class="space-y-3">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Criado em</th>
+                                </tr>
+                            </thead>
+                            <tbody id="consulta-criados-body"></tbody>
+                        </table>
+                    </div>
                 </div>
+                <div id="consulta-confirmados-panel" class="space-y-3 hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Confirmado em</th>
+                                </tr>
+                            </thead>
+                            <tbody id="consulta-confirmados-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="mt-4 text-xs text-gray-500">Horários exibidos no fuso de Brasília (UTC-3).</p>
             </div>
-            <p class="mt-4 text-xs text-gray-500">Horários exibidos no fuso de Brasília (UTC-3).</p>
         </div>
     </div>
     <div id="turma-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6"><h3 id="turma-modal-title" class="text-xl font-bold mb-4"></h3><form id="turma-form"><input type="hidden" id="turma-id"><div class="space-y-4"><div><label for="turma-nome" class="block text-sm font-medium text-gray-700">Nome da Turma</label><input type="text" id="turma-nome" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 3º Ano A - Matutino"></div><div class="grid grid-cols-2 gap-4"><div><label for="turma-ano-letivo" class="block text-sm font-medium text-gray-700">Ano Letivo</label><input type="number" id="turma-ano-letivo" required class="w-full mt-1 p-2 border rounded-md" placeholder="Ex: 2025"></div></div><p id="turma-edit-warning" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">Para evitar conflitos de vínculo, o nome e o ano da turma não podem ser editados. Para alterar, crie uma nova turma ou exclua e recrie.</p><div><label class="block text-sm font-medium text-gray-700">Professores</label><div id="turma-professores-list" class="mt-1 max-h-40 overflow-y-auto space-y-2 rounded-md border p-2"></div></div></div><div class="mt-6 flex justify-between items-center"><div id="turma-delete-container" class="hidden"><button type="button" class="text-red-600 hover:underline text-sm delete-btn" data-type="turma">Excluir Turma</button></div><div><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Cancelar</button><button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md ml-2">Salvar</button></div></div></form></div></div>
