@@ -32,8 +32,8 @@ function getArgValue(flag, fallback) {
   return value ?? fallback;
 }
 
-const SEND_RECOVER = !process.argv.includes('--no-recover');
-const RECOVER_DELAY_MS = Number(getArgValue('--delay-ms', '180000'));
+const SEND_CONFIRMATION = !process.argv.includes('--no-confirmation');
+const CONFIRM_DELAY_MS = Number(getArgValue('--delay-ms', '180000'));
 
 function getProjectRefFromKey(key) {
   const parts = (key || '').split('.');
@@ -98,14 +98,14 @@ async function callSupabase(pathname, { method = 'POST', body, headers = {} } = 
   return response.json();
 }
 
-async function sendRecover(email) {
+async function sendConfirmation(email) {
   try {
-    await callSupabase('/auth/v1/recover', { body: { email } });
+    await callSupabase('/auth/v1/resend', { body: { type: 'signup', email } });
   } catch (error) {
     if (error.status === 429) {
-      console.warn(`Rate limit no recover para ${email}. Aguardando ${RECOVER_DELAY_MS / 60000} min e tentando novamente...`);
-      await sleep(RECOVER_DELAY_MS);
-      await callSupabase('/auth/v1/recover', { body: { email } });
+      console.warn(`Rate limit no envio de confirmação para ${email}. Aguardando ${CONFIRM_DELAY_MS / 60000} min e tentando novamente...`);
+      await sleep(CONFIRM_DELAY_MS);
+      await callSupabase('/auth/v1/resend', { body: { type: 'signup', email } });
       return;
     }
     throw error;
@@ -145,7 +145,7 @@ async function upsertUsuario({ user_uid, nome, email, telefone, vinculo, status 
       vinculo: existing.vinculo || vinculo || null,
       papel: existing.papel || 'professor',
       status: status || existing.status || 'ativo',
-      email_confirmado: existing.email_confirmado ?? true
+      email_confirmado: existing.email_confirmado ?? false
     };
     if (!existing.user_uid && user_uid) {
       payload.user_uid = user_uid;
@@ -172,7 +172,7 @@ async function upsertUsuario({ user_uid, nome, email, telefone, vinculo, status 
       papel: 'professor',
       status: status || 'ativo',
       vinculo,
-      email_confirmado: true
+      email_confirmado: false
     },
     headers: { Prefer: 'return=representation' }
   });
@@ -193,7 +193,7 @@ async function createProfessor(record) {
   const payload = {
     email,
     password: '123456',
-    email_confirm: true,
+    email_confirm: false,
     user_metadata: { nome, telefone, vinculo }
   };
 
@@ -214,8 +214,8 @@ async function createProfessor(record) {
 
   const usuarioResult = await upsertUsuario({ user_uid: userUid, nome, email, telefone, vinculo, status });
 
-  if (SEND_RECOVER) {
-    await sendRecover(email);
+  if (SEND_CONFIRMATION) {
+    await sendConfirmation(email);
   }
 
   console.log(`✔ ${email} (${vinculo}/${status}) processado (${usuarioResult.action}).`);
@@ -242,7 +242,7 @@ async function main() {
     } catch (error) {
       console.error(`Linha ${index + 1}: ${error.message}`);
     }
-    await sleep(SEND_RECOVER ? RECOVER_DELAY_MS : 1500);
+    await sleep(SEND_CONFIRMATION ? CONFIRM_DELAY_MS : 1500);
   }
 }
 

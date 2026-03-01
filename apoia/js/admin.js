@@ -660,12 +660,17 @@ export async function handleGerarApoiaRelatorio() {
 // ADMIN - PROFESSORES
 // ===============================================================
 
-export async function renderProfessoresPanel() {
+export async function renderProfessoresPanel(options = {}) {
+    const silent = !!options.silent;
     const professoresTableBody = document.getElementById('professores-table-body');
     const searchInput = document.getElementById('professor-search-input');
     const statusFilterEl = document.getElementById('professor-status-filter');
     const statusFilterValue = statusFilterEl?.value;
-    professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">Carregando...</td></tr>';
+    if (!silent) {
+        professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">Carregando...</td></tr>';
+    } else if (!professoresTableBody.children.length) {
+        professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">Carregando...</td></tr>';
+    }
     const { data, error } = await safeQuery(
         db.from('usuarios')
             .select('id, user_uid, nome, email, telefone, status, email_confirmado, vinculo')
@@ -675,7 +680,7 @@ export async function renderProfessoresPanel() {
         professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
         return;
     }
-    let filtered = data || [];
+    let filtered = await syncEmailConfirmations(data || []);
     if (statusFilterValue) {
         filtered = filtered.filter(p => p.status === statusFilterValue);
     }
@@ -725,6 +730,34 @@ export async function renderProfessoresPanel() {
         </tr>
     `;
     }).join('');
+}
+
+async function syncEmailConfirmations(professores) {
+    const emails = (professores || [])
+        .map(p => p.email)
+        .filter(Boolean);
+    if (emails.length === 0) return professores;
+    const { data, error } = await safeQuery(
+        db.rpc('auth_confirmed_by_email', { p_emails: emails })
+    );
+    if (error || !data) return professores;
+    const confirmedEmails = new Set(
+        data.filter(item => item.confirmed).map(item => item.email)
+    );
+    const toUpdate = professores
+        .filter(p => confirmedEmails.has(p.email) && !p.email_confirmado)
+        .map(p => p.email);
+    if (toUpdate.length > 0) {
+        await safeQuery(
+            db.from('usuarios')
+                .update({ email_confirmado: true })
+                .in('email', toUpdate)
+        );
+    }
+    return professores.map(p => (confirmedEmails.has(p.email)
+        ? { ...p, email_confirmado: true }
+        : p
+    ));
 }
 
 export async function openProfessorModal(editId = null) {
@@ -1504,6 +1537,7 @@ export async function handleEventoFormSubmit(e) {
 
 export function renderAnoLetivoPanel() {
     const listEl = document.getElementById('ano-letivo-list');
+    if (!listEl) return;
     listEl.innerHTML = '';
     state.anosLetivosCache.forEach(ano => listEl.innerHTML += `<li class="p-2 border rounded-md">${ano}</li>`);
 }
@@ -1776,17 +1810,24 @@ export async function handleImprimirRelatorio(reportType) {
 
 export async function openAlunoHistoricoModal(alunoId) {
     const modal = document.getElementById('aluno-historico-modal');
+    if (!modal) return;
     const { data: aluno } = await safeQuery(db.from('alunos').select('nome_completo').eq('id', alunoId).single());
     const { data: presencas } = await safeQuery(
         db.from('presencas').select('data, registrado_em, status, justificativa').eq('aluno_id', alunoId).order('data', { ascending: false })
     );
 
-    document.getElementById('historico-aluno-nome-impressao').textContent = aluno?.nome_completo || '';
+    const alunoNomeEl = document.getElementById('historico-aluno-nome-impressao');
+    if (alunoNomeEl) alunoNomeEl.textContent = aluno?.nome_completo || '';
     const tableBody = document.getElementById('aluno-historico-table-body');
+    if (!tableBody) {
+        modal.classList.remove('hidden');
+        return;
+    }
     tableBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center">Carregando historico...</td></tr>';
 
     if (!presencas || presencas.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center">Nenhum registro de frequencia encontrado.</td></tr>';
+        modal.classList.remove('hidden');
         return;
     }
 

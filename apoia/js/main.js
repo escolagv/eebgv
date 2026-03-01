@@ -58,6 +58,28 @@ import {
 // INICIALIZACAO E EVENT LISTENERS
 // ===============================================================
 
+let professoresAutoRefreshId = null;
+const PROFESSORES_AUTO_REFRESH_MS = 60000;
+
+function stopProfessoresAutoRefresh() {
+    if (professoresAutoRefreshId) {
+        clearInterval(professoresAutoRefreshId);
+        professoresAutoRefreshId = null;
+    }
+}
+
+function startProfessoresAutoRefresh() {
+    stopProfessoresAutoRefresh();
+    professoresAutoRefreshId = setInterval(() => {
+        const panel = document.getElementById('admin-professores-panel');
+        if (!panel || panel.classList.contains('hidden')) {
+            stopProfessoresAutoRefresh();
+            return;
+        }
+        renderProfessoresPanel({ silent: true });
+    }, PROFESSORES_AUTO_REFRESH_MS);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const passwordInput = document.getElementById('password');
     const togglePasswordBtn = document.getElementById('toggle-password-btn');
@@ -312,13 +334,19 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.admin-nav-link').forEach(l => l.classList.remove('bg-gray-700'));
             navLink.classList.add('bg-gray-700');
             const targetPanelId = navLink.dataset.target;
+            if (targetPanelId !== 'admin-professores-panel') {
+                stopProfessoresAutoRefresh();
+            }
             document.querySelectorAll('.admin-panel').forEach(p => p.classList.add('hidden'));
             const panel = document.getElementById(targetPanelId);
             if (panel) {
                 panel.classList.remove('hidden');
                 if (targetPanelId === 'admin-dashboard-panel') renderDashboardPanel();
                 else if (targetPanelId === 'admin-alunos-panel') renderAlunosPanel({ defaultToLatestYear: true });
-                else if (targetPanelId === 'admin-professores-panel') renderProfessoresPanel();
+                else if (targetPanelId === 'admin-professores-panel') {
+                    renderProfessoresPanel();
+                    startProfessoresAutoRefresh();
+                }
                 else if (targetPanelId === 'admin-turmas-panel') renderTurmasPanel({ defaultToLatestYear: true });
                 else if (targetPanelId === 'admin-apoia-panel') renderApoiaPanel();
                 else if (targetPanelId === 'admin-calendario-panel') renderCalendarioPanel();
