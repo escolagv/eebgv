@@ -169,13 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const noticeEl = document.getElementById('professor-password-notice');
     const dismissNoticeBtn = document.getElementById('dismiss-password-notice');
-    if (noticeEl) {
-        const shouldHide = localStorage.getItem('apoia_hide_password_notice') === 'true';
-        if (shouldHide) noticeEl.classList.add('hidden');
-    }
+    if (noticeEl) noticeEl.classList.add('hidden');
     if (dismissNoticeBtn) {
         dismissNoticeBtn.addEventListener('click', () => {
-            localStorage.setItem('apoia_hide_password_notice', 'true');
             if (noticeEl) noticeEl.classList.add('hidden');
         });
     }
@@ -214,6 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formId === 'login-form') {
             const loginButton = e.target.querySelector('button[type="submit"]');
             const loginError = document.getElementById('login-error');
+            const passwordValue = document.getElementById('password').value;
+            state.lastLoginPassword = passwordValue;
             loginButton.disabled = true;
             loginButton.innerHTML = '<div class="loader mx-auto"></div>';
             loginError.textContent = '';
@@ -221,14 +219,16 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const { error } = await db.auth.signInWithPassword({
                     email: document.getElementById('email').value,
-                    password: document.getElementById('password').value
+                    password: passwordValue
                 });
                 if (error) {
                     loginError.textContent = 'E-mail ou senha incorretos. Verifique os dados e tente novamente.';
+                    state.lastLoginPassword = null;
                     resetLoginFormState();
                 }
             } catch (err) {
                 loginError.textContent = 'Ocorreu um erro de conexão inesperado.';
+                state.lastLoginPassword = null;
                 resetLoginFormState();
             }
         }
@@ -308,10 +308,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         await safeQuery(
                             db.from('usuarios')
-                                .update({ precisa_trocar_senha: false })
+                                .update({ precisa_trocar_senha: false, senha_aviso_count: 0 })
                                 .eq('user_uid', state.currentUser.id)
                         );
                         state.mustChangePassword = false;
+                        state.senhaAvisoCount = 0;
                         const gate = document.getElementById('professor-force-password-modal');
                         if (gate) gate.classList.add('hidden');
                     } catch (err) {

@@ -34,7 +34,7 @@ export async function handleAuthChange(event, session) {
     try {
         state.currentUser = session.user;
         const { data, error } = await safeQuery(
-            db.from('usuarios').select('papel, nome, status, vinculo, precisa_trocar_senha').eq('user_uid', state.currentUser.id).single()
+            db.from('usuarios').select('papel, nome, status, vinculo, precisa_trocar_senha, senha_aviso_count').eq('user_uid', state.currentUser.id).single()
         );
         if (error || !data || data.status !== 'ativo') {
             const errorMessage = !data
@@ -45,7 +45,9 @@ export async function handleAuthChange(event, session) {
             return;
         }
         const { papel, nome } = data;
-        state.mustChangePassword = !!data.precisa_trocar_senha;
+        let mustChange = !!data.precisa_trocar_senha;
+        let avisoCount = data.senha_aviso_count || 0;
+        const usedDefaultPassword = state.lastLoginPassword === '123456';
         if (papel === 'admin') {
             const adminInfo = document.getElementById('admin-info');
             const adminView = document.getElementById('admin-view');
@@ -62,6 +64,28 @@ export async function handleAuthChange(event, session) {
             startNotificationsRealtime();
             showView('admin-view');
         } else if (papel === 'professor') {
+            if (usedDefaultPassword) {
+                mustChange = true;
+                if (!data.precisa_trocar_senha) {
+                    await safeQuery(
+                        db.from('usuarios')
+                            .update({ precisa_trocar_senha: true, senha_aviso_count: 0 })
+                            .eq('user_uid', state.currentUser.id)
+                    );
+                    avisoCount = 0;
+                }
+            } else if (data.precisa_trocar_senha) {
+                await safeQuery(
+                    db.from('usuarios')
+                        .update({ precisa_trocar_senha: false, senha_aviso_count: 0 })
+                        .eq('user_uid', state.currentUser.id)
+                );
+                mustChange = false;
+                avisoCount = 0;
+            }
+
+            state.mustChangePassword = mustChange;
+            state.senhaAvisoCount = avisoCount;
             const professorInfo = document.getElementById('professor-info');
             const professorView = document.getElementById('professor-view');
             if (!professorInfo || !professorView) {
@@ -78,7 +102,21 @@ export async function handleAuthChange(event, session) {
             stopNotificationsPolling();
             showView('professor-view');
             await checkProfessorAppUpdate();
+            if (state.mustChangePassword) {
+                const key = `apoia_pwd_notice_${state.currentUser.id}`;
+                if (!sessionStorage.getItem(key) && state.senhaAvisoCount < 5) {
+                    const nextCount = state.senhaAvisoCount + 1;
+                    await safeQuery(
+                        db.from('usuarios')
+                            .update({ senha_aviso_count: nextCount })
+                            .eq('user_uid', state.currentUser.id)
+                    );
+                    state.senhaAvisoCount = nextCount;
+                    sessionStorage.setItem(key, '1');
+                }
+            }
             applyProfessorPasswordGate();
+            state.lastLoginPassword = null;
         } else {
             throw new Error('Papel de usuário desconhecido.');
         }

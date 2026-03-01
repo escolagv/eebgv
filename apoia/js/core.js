@@ -18,7 +18,9 @@ export const state = {
     anosLetivosCache: [],
     dashboardSelectedDate: undefined,
     inactivityTimer: null,
-    mustChangePassword: false
+    mustChangePassword: false,
+    senhaAvisoCount: 0,
+    lastLoginPassword: null
 };
 
 export function getLocalDateString() {
@@ -51,6 +53,8 @@ export function resetApplicationState() {
     state.dashboardCalendar = { month: new Date().getMonth(), year: new Date().getFullYear() };
     state.dashboardSelectedDate = getLocalDateString();
     state.mustChangePassword = false;
+    state.senhaAvisoCount = 0;
+    state.lastLoginPassword = null;
 }
 
 export function resetLoginFormState() {

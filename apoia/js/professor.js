@@ -81,8 +81,9 @@ export async function checkProfessorAppUpdate() {
 
 export function applyProfessorPasswordGate() {
     const modal = document.getElementById('professor-force-password-modal');
-    if (!modal) return;
     const notice = document.getElementById('professor-password-notice');
+    const noticeText = document.getElementById('professor-password-notice-text');
+    if (!modal) return;
     const changeBtn = document.getElementById('professor-force-password-btn');
     const logoutBtn = document.getElementById('professor-force-logout-btn');
     if (modal.dataset.bound !== '1') {
@@ -100,9 +101,20 @@ export function applyProfessorPasswordGate() {
         }
         modal.dataset.bound = '1';
     }
-    const shouldShow = !!state.mustChangePassword;
-    modal.classList.toggle('hidden', !shouldShow);
-    if (notice) notice.classList.toggle('hidden', shouldShow);
+    const mustChange = !!state.mustChangePassword;
+    const isBlocked = mustChange && state.senhaAvisoCount >= 5;
+    modal.classList.toggle('hidden', !isBlocked);
+    if (notice) {
+        if (!mustChange || isBlocked) {
+            notice.classList.add('hidden');
+        } else {
+            notice.classList.remove('hidden');
+        }
+    }
+    if (noticeText && mustChange && !isBlocked) {
+        const remaining = Math.max(0, 5 - state.senhaAvisoCount);
+        noticeText.textContent = `Senha temporária em uso. Troque sua senha em breve. Restam ${remaining} acesso(s) antes do bloqueio.`;
+    }
 }
 
 function setAvatar({ imgEl, fallbackEl, fotoUrl, label }) {

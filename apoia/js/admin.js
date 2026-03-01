@@ -947,7 +947,7 @@ export async function handleProfessorFormSubmit(e) {
             }
         const { error: reactivateError } = await safeQuery(
             db.from('usuarios')
-                .update({ nome, email, status: 'ativo', vinculo, telefone, precisa_trocar_senha: true })
+                .update({ nome, email, status: 'ativo', vinculo, telefone, precisa_trocar_senha: true, senha_aviso_count: 0 })
                 .eq('id', existingProfessor.id)
         );
             if (reactivateError) {
@@ -979,7 +979,7 @@ export async function handleProfessorFormSubmit(e) {
                 return;
             }
             const { data: profileData, error: profileError } = await safeQuery(
-                db.from('usuarios').insert({ user_uid: authData.user.id, nome: nome, email: email, papel: 'professor', status: 'ativo', vinculo, telefone, email_confirmado: false, precisa_trocar_senha: true }).select().single()
+                db.from('usuarios').insert({ user_uid: authData.user.id, nome: nome, email: email, papel: 'professor', status: 'ativo', vinculo, telefone, email_confirmado: false, precisa_trocar_senha: true, senha_aviso_count: 0 }).select().single()
             );
             if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
             else {
