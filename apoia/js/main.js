@@ -330,6 +330,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = e.target;
         const closest = (selector) => target.closest(selector);
 
+        if (target.id === 'appprof-modal') {
+            target.classList.add('hidden');
+        }
+
         if (closest('.date-clear-btn')) {
             const targetId = closest('.date-clear-btn').dataset.target;
             const input = document.getElementById(targetId);

@@ -40,6 +40,7 @@ body { font-family: 'Inter', sans-serif; }
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
 }
 
 .consulta-scroll {
@@ -69,6 +70,26 @@ body { font-family: 'Inter', sans-serif; }
     border: 0;
     display: block;
     background: #fff;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    border: 1px solid #e5e7eb;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close-btn:hover {
+    background: #e5e7eb;
 }
 
 .calendar-day-container {
