@@ -110,7 +110,7 @@
 <body>
     <div class="container">
         <div class="card">
-            <div class="badge">App do Professor · Versão <strong>1.0.8</strong></div>
+            <div class="badge">App do Professor · Versão <strong>1.1.0</strong></div>
             <h1 class="title">APOIA · Área do Professor</h1>
             <p class="subtitle">Escolha como acessar: abrir no navegador ou instalar o aplicativo.</p>
 
@@ -146,20 +146,38 @@
             });
         }
         if (apkBtn) {
-            apkBtn.addEventListener('click', (event) => {
+            apkBtn.addEventListener('click', async (event) => {
                 event.preventDefault();
                 const url = apkBtn.href;
-                const tempLink = document.createElement('a');
-                tempLink.href = url;
-                tempLink.download = 'appprof.apk';
-                document.body.appendChild(tempLink);
-                tempLink.click();
-                tempLink.remove();
+                if (feedback) feedback.textContent = 'Preparando download do APK...';
+                try {
+                    const response = await fetch(url, { cache: 'no-store' });
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    const blob = await response.blob();
+                    const tempUrl = URL.createObjectURL(blob);
+                    const tempLink = document.createElement('a');
+                    tempLink.href = tempUrl;
+                    tempLink.download = 'appprof.apk';
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    tempLink.remove();
+                    URL.revokeObjectURL(tempUrl);
+                    if (feedback) feedback.textContent = 'Download iniciado. Se não baixar, copie o link e abra no navegador.';
+                } catch (err) {
+                    try {
+                        await navigator.clipboard.writeText(url);
+                        if (feedback) feedback.textContent = 'Não foi possível baixar automaticamente. Link do APK copiado.';
+                    } catch (copyErr) {
+                        if (feedback) feedback.textContent = 'Não foi possível baixar automaticamente. Copie este link: ' + url;
+                    }
+                }
             });
         }
     </script>
 </body>
 </html>
+
+
 
 
 
