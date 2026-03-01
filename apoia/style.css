@@ -55,6 +55,22 @@ body { font-family: 'Inter', sans-serif; }
     z-index: 1;
 }
 
+.appprof-frame-wrap {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: #f9fafb;
+}
+
+.appprof-modal-frame {
+    width: 100%;
+    height: min(75vh, 720px);
+    border: 0;
+    display: block;
+    background: #fff;
+}
+
 .calendar-day-container {
     cursor: pointer;
     transition: transform 0.2s;

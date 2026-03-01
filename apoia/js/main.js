@@ -405,6 +405,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('#add-professor-btn')) openProfessorModal();
         if (closest('#professor-consulta-btn')) openProfessorConsultaModal();
         if (closest('.edit-professor-btn')) openProfessorModal(closest('.edit-professor-btn').dataset.id);
+        if (closest('#open-appprof-modal-btn')) {
+            const modal = document.getElementById('appprof-modal');
+            const iframe = document.getElementById('appprof-iframe');
+            if (iframe && !iframe.src) {
+                iframe.src = iframe.dataset.src || '../appprof/';
+            }
+            if (modal) modal.classList.remove('hidden');
+        }
         if (closest('#add-turma-btn')) openTurmaModal();
         if (closest('.edit-turma-btn')) openTurmaModal(closest('.edit-turma-btn').dataset.id);
         if (closest('.delete-turma-btn')) openDeleteConfirmModal('turma', closest('.delete-turma-btn').dataset.id);
