@@ -86,10 +86,29 @@ function Get-NextAppVersion {
     return "$major.$minor.$patch"
 }
 
+function Update-CapacitorServerUrl {
+    param(
+        [string]$ConfigPath,
+        [string]$AppVersion
+    )
+    if (-not (Test-Path $ConfigPath)) { return }
+    if ([string]::IsNullOrWhiteSpace($AppVersion)) { return }
+    $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+    if (-not $config.server -or [string]::IsNullOrWhiteSpace($config.server.url)) { return }
+    $baseUrl = $config.server.url.Split('?')[0]
+    $config.server.url = "$baseUrl?app_version=$AppVersion"
+    $config | ConvertTo-Json -Depth 10 | Set-Content -Path $ConfigPath -Encoding UTF8
+    Write-Host "Capacitor URL atualizado: $($config.server.url)" -ForegroundColor Green
+}
+
 if ($AutoVersion -or [string]::IsNullOrWhiteSpace($AppVersion)) {
     $currentVersion = Get-CurrentAppVersion -Html $html
     $AppVersion = Get-NextAppVersion -Current $currentVersion
     Write-Host "Versao automatica: $currentVersion -> $AppVersion" -ForegroundColor Cyan
+}
+
+if ($BuildAndroid -or $BuildIos) {
+    Update-CapacitorServerUrl -ConfigPath (Join-Path $mobileRoot "capacitor.config.json") -AppVersion $AppVersion
 }
 
 function Ensure-Command {

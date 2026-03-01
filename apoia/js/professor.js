@@ -37,6 +37,20 @@ function compareVersions(a, b) {
 function getProfessorAppVersion() {
     const versionEl = document.getElementById('professor-app-version');
     if (!versionEl) return '';
+    const queryVersion = parseVersion(new URLSearchParams(window.location.search).get('app_version') || '');
+    if (queryVersion) {
+        try { localStorage.setItem('appprof_version', queryVersion); } catch (err) { /* ignore */ }
+        versionEl.dataset.version = queryVersion;
+        versionEl.textContent = `V${queryVersion}`;
+        return queryVersion;
+    }
+    let storedVersion = '';
+    try { storedVersion = parseVersion(localStorage.getItem('appprof_version') || ''); } catch (err) { storedVersion = ''; }
+    if (storedVersion) {
+        versionEl.dataset.version = storedVersion;
+        versionEl.textContent = `V${storedVersion}`;
+        return storedVersion;
+    }
     const dataVersion = parseVersion(versionEl.dataset.version || '');
     const textVersion = parseVersion(versionEl.textContent || '');
     if (dataVersion && textVersion && dataVersion !== textVersion) {
