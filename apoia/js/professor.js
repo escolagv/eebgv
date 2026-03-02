@@ -235,14 +235,40 @@ async function compressImageToDataUrl(file, options = {}) {
 
 export async function loadProfessorData(professorUid) {
     const turmaSelect = document.getElementById('professor-turma-select');
-    const { data: rels } = await safeQuery(db.from('professores_turmas').select('turma_id').eq('professor_id', professorUid));
-    if (!rels || rels.length === 0) return;
-    const turmaIds = rels.map(r => r.turma_id);
-    const { data } = await safeQuery(db.from('turmas').select('id, nome_turma').in('id', turmaIds));
-    if (!data) return;
-    turmaSelect.innerHTML = '<option value="">Selecione uma turma</option>';
-    data.sort((a, b) => a.nome_turma.localeCompare(b.nome_turma, undefined, { numeric: true }))
-        .forEach(t => turmaSelect.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
+    if (!turmaSelect) return;
+    const setSelectMessage = (text, disabled = false) => {
+        turmaSelect.innerHTML = `<option value="">${text}</option>`;
+        turmaSelect.disabled = disabled;
+    };
+    try {
+        const { data: rels } = await safeQuery(
+            db.from('professores_turmas')
+                .select('turma_id')
+                .eq('professor_id', professorUid)
+        );
+        if (!rels || rels.length === 0) {
+            setSelectMessage('Nenhuma turma vinculada', true);
+            return;
+        }
+        const turmaIds = rels.map(r => r.turma_id);
+        const { data } = await safeQuery(
+            db.from('turmas')
+                .select('id, nome_turma')
+                .in('id', turmaIds)
+        );
+        if (!data || data.length === 0) {
+            setSelectMessage('Nenhuma turma encontrada', true);
+            return;
+        }
+        turmaSelect.disabled = false;
+        turmaSelect.innerHTML = '<option value="">Selecione uma turma</option>';
+        data
+            .sort((a, b) => (a.nome_turma || '').localeCompare(b.nome_turma || '', undefined, { numeric: true }))
+            .forEach(t => turmaSelect.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
+    } catch (err) {
+        setSelectMessage('Erro ao carregar turmas', true);
+        showToast('Erro ao carregar turmas do professor.', true);
+    }
 }
 
 async function loadProfessorAccountData() {
