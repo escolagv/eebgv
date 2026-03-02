@@ -201,7 +201,21 @@ function Build-AndroidApk {
     $buildDir = Join-Path $MobileRoot "android\\app\\build"
     if (Test-Path $buildDir) {
         Write-Host "Limpando build anterior..." -ForegroundColor Yellow
-        Remove-Item -Recurse -Force $buildDir
+        try { & $gradle --stop | Out-Null } catch { }
+        $cleared = $false
+        for ($i = 1; $i -le 3; $i++) {
+            try {
+                Remove-Item -Recurse -Force $buildDir
+                $cleared = $true
+                break
+            } catch {
+                Write-Host "Falha ao limpar build (tentativa $i). Feche Android Studio/Gradle e tente novamente." -ForegroundColor Yellow
+                if ($i -lt 3) { Start-Sleep -Seconds 2 }
+            }
+        }
+        if (-not $cleared) {
+            throw "Nao foi possivel limpar o build anterior. Feche processos Java/Gradle e tente novamente."
+        }
     }
     Push-Location (Join-Path $MobileRoot "android")
     try {

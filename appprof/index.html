@@ -49,6 +49,25 @@
             border-radius: 999px;
             margin-bottom: 18px;
         }
+        .header-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .close-btn {
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            color: #111827;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .close-btn:hover { background: #f3f4f6; }
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -110,9 +129,14 @@
 <body>
     <div class="container">
         <div class="card">
-            <div class="badge">App do Professor · Versão <strong>1.1.7</strong></div>
-            <h1 class="title">APOIA · Área do Professor</h1>
-            <p class="subtitle">Escolha como acessar: abrir no navegador ou instalar o aplicativo.</p>
+            <div class="header-row">
+                <div>
+                    <div class="badge">App do Professor · Versão <strong>1.1.8</strong></div>
+                    <h1 class="title">APOIA · Área do Professor</h1>
+                    <p class="subtitle">Escolha como acessar: abrir no navegador ou instalar o aplicativo.</p>
+                </div>
+                <button class="close-btn" id="close-embedded">Voltar ao painel</button>
+            </div>
 
             <div class="grid">
                 <button class="btn btn-primary" id="copy-browser-link" data-url="https://eebgv.vercel.app/apoia/professor.html">Abrir no navegador</button>
@@ -173,9 +197,31 @@
                 }
             });
         }
+        const closeBtn = document.getElementById('close-embedded');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                try {
+                    const parentDoc = window.parent?.document;
+                    const modal = parentDoc?.getElementById('appprof-modal');
+                    if (modal) {
+                        modal.classList.add('hidden');
+                        return;
+                    }
+                } catch (err) {
+                    // ignore cross-origin
+                }
+                const fallback = 'https://eebgv.vercel.app/apoia/professor.html';
+                if (document.referrer) {
+                    window.location.href = document.referrer;
+                } else {
+                    window.location.href = fallback;
+                }
+            });
+        }
     </script>
 </body>
 </html>
+
 
 
 
