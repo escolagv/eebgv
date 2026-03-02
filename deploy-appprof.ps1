@@ -89,13 +89,21 @@ function Get-NextAppVersion {
 function Update-CapacitorServerUrl {
     param(
         [string]$ConfigPath,
-        [string]$AppVersion
+        [string]$AppVersion,
+        [string]$ProfessorUrl
     )
     if (-not (Test-Path $ConfigPath)) { return }
     if ([string]::IsNullOrWhiteSpace($AppVersion)) { return }
     $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
-    if (-not $config.server -or [string]::IsNullOrWhiteSpace($config.server.url)) { return }
-    $baseUrl = $config.server.url.Split('?')[0]
+    if (-not $config.server) { $config.server = @{} }
+    $currentUrl = $config.server.url
+    $baseUrl = ""
+    if (-not [string]::IsNullOrWhiteSpace($currentUrl) -and $currentUrl -match '^https?://') {
+        $baseUrl = $currentUrl.Split('?')[0]
+    } elseif (-not [string]::IsNullOrWhiteSpace($ProfessorUrl)) {
+        $baseUrl = $ProfessorUrl.Split('?')[0]
+    }
+    if ([string]::IsNullOrWhiteSpace($baseUrl)) { return }
     $config.server.url = "$baseUrl?app_version=$AppVersion"
     $config | ConvertTo-Json -Depth 10 | Set-Content -Path $ConfigPath -Encoding UTF8
     Write-Host "Capacitor URL atualizado: $($config.server.url)" -ForegroundColor Green
@@ -108,7 +116,7 @@ if ($AutoVersion -or [string]::IsNullOrWhiteSpace($AppVersion)) {
 }
 
 if ($BuildAndroid -or $BuildIos) {
-    Update-CapacitorServerUrl -ConfigPath (Join-Path $mobileRoot "capacitor.config.json") -AppVersion $AppVersion
+    Update-CapacitorServerUrl -ConfigPath (Join-Path $mobileRoot "capacitor.config.json") -AppVersion $AppVersion -ProfessorUrl $ProfessorUrl
 }
 
 function Ensure-Command {
@@ -195,6 +203,11 @@ if ($BuildIos) {
     } else {
         Write-Host "Build iOS requer Xcode e configuracao de assinatura." -ForegroundColor Yellow
     }
+}
+
+if ($BuildAndroid -and [string]::IsNullOrWhiteSpace($ApkPath)) {
+    Write-Host "APK nao gerado. Corrija o JAVA_HOME e tente novamente." -ForegroundColor Red
+    exit 1
 }
 
 if (-not [string]::IsNullOrWhiteSpace($ApkPath)) {

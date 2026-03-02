@@ -15,6 +15,10 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script = Join-Path $root "deploy-appprof.ps1"
 
+if (-not $AutoVersion -and [string]::IsNullOrWhiteSpace($AppVersion)) {
+    $AutoVersion = $true
+}
+
 & $script `
   -BuildAndroid `
   -AppVersion $AppVersion `

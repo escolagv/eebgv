@@ -4,7 +4,7 @@
   "webDir": "www",
   "bundledWebRuntime": false,
   "server": {
-    "url": "=1.1.0",
+    "url": "=1.1.1",
     "cleartext": false,
     "allowNavigation": [
       "https://eebgv.vercel.app"
