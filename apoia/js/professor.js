@@ -84,9 +84,13 @@ export async function checkProfessorAppUpdate() {
             banner.classList.add('hidden');
             return;
         }
-        const apkUrl = (config?.appprof_apk_url || '').trim() || '../appprof/';
+        const apkUrl = (config?.appprof_apk_url || '').trim();
+        const appprofUrl = new URL('../appprof/', window.location.href);
+        if (apkUrl) {
+            appprofUrl.searchParams.set('apk_url', apkUrl);
+        }
         textEl.textContent = `Nova versão do App do Professor disponível: V${latestVersion} (atual V${currentVersion}).`;
-        linkEl.href = apkUrl;
+        linkEl.href = appprofUrl.toString();
         banner.classList.remove('hidden');
     } catch (err) {
         banner.classList.add('hidden');
