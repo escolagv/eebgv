@@ -283,7 +283,7 @@ if (-not [string]::IsNullOrWhiteSpace($ProfessorUrl)) {
     $html = [regex]::Replace($html, '(?<=class="btn btn-primary" href=")[^"]*(?=")', $ProfessorUrl)
 }
 if (-not [string]::IsNullOrWhiteSpace($ApkUrl)) {
-    $html = [regex]::Replace($html, '(?<=class="btn btn-android" href=")[^"]*(?=")', $ApkUrl)
+    $html = [regex]::Replace($html, '(?<=id="download-apk"\s+data-url=")[^"]*(?=")', $ApkUrl)
 }
 if (-not [string]::IsNullOrWhiteSpace($IosUrl)) {
     $html = [regex]::Replace($html, '(?<=class="btn btn-ios" href=")[^"]*(?=")', $IosUrl)

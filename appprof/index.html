@@ -131,7 +131,7 @@
         <div class="card">
             <div class="header-row">
                 <div>
-                    <div class="badge">App do Professor · Versão <strong>1.1.9</strong></div>
+                    <div class="badge">App do Professor · Versão <strong>1.2.0</strong></div>
                     <h1 class="title">APOIA · Área do Professor</h1>
                     <p class="subtitle">Escolha como acessar: abrir no navegador ou instalar o aplicativo.</p>
                 </div>
@@ -140,7 +140,7 @@
 
             <div class="grid">
                 <button class="btn btn-primary" id="copy-browser-link" data-url="https://eebgv.vercel.app/apoia/professor.html">Abrir no navegador</button>
-                <a class="btn btn-android" id="download-apk" href="https://eebgv.vercel.app/appprof/downloads/appprof.apk" download="appprof.apk" rel="noopener">Baixar APK Android</a>
+                <button class="btn btn-android" id="download-apk" data-url="https://eebgv.vercel.app/appprof/downloads/appprof.apk" type="button">Baixar APK Android</button>
                 <button class="btn btn-ios btn-disabled" type="button" disabled>Instalar iOS <span class="badge-soon">Em breve</span></button>
             </div>
             <p id="copy-feedback" class="note muted" aria-live="polite"></p>
@@ -161,7 +161,7 @@
         const params = new URLSearchParams(window.location.search);
         const apkParam = params.get('apk_url');
         if (apkBtn && apkParam && /^https?:\/\//i.test(apkParam)) {
-            apkBtn.href = apkParam;
+            apkBtn.dataset.url = apkParam;
         }
         if (copyBtn) {
             copyBtn.addEventListener('click', async () => {
@@ -177,7 +177,10 @@
         if (apkBtn) {
             apkBtn.addEventListener('click', async (event) => {
                 event.preventDefault();
-                const url = apkBtn.href;
+                const url = apkBtn.dataset.url;
+                if (!url) return;
+                if (apkBtn.disabled) return;
+                apkBtn.disabled = true;
                 if (feedback) feedback.textContent = 'Preparando download do APK...';
                 try {
                     const response = await fetch(url, { cache: 'no-store' });
@@ -199,6 +202,8 @@
                     } catch (copyErr) {
                         if (feedback) feedback.textContent = 'Não foi possível baixar automaticamente. Copie este link: ' + url;
                     }
+                } finally {
+                    apkBtn.disabled = false;
                 }
             });
         }
@@ -226,6 +231,7 @@
     </script>
 </body>
 </html>
+
 
 
 
