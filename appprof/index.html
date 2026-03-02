@@ -151,7 +151,7 @@
         <div class="card">
             <div class="header-row">
                 <div class="badge-row">
-                    <div class="badge">App do Professor · Versão <strong>1.2.7</strong></div>
+                    <div class="badge">App do Professor · Versão <strong>1.2.8</strong></div>
                 </div>
                 <button class="close-btn" id="close-embedded">Voltar</button>
             </div>
@@ -189,14 +189,14 @@
         }
 
         const getApkUrl = () => (apkBtn && apkBtn.dataset.url) ? apkBtn.dataset.url : '';
-        const openExternal = (url) => {
+        const openExternal = async (url) => {
             try {
                 if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
-                    window.Capacitor.Plugins.Browser.open({ url });
+                    await window.Capacitor.Plugins.Browser.open({ url });
                     return true;
                 }
             } catch (err) {
-                // ignore
+                // ignore and fallback
             }
             const isAndroid = /Android/i.test(navigator.userAgent || '');
             if (isAndroid && url.startsWith('https://')) {
@@ -229,7 +229,7 @@
                 if (apkBtn.disabled) return;
                 apkBtn.disabled = true;
                 if (feedback) feedback.textContent = 'Preparando download do APK...';
-                if (openExternal(url)) {
+                if (await openExternal(url)) {
                     if (feedback) feedback.textContent = 'Abrimos o navegador para baixar o APK.';
                     apkBtn.disabled = false;
                     return;
@@ -297,6 +297,7 @@
     </script>
 </body>
 </html>
+
 
 
 
