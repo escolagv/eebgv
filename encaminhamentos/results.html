@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultados da Busca - Encaminhamentos</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <strong>Usuário:</strong> <span id="user-name">-</span>
+        </div>
+        <div class="top-bar-center"></div>
+        <div class="top-bar-right">
+            <button type="button" id="logout-btn" class="secondary-btn">Sair</button>
+        </div>
+    </div>
+
+    <div class="container-consulta">
+        <h1>Resultados da Busca</h1>
+
+        <!-- BOTÃO PARA VOLTAR PARA A PÁGINA PRINCIPAL -->
+        <a href="index.html" class="back-button">Nova Busca / Voltar</a>
+
+        <!-- ÁREA PARA MOSTRAR UM RESUMO DOS RESULTADOS -->
+        <div id="results-summary" class="results-summary"></div>
+
+        <!-- ÁREA ONDE A TABELA DE RESULTADOS SERÁ INSERIDA -->
+        <div id="results-area">
+            <p id="loading-message" style="text-align:center;">Carregando...</p>
+            <div id="results-table"></div>
+        </div>
+
+        <!-- ÁREA ONDE OS BOTÕES DE PAGINAÇÃO SERÃO INSERIDOS -->
+        <div id="pagination-container" class="pagination-container"></div>
+
+        <!-- BOTÕES PARA GERAR RELATÓRIOS -->
+        <div class="report-buttons">
+            <button id="simple-report-button">Gerar Relatório Simples</button>
+            <button id="complete-report-button">Gerar Relatório Completo</button>
+        </div>
+    </div>
+
+    <script type="module" src="results.js"></script>
+</body>
+</html>

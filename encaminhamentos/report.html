@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Encaminhamentos</title>
+    <link rel="stylesheet" href="print.css">
+</head>
+<body>
+    <div class="report-container">
+        <header>
+            <h1 id="report-title">Relatório de Encaminhamentos</h1>
+            <p id="report-date"></p>
+            <p id="report-summary"></p>
+        </header>
+        <main id="report-main-content">
+            <!-- O conteúdo do relatório será inserido aqui pelo script -->
+        </main>
+        <footer>
+            <p>Relatório gerado pelo Sistema de Encaminhamentos da Orientação</p>
+        </footer>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const resultsData = JSON.parse(localStorage.getItem('searchResults'));
+            const summary = localStorage.getItem('searchSummary');
+            const reportType = localStorage.getItem('reportType') || 'simple';
+
+            if (resultsData && resultsData.length > 0) {
+                document.getElementById('report-date').textContent = `Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`;
+                document.getElementById('report-summary').textContent = summary || '';
+
+                let contentHTML = '';
+                if (reportType === 'simple') {
+                    document.getElementById('report-title').textContent = 'Relatório Simplificado de Encaminhamentos';
+                    contentHTML = buildSimpleTable(resultsData);
+                } else {
+                    document.getElementById('report-title').textContent = 'Relatório Completo de Encaminhamentos';
+                    contentHTML = buildCompleteReport(resultsData);
+                }
+                document.getElementById('report-main-content').innerHTML = contentHTML;
+
+                localStorage.removeItem('searchResults');
+                localStorage.removeItem('searchSummary');
+                localStorage.removeItem('reportType');
+
+                setTimeout(() => { window.print(); }, 500);
+            } else {
+                document.getElementById('report-main-content').innerHTML = "<p>Nenhum dado encontrado para gerar o relatório.</p>";
+            }
+        });
+
+        function buildSimpleTable(data) {
+            let table = `<table><thead><tr>
+                            <th>Data</th>
+                            <th>Estudante</th>
+                            <th>Turma</th>
+                            <th>Professor</th>
+                            <th>Motivos</th>
+                            <th>Ações Tomadas</th>
+                            <th>Status</th>
+                        </tr></thead><tbody>`;
+            data.forEach(item => {
+                table += `<tr>
+                            <td>${item.data_encaminhamento || ''}</td>
+                            <td>${item.aluno_nome || ''}</td>
+                            <td>${item.turma_nome || ''}</td>
+                            <td>${item.professor_nome || ''}</td>
+                            <td>${item.motivos || ''}</td>
+                            <td>${item.acoes_tomadas || ''}</td>
+                            <td>${item.status || ''}</td>
+                          </tr>`;
+            });
+            return table + '</tbody></table>';
+        }
+
+        function buildCompleteReport(data) {
+            let reportHTML = '';
+            data.forEach(item => {
+                reportHTML += `
+                    <div class="record-card">
+                        <h2>Ficha de Encaminhamento</h2>
+                        <div class="record-grid">
+                            <div><strong>Estudante:</strong> ${item.aluno_nome || ''}</div>
+                            <div><strong>Turma:</strong> ${item.turma_nome || ''}</div>
+                            <div><strong>Data:</strong> ${item.data_encaminhamento || ''}</div>
+                            <div><strong>Professor(a):</strong> ${item.professor_nome || ''}</div>
+                        </div>
+
+                        <h3>Detalhes do Encaminhamento</h3>
+                        <p><strong>Motivo(s):</strong> ${item.motivos || 'Nenhum especificado'}</p>
+                        <p class="details"><strong>Detalhes do Motivo:</strong> ${item.detalhes_motivo || 'Nenhum'}</p>
+
+                        <h3>Ações da Orientação</h3>
+                        <p><strong>Ações Imediatas:</strong> ${item.acoes_tomadas || 'Nenhuma especificada'}</p>
+                        <p class="details"><strong>Detalhes da Ação:</strong> ${item.detalhes_acao || 'Nenhum'}</p>
+
+                        <h3>Contato com Responsáveis</h3>
+                        <div class="record-grid">
+                            <div><strong>Telefone:</strong> ${item.numero_telefone || ''}</div>
+                            <div><strong>Horário da Ligação:</strong> ${item.horario_ligacao || ''}</div>
+                            <div><strong>Status da Ligação:</strong> ${item.status_ligacao || ''}</div>
+                            <div><strong>Recado com:</strong> ${item.recado_com || ''}</div>
+                        </div>
+
+                        <h3>Providências Adicionais</h3>
+                        <p><strong>Providências:</strong> ${item.providencias || 'Nenhuma especificada'}</p>
+                        <p><strong>Solicitação de Comparecimento:</strong> ${item.solicitacao_comparecimento || 'Nenhuma'}</p>
+
+                        <h3>Fechamento</h3>
+                        <div class="record-grid">
+                            <div><strong>Status do Caso:</strong> ${item.status || ''}</div>
+                            <div><strong>Registrado por:</strong> ${item.registrado_por_nome || ''}</div>
+                        </div>
+                        <p><strong>Outras Informações:</strong> ${item.outras_informacoes || 'Nenhuma'}</p>
+                    </div>
+                `;
+            });
+            return reportHTML;
+        }
+    </script>
+</body>
+</html>
