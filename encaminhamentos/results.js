@@ -21,13 +21,13 @@ const recordsPerPage = 30;
 document.addEventListener('DOMContentLoaded', async () => {
     const { session, profile } = await requireAdminSession();
     if (!session || !profile) {
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
         return;
     }
     document.getElementById('user-name').textContent = profile.nome || session.user.email || '-';
     document.getElementById('logout-btn').addEventListener('click', async () => {
         await signOut();
-        window.location.href = 'index.html';
+        window.location.href = 'login.html';
     });
 
     await handleSearch();
@@ -144,7 +144,7 @@ function generateReport(reportType) {
 }
 
 window.redirectToEdit = function redirectToEdit(recordId) {
-    window.location.href = `index.html?editId=${recordId}`;
+    window.location.href = `app.html?editId=${recordId}`;
 };
 window.renderPage = renderPage;
 

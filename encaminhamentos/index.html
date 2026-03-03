@@ -2,95 +2,13 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=login.html">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de Encaminhamentos</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <title>Encaminhamentos</title>
 </head>
 <body>
-    <div id="login-view" class="login-container">
-        <div class="login-card">
-            <h1>Acesso Encaminhamentos</h1>
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="login-email">Email</label>
-                    <input type="email" id="login-email" autocomplete="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="login-password">Senha</label>
-                    <input type="password" id="login-password" autocomplete="current-password" required>
-                </div>
-                <button type="submit" id="login-btn">Entrar</button>
-                <p id="login-error" class="error-text"></p>
-            </form>
-        </div>
-    </div>
-
-    <div id="app-view" class="hidden">
-        <div class="top-bar">
-            <div class="top-bar-left">
-                <strong>Usuário:</strong> <span id="user-name">-</span>
-            </div>
-            <div class="top-bar-center">
-                <strong>Sync:</strong> <span id="sync-status">-</span>
-            </div>
-            <div class="top-bar-right">
-                <button type="button" id="logout-btn" class="secondary-btn">Sair</button>
-            </div>
-        </div>
-
-        <div class="container">
-            <h1 id="form-title">Registrar Encaminhamento</h1>
-            <form id="encaminhamentoForm">
-                <input type="hidden" id="editId" name="editId">
-                <h2>Dados do Encaminhamento</h2>
-                <div class="grid-2-col">
-                    <div class="form-group"><label for="dataEncaminhamento">Data do Encaminhamento</label><input type="date" id="dataEncaminhamento" required></div>
-                    <div class="form-group"><label for="turma">Turma</label><input type="text" id="turma" readonly></div>
-                </div>
-                <div class="form-group">
-                    <label for="professor">Professor(a)</label>
-                    <select id="professor" required>
-                        <option value="">Carregando...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="estudante">Estudante</label>
-                    <select id="estudante" required>
-                        <option value="">Carregando...</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>Motivo(s)</label><div class="checkbox-container" id="motivos-container"></div></div>
-                <div class="form-group"><label for="detalhesMotivo">Detalhes do Motivo</label><textarea id="detalhesMotivo"></textarea></div>
-                <h2>Ações a serem tomadas pela Orientação</h2>
-                <div class="form-group"><label>Ações Imediatas</label><div class="checkbox-container" id="acoes-container"></div></div>
-                <div class="form-group"><label for="detalhesAcao">Detalhes da Ação</label><textarea id="detalhesAcao"></textarea></div>
-                <h3>Contato com Responsáveis</h3>
-                <div class="grid-2-col"><div class="form-group"><label for="numeroTelefone">Número de telefone</label><input type="tel" id="numeroTelefone"></div><div class="form-group"><label for="horarioLigacao">Horário da ligação</label><input type="time" id="horarioLigacao"></div></div>
-                <div class="grid-2-col"><div class="form-group"><label for="statusLigacao">Status da ligação</label><select id="statusLigacao"><option value="">Selecione</option><option value="Atendeu">Atendeu</option><option value="Não atendeu">Não atendeu</option></select></div><div class="form-group"><label for="recadoCom">Deixou recado com:</label><input type="text" id="recadoCom"></div></div>
-                <h3>Providências Adicionais</h3>
-                <div class="form-group"><div class="checkbox-container" id="providencias-container"></div></div>
-                <div class="form-group"><label for="solicitacaoComparecimento">Data e hora para comparecimento:</label><input type="text" id="solicitacaoComparecimento" placeholder="Ex: 25/08/2025 às 14h30"></div>
-                <h2>Fechamento</h2>
-                <div class="grid-2-col">
-                    <div class="form-group"><label for="status">Status do Encaminhamento</label><select id="status"><option value="Aberto">Aberto</option><option value="Em Acompanhamento">Em Acompanhamento</option><option value="Resolvido">Resolvido</option><option value="Arquivado">Arquivado</option></select></div>
-                    <div class="form-group"><label for="registradoPor">Registrado por</label><input type="text" id="registradoPor" readonly></div>
-                </div>
-                <div class="form-group"><label for="outrasInformacoes">Outras Informações Relevantes</label><textarea id="outrasInformacoes"></textarea></div>
-                <button type="submit" id="btnRegistrar">Registrar Encaminhamento</button>
-                <div class="edit-buttons-container" id="editButtons"><button type="button" id="btnSalvarEdicao">Salvar Alterações</button><button type="button" id="btnCancelarEdicao">Cancelar Edição</button></div>
-            </form>
-            <div id="status-message"></div>
-        </div>
-
-        <div class="container-consulta">
-            <h1>Consultar Encaminhamentos</h1>
-            <div class="grid-2-col"><div class="form-group"><label for="search-estudante">Buscar por Estudante</label><input type="text" id="search-estudante" placeholder="Parte do nome..."></div><div class="form-group"><label for="search-professor">Buscar por Professor(a)</label><input type="text" id="search-professor" placeholder="Parte do nome..."></div></div>
-            <div class="grid-2-col"><div class="form-group"><label for="search-data">Buscar por Data</label><input type="date" id="search-data"></div><div class="form-group"><label for="search-registrado">Buscar por Quem Registrou</label><input type="text" id="search-registrado" placeholder="Parte do nome..."></div></div>
-            <button type="button" id="search-button">Buscar Encaminhamentos</button>
-        </div>
-    </div>
-
-    <script type="module" src="script.js"></script>
+    <script>
+        window.location.href = 'login.html';
+    </script>
 </body>
 </html>

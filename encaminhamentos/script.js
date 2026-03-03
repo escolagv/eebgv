@@ -1,5 +1,5 @@
 import { db, safeQuery, getLocalDateString, formatDateTimeSP } from './js/core.js';
-import { signIn, signOut, requireAdminSession } from './js/auth.js';
+import { signOut, requireAdminSession } from './js/auth.js';
 
 // ===================================================================
 // DADOS PARA CHECKBOXES DINÂMICOS
@@ -30,7 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchButton = document.getElementById('search-button');
     const salvarEdicaoButton = document.getElementById('btnSalvarEdicao');
     const cancelarEdicaoButton = document.getElementById('btnCancelarEdicao');
-    const loginForm = document.getElementById('login-form');
     const logoutBtn = document.getElementById('logout-btn');
 
     createCheckboxes('motivos-container', motivosOptions, 'motivo');
@@ -42,81 +41,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     salvarEdicaoButton.addEventListener('click', updateRecord);
     cancelarEdicaoButton.addEventListener('click', resetForm);
 
-    loginForm.addEventListener('submit', handleLogin);
     logoutBtn.addEventListener('click', async () => {
         await signOut();
         clearSyncTimer();
-        showLoginView();
+        window.location.href = 'login.html';
     });
 
     document.getElementById('estudante').addEventListener('change', handleAlunoChange);
 
-    await initAuth();
+    await initApp();
 });
 
-async function initAuth() {
+async function initApp() {
     const { session, profile } = await requireAdminSession();
     if (session && profile) {
-        await enterApp(session.user, profile);
+        await loadApp(session.user, profile);
     } else {
-        showLoginView();
+        window.location.href = 'login.html';
     }
 
     db.auth.onAuthStateChange(async (event, session) => {
         if (!session) {
             clearSyncTimer();
-            showLoginView();
+            window.location.href = 'login.html';
             return;
         }
         const result = await requireAdminSession();
         if (result.session && result.profile) {
-            await enterApp(result.session.user, result.profile);
+            await loadApp(result.session.user, result.profile);
         } else {
-            showLoginView();
+            window.location.href = 'login.html';
         }
     });
 }
 
-function showLoginView() {
-    const appView = document.getElementById('app-view');
-    const loginView = document.getElementById('login-view');
-    if (appView) appView.classList.add('hidden');
-    if (loginView) loginView.classList.remove('hidden');
-}
-
-async function enterApp(user, profile) {
+async function loadApp(user, profile) {
     state.currentUser = user;
     state.profile = profile;
-    document.getElementById('login-error').textContent = '';
     document.getElementById('user-name').textContent = profile.nome || user.email || '-';
     document.getElementById('registradoPor').value = profile.nome || user.email || '';
     document.getElementById('dataEncaminhamento').value = getLocalDateString();
-
-    const appView = document.getElementById('app-view');
-    const loginView = document.getElementById('login-view');
-    if (loginView) loginView.classList.add('hidden');
-    if (appView) appView.classList.remove('hidden');
 
     await syncEncCache();
     await loadCaches();
     checkEditMode();
     startSyncTimer();
-}
-
-// ===================================================================
-// LOGIN
-// ===================================================================
-async function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value.trim();
-    const errorEl = document.getElementById('login-error');
-    errorEl.textContent = '';
-
-    const { error } = await signIn(email, password);
-    if (error) {
-        errorEl.textContent = error.message || 'Falha ao autenticar.';
-    }
 }
 
 // ===================================================================
