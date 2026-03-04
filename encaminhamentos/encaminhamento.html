@@ -51,7 +51,10 @@
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                         <div>
                             <h2 class="text-2xl font-bold" id="form-title">Registrar Encaminhamento</h2>
-                            <p class="text-xs text-gray-500">Sync: <strong id="sync-status">-</strong></p>
+                            <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                                <span>Sync: <strong id="sync-status">-</strong></span>
+                                <button type="button" id="sync-now-btn" class="px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Sincronizar agora</button>
+                            </div>
                         </div>
                         <div class="text-sm text-gray-500">
                             Registrado por: <strong id="registradoPorLabel"></strong>
@@ -125,6 +128,23 @@
                                 <div>
                                     <label for="recadoCom" class="text-sm font-medium text-gray-700">Deixou recado com:</label>
                                     <input type="text" id="recadoCom" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <label class="text-sm font-medium text-gray-700">Mensagem via WhatsApp</label>
+                                <div class="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-700">
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="checkbox" id="whatsapp-enviado" class="h-4 w-4">
+                                        Enviado
+                                    </label>
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" name="whatsapp-status" value="Respondeu" class="h-4 w-4" disabled>
+                                        Respondeu
+                                    </label>
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" name="whatsapp-status" value="Não respondeu" class="h-4 w-4" disabled>
+                                        Não respondeu
+                                    </label>
                                 </div>
                             </div>
                             <h3 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2 mt-6">Providências Adicionais</h3>

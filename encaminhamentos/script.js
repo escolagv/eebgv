@@ -4,9 +4,24 @@ import { signOut, requireAdminSession } from './js/auth.js';
 // ===================================================================
 // DADOS PARA CHECKBOXES DINÂMICOS
 // ===================================================================
-const motivosOptions = ["Indisciplina", "Gazeando aula", "Faltoso", "Celular/Fone de ouvido", "Dificuldade de aprendizado", "Chegada tardia", "Não produz/participa", "Problema com notas"];
-const acoesOptions = ["Diálogo com o Estudante", "Comunicado aos Responsáveis"];
-const providenciasOptions = ["Solicitar comparecimento do responsável", "Advertência"];
+const motivosOptions = [
+    "Indisciplina / Xingamentos",
+    "Gazeando aula",
+    "Agressão / Bullying / Discriminação",
+    "Uso de celular / fone de ouvido",
+    "Dificuldade de aprendizado",
+    "Desrespeito com professor / profissionais da unidade escolar",
+    "Não produz e não participa em sala"
+];
+const acoesOptions = [
+    "Diálogo com o estudante",
+    "Comunicado aos responsáveis",
+    "Mensagem via WhatsApp"
+];
+const providenciasOptions = [
+    "Solicitar comparecimento do responsável na escola",
+    "Advertência"
+];
 
 const SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -30,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const salvarEdicaoButton = document.getElementById('btnSalvarEdicao');
     const cancelarEdicaoButton = document.getElementById('btnCancelarEdicao');
     const logoutBtn = document.getElementById('logout-btn');
+    const syncNowBtn = document.getElementById('sync-now-btn');
 
     createCheckboxes('motivos-container', motivosOptions, 'motivo');
     createCheckboxes('acoes-container', acoesOptions, 'acao');
@@ -38,6 +54,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     encaminhamentoForm.addEventListener('submit', saveRecord);
     salvarEdicaoButton.addEventListener('click', updateRecord);
     cancelarEdicaoButton.addEventListener('click', resetForm);
+    if (syncNowBtn) {
+        syncNowBtn.addEventListener('click', async () => {
+            await syncEncCache();
+            await loadCaches();
+        });
+    }
 
     logoutBtn.addEventListener('click', async () => {
         await signOut();
@@ -46,6 +68,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('estudante').addEventListener('change', handleAlunoChange);
+
+    const whatsappCheckbox = document.getElementById('whatsapp-enviado');
+    if (whatsappCheckbox) {
+        const toggleWhatsapp = () => {
+            const enabled = whatsappCheckbox.checked;
+            document.querySelectorAll('input[name="whatsapp-status"]').forEach(radio => {
+                radio.disabled = !enabled;
+                if (!enabled) radio.checked = false;
+            });
+        };
+        whatsappCheckbox.addEventListener('change', toggleWhatsapp);
+        toggleWhatsapp();
+    }
 
     await initApp();
 });
@@ -185,7 +220,7 @@ function createCheckboxes(containerId, options, groupName) {
         container.appendChild(div);
     });
 
-    if (groupName === 'acao' || groupName === 'providencia') {
+    if (groupName === 'acao' || groupName === 'providencia' || groupName === 'motivo') {
         const divOutros = document.createElement('div');
         const checkboxOutros = document.createElement('input');
         checkboxOutros.type = 'checkbox'; checkboxOutros.name = groupName; checkboxOutros.value = 'Outros'; checkboxOutros.id = `${groupName}-outros-check`;
@@ -300,6 +335,8 @@ function getFormData() {
         numero_telefone: document.getElementById('numeroTelefone').value,
         horario_ligacao: document.getElementById('horarioLigacao').value || null,
         status_ligacao: document.getElementById('statusLigacao').value,
+        whatsapp_enviado: document.getElementById('whatsapp-enviado')?.checked || false,
+        whatsapp_status: document.querySelector('input[name="whatsapp-status"]:checked')?.value || null,
         recado_com: document.getElementById('recadoCom').value,
         providencias: getCheckboxValues('providencia'),
         solicitacao_comparecimento: document.getElementById('solicitacaoComparecimento').value,
@@ -324,6 +361,13 @@ function populateForm(data) {
     document.getElementById('numeroTelefone').value = data.numero_telefone || '';
     document.getElementById('horarioLigacao').value = data.horario_ligacao || '';
     document.getElementById('statusLigacao').value = data.status_ligacao || '';
+    if (document.getElementById('whatsapp-enviado')) {
+        document.getElementById('whatsapp-enviado').checked = !!data.whatsapp_enviado;
+        document.querySelectorAll('input[name="whatsapp-status"]').forEach(radio => {
+            radio.disabled = !data.whatsapp_enviado;
+            radio.checked = radio.value === data.whatsapp_status;
+        });
+    }
     document.getElementById('recadoCom').value = data.recado_com || '';
     setCheckboxValues('providencia', data.providencias);
     document.getElementById('solicitacaoComparecimento').value = data.solicitacao_comparecimento || '';
@@ -350,6 +394,13 @@ function resetForm() {
     document.getElementById('registradoPor').value = state.profile?.nome || state.currentUser?.email || '';
     const registradoLabel = document.getElementById('registradoPorLabel');
     if (registradoLabel) registradoLabel.textContent = state.profile?.nome || state.currentUser?.email || '';
+    if (document.getElementById('whatsapp-enviado')) {
+        document.getElementById('whatsapp-enviado').checked = false;
+        document.querySelectorAll('input[name="whatsapp-status"]').forEach(radio => {
+            radio.checked = false;
+            radio.disabled = true;
+        });
+    }
     document.getElementById('turma').value = '';
     switchToEditMode(false);
     window.history.pushState({}, document.title, window.location.pathname);

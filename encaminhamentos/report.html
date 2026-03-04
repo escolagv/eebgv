@@ -9,7 +9,7 @@
 <body>
     <div class="report-container">
         <header>
-            <h1 id="report-title">Relatório de Encaminhamentos</h1>
+            <h1 id="report-title">Ficha de Encaminhamento</h1>
             <p id="report-date"></p>
             <p id="report-summary"></p>
         </header>
@@ -31,13 +31,8 @@
                 document.getElementById('report-summary').textContent = summary || '';
 
                 let contentHTML = '';
-                if (reportType === 'simple') {
-                    document.getElementById('report-title').textContent = 'Relatório Simplificado de Encaminhamentos';
-                    contentHTML = buildSimpleTable(resultsData);
-                } else {
-                    document.getElementById('report-title').textContent = 'Relatório Completo de Encaminhamentos';
-                    contentHTML = buildCompleteReport(resultsData);
-                }
+                document.getElementById('report-title').textContent = 'Ficha de Encaminhamento';
+                contentHTML = buildFichaReport(resultsData);
                 document.getElementById('report-main-content').innerHTML = contentHTML;
 
                 localStorage.removeItem('searchResults');
@@ -50,69 +45,97 @@
             }
         });
 
-        function buildSimpleTable(data) {
-            let table = `<table><thead><tr>
-                            <th>Data</th>
-                            <th>Estudante</th>
-                            <th>Turma</th>
-                            <th>Professor</th>
-                            <th>Motivos</th>
-                            <th>Ações Tomadas</th>
-                            <th>Status</th>
-                        </tr></thead><tbody>`;
-            data.forEach(item => {
-                table += `<tr>
-                            <td>${item.data_encaminhamento || ''}</td>
-                            <td>${item.aluno_nome || ''}</td>
-                            <td>${item.turma_nome || ''}</td>
-                            <td>${item.professor_nome || ''}</td>
-                            <td>${item.motivos || ''}</td>
-                            <td>${item.acoes_tomadas || ''}</td>
-                            <td>${item.status || ''}</td>
-                          </tr>`;
-            });
-            return table + '</tbody></table>';
+        function parseList(value) {
+            if (!value) return [];
+            return value.split(', ').map(v => v.trim()).filter(Boolean);
         }
 
-        function buildCompleteReport(data) {
+        function checkbox(label, checked) {
+            return `<div class="checkbox-line">(${checked ? 'x' : ' '}) ${label}</div>`;
+        }
+
+        function buildFichaReport(data) {
+            const motivosBase = [
+                "Indisciplina / Xingamentos",
+                "Gazeando aula",
+                "Agressão / Bullying / Discriminação",
+                "Uso de celular / fone de ouvido",
+                "Dificuldade de aprendizado",
+                "Desrespeito com professor / profissionais da unidade escolar",
+                "Não produz e não participa em sala"
+            ];
+            const acoesBase = [
+                "Diálogo com o estudante",
+                "Comunicado aos responsáveis",
+                "Mensagem via WhatsApp"
+            ];
+            const providenciasBase = [
+                "Solicitar comparecimento do responsável na escola",
+                "Advertência"
+            ];
+
             let reportHTML = '';
             data.forEach(item => {
+                const motivos = parseList(item.motivos);
+                const acoes = parseList(item.acoes_tomadas);
+                const providencias = parseList(item.providencias);
+                const outrosMotivo = motivos.find(m => m.startsWith('Outros:')) || '';
+                const outrosAcoes = acoes.find(m => m.startsWith('Outros:')) || '';
+                const outrosProvidencias = providencias.find(m => m.startsWith('Outros:')) || '';
+
                 reportHTML += `
                     <div class="record-card">
-                        <h2>Ficha de Encaminhamento</h2>
-                        <div class="record-grid">
-                            <div><strong>Estudante:</strong> ${item.aluno_nome || ''}</div>
-                            <div><strong>Turma:</strong> ${item.turma_nome || ''}</div>
-                            <div><strong>Data:</strong> ${item.data_encaminhamento || ''}</div>
-                            <div><strong>Professor(a):</strong> ${item.professor_nome || ''}</div>
+                        <div class="ficha-header">
+                            <div class="ficha-title">E.E.B GETÚLIO VARGAS</div>
+                            <div class="ficha-subtitle">FICHA DE ENCAMINHAMENTO</div>
+                        </div>
+                        <div class="ficha-field"><strong>PROFESSOR(A):</strong> ${item.professor_nome || ''}</div>
+                        <div class="ficha-field"><strong>ESTUDANTE:</strong> ${item.aluno_nome || ''}</div>
+                        <div class="ficha-field"><strong>TURMA:</strong> ${item.turma_nome || ''}</div>
+                        <div class="ficha-field"><strong>DATA:</strong> ${item.data_encaminhamento || ''}</div>
+
+                        <div class="ficha-section">
+                            <div class="section-title">O estudante acima citado foi direcionado à orientação educacional pelo(s) seguinte(s) motivo(s):</div>
+                            <div class="checkbox-group">
+                                ${motivosBase.map(m => checkbox(m, motivos.includes(m))).join('')}
+                                ${checkbox('Outros', !!outrosMotivo)}
+                            </div>
+                            <div class="line-block">${outrosMotivo.replace('Outros:', '').trim() || ''}</div>
+                            <div class="line-block">${item.detalhes_motivo || ''}</div>
                         </div>
 
-                        <h3>Detalhes do Encaminhamento</h3>
-                        <p><strong>Motivo(s):</strong> ${item.motivos || 'Nenhum especificado'}</p>
-                        <p class="details"><strong>Detalhes do Motivo:</strong> ${item.detalhes_motivo || 'Nenhum'}</p>
-
-                        <h3>Ações da Orientação</h3>
-                        <p><strong>Ações Imediatas:</strong> ${item.acoes_tomadas || 'Nenhuma especificada'}</p>
-                        <p class="details"><strong>Detalhes da Ação:</strong> ${item.detalhes_acao || 'Nenhum'}</p>
-
-                        <h3>Contato com Responsáveis</h3>
-                        <div class="record-grid">
-                            <div><strong>Telefone:</strong> ${item.numero_telefone || ''}</div>
-                            <div><strong>Horário da Ligação:</strong> ${item.horario_ligacao || ''}</div>
-                            <div><strong>Status da Ligação:</strong> ${item.status_ligacao || ''}</div>
-                            <div><strong>Recado com:</strong> ${item.recado_com || ''}</div>
+                        <div class="ficha-section">
+                            <div class="section-title">Encaminhamentos realizados na orientação/coordenação</div>
+                            <div class="checkbox-group">
+                                ${acoesBase.map(m => checkbox(m, acoes.includes(m))).join('')}
+                                ${checkbox('Outros', !!outrosAcoes)}
+                            </div>
+                            <div class="line-block">${outrosAcoes.replace('Outros:', '').trim() || ''}</div>
+                            <div class="ficha-field"><strong>TELEFONE:</strong> ${item.numero_telefone || ''}</div>
+                            <div class="ficha-field"><strong>HORÁRIO DA LIGAÇÃO:</strong> ${item.horario_ligacao || ''}</div>
+                            <div class="checkbox-group">
+                                ${checkbox('Atendeu', item.status_ligacao === 'Atendeu')}
+                                ${checkbox('Não atendeu', item.status_ligacao === 'Não atendeu')}
+                            </div>
+                            <div class="checkbox-group">
+                                ${checkbox('Mensagem via WhatsApp', !!item.whatsapp_enviado)}
+                                ${checkbox('Respondeu', item.whatsapp_status === 'Respondeu')}
+                                ${checkbox('Não respondeu', item.whatsapp_status === 'Não respondeu')}
+                            </div>
+                            <div class="checkbox-group">
+                                ${providenciasBase.map(m => checkbox(m, providencias.includes(m))).join('')}
+                                ${checkbox('Outros', !!outrosProvidencias)}
+                            </div>
+                            <div class="line-block">${outrosProvidencias.replace('Outros:', '').trim() || ''}</div>
+                            <div class="line-block">${item.detalhes_acao || ''}</div>
                         </div>
 
-                        <h3>Providências Adicionais</h3>
-                        <p><strong>Providências:</strong> ${item.providencias || 'Nenhuma especificada'}</p>
-                        <p><strong>Solicitação de Comparecimento:</strong> ${item.solicitacao_comparecimento || 'Nenhuma'}</p>
-
-                        <h3>Fechamento</h3>
-                        <div class="record-grid">
-                            <div><strong>Status do Caso:</strong> ${item.status || ''}</div>
-                            <div><strong>Registrado por:</strong> ${item.registrado_por_nome || ''}</div>
+                        <div class="ficha-section">
+                            <div class="ficha-field"><strong>Orientação / Coordenação:</strong> ____________________________________________</div>
+                            <div class="ficha-field"><strong>Assinatura do responsável:</strong> ____________________________________________</div>
+                            <div class="ficha-field"><strong>Data das diligências:</strong> ____ / ____ / ______</div>
+                            <div class="signature-placeholder">Assinatura da orientadora (será adicionada)</div>
                         </div>
-                        <p><strong>Outras Informações:</strong> ${item.outras_informacoes || 'Nenhuma'}</p>
                     </div>
                 `;
             });
