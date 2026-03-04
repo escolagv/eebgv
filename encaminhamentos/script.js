@@ -243,8 +243,23 @@ function initSearchPanels() {
             input.focus();
         };
 
-        select.addEventListener('focus', openPanel);
-        select.addEventListener('click', openPanel);
+        const blockNativeSelect = (event) => {
+            event.preventDefault();
+            select.blur();
+            openPanel();
+        };
+
+        select.addEventListener('mousedown', blockNativeSelect);
+        select.addEventListener('touchstart', blockNativeSelect, { passive: false });
+        select.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                openPanel();
+            }
+        });
+        select.addEventListener('focus', () => {
+            openPanel();
+        });
 
         input.addEventListener('input', () => {
             renderSearchList(type, input.value);
