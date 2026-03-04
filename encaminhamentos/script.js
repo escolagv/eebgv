@@ -69,7 +69,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('estudante').addEventListener('change', handleAlunoChange);
     document.getElementById('numeroTelefone').addEventListener('input', updateContatoResumo);
     document.getElementById('horarioLigacao').addEventListener('input', updateContatoResumo);
-    document.getElementById('statusLigacao').addEventListener('change', updateContatoResumo);
     document.getElementById('recadoCom').addEventListener('input', updateContatoResumo);
     document.getElementById('responsavelNome').addEventListener('input', updateContatoResumo);
     document.getElementById('solicitacaoComparecimentoData').addEventListener('change', updateSolicitacaoComparecimento);
@@ -90,6 +89,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             radio.addEventListener('change', updateContatoResumo);
         });
         toggleWhatsapp();
+    }
+
+    const ligacaoCheckbox = document.getElementById('ligacao-realizada');
+    if (ligacaoCheckbox) {
+        const toggleLigacao = () => {
+            const enabled = ligacaoCheckbox.checked;
+            document.querySelectorAll('input[name="ligacao-status"]').forEach(radio => {
+                radio.disabled = !enabled;
+                if (!enabled) radio.checked = false;
+            });
+            updateContatoResumo();
+        };
+        ligacaoCheckbox.addEventListener('change', toggleLigacao);
+        document.querySelectorAll('input[name="ligacao-status"]').forEach(radio => {
+            radio.addEventListener('change', updateContatoResumo);
+        });
+        toggleLigacao();
     }
 
     switchToEditMode(false);
@@ -475,7 +491,7 @@ function getFormData() {
         responsavel_nome: document.getElementById('responsavelNome').value,
         numero_telefone: document.getElementById('numeroTelefone').value,
         horario_ligacao: document.getElementById('horarioLigacao').value || null,
-        status_ligacao: document.getElementById('statusLigacao').value,
+        status_ligacao: getLigacaoStatus(),
         whatsapp_enviado: document.getElementById('whatsapp-enviado')?.checked || false,
         whatsapp_status: document.querySelector('input[name="whatsapp-status"]:checked')?.value || null,
         recado_com: document.getElementById('recadoCom').value,
@@ -501,7 +517,7 @@ function populateForm(data) {
     document.getElementById('responsavelNome').value = data.responsavel_nome || '';
     document.getElementById('numeroTelefone').value = data.numero_telefone || '';
     document.getElementById('horarioLigacao').value = data.horario_ligacao || '';
-    document.getElementById('statusLigacao').value = data.status_ligacao || '';
+    setLigacaoStatus(data.status_ligacao || '');
     if (document.getElementById('whatsapp-enviado')) {
         document.getElementById('whatsapp-enviado').checked = !!data.whatsapp_enviado;
         document.querySelectorAll('input[name="whatsapp-status"]').forEach(radio => {
@@ -539,6 +555,13 @@ function resetForm() {
     if (document.getElementById('whatsapp-enviado')) {
         document.getElementById('whatsapp-enviado').checked = false;
         document.querySelectorAll('input[name="whatsapp-status"]').forEach(radio => {
+            radio.checked = false;
+            radio.disabled = true;
+        });
+    }
+    if (document.getElementById('ligacao-realizada')) {
+        document.getElementById('ligacao-realizada').checked = false;
+        document.querySelectorAll('input[name="ligacao-status"]').forEach(radio => {
             radio.checked = false;
             radio.disabled = true;
         });
@@ -622,7 +645,8 @@ function setCheckboxValues(name, valuesString) {
 function updateContatoResumo() {
     const telefone = document.getElementById('numeroTelefone').value.trim();
     const horario = document.getElementById('horarioLigacao').value.trim();
-    const statusLigacao = document.getElementById('statusLigacao').value.trim();
+    const ligacaoRealizada = document.getElementById('ligacao-realizada')?.checked;
+    const statusLigacao = document.querySelector('input[name="ligacao-status"]:checked')?.value || '';
     const whatsappEnviado = document.getElementById('whatsapp-enviado')?.checked;
     const whatsappStatus = document.querySelector('input[name="whatsapp-status"]:checked')?.value || '';
     const recadoCom = document.getElementById('recadoCom').value.trim();
@@ -631,11 +655,15 @@ function updateContatoResumo() {
     const partes = [];
     if (responsavel) partes.push(`Responsável: ${responsavel}`);
     if (telefone) partes.push(`Telefone: ${telefone}`);
-    if (statusLigacao) {
+    if (ligacaoRealizada) {
         const horarioLabel = horario ? ` às ${horario}` : '';
-        partes.push(`Ligação: ${statusLigacao}${horarioLabel}`);
+        if (statusLigacao) {
+            partes.push(`Ligação: ${statusLigacao}${horarioLabel}`);
+        } else {
+            partes.push(`Ligação: realizada${horarioLabel}`);
+        }
     } else if (horario) {
-        partes.push(`Ligação: ${horario}`);
+        partes.push(`Contato: ${horario}`);
     }
     if (recadoCom) partes.push(`Recado com ${recadoCom}`);
 
@@ -649,6 +677,32 @@ function updateContatoResumo() {
 
     const resumoEl = document.getElementById('contatoResumo');
     if (resumoEl) resumoEl.value = partes.join(' | ');
+}
+
+function getLigacaoStatus() {
+    const ligou = document.getElementById('ligacao-realizada')?.checked;
+    if (!ligou) return null;
+    const status = document.querySelector('input[name="ligacao-status"]:checked')?.value || '';
+    return status || 'Ligou';
+}
+
+function setLigacaoStatus(value) {
+    const ligacaoCheckbox = document.getElementById('ligacao-realizada');
+    if (!ligacaoCheckbox) return;
+    const status = (value || '').trim();
+    if (status) {
+        ligacaoCheckbox.checked = true;
+        document.querySelectorAll('input[name="ligacao-status"]').forEach(radio => {
+            radio.disabled = false;
+            radio.checked = radio.value === status;
+        });
+    } else {
+        ligacaoCheckbox.checked = false;
+        document.querySelectorAll('input[name="ligacao-status"]').forEach(radio => {
+            radio.disabled = true;
+            radio.checked = false;
+        });
+    }
 }
 
 function buildSolicitacaoComparecimento() {

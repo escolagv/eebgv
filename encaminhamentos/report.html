@@ -113,7 +113,7 @@
                             <div class="line-block">${outrosAcoes.replace('Outros:', '').trim() || ''}</div>
                         <div class="ficha-field"><strong>RESPONSÁVEL:</strong> ${item.responsavel_nome || ''}</div>
                         <div class="ficha-field"><strong>TELEFONE:</strong> ${item.numero_telefone || ''}</div>
-                            <div class="ficha-field"><strong>HORÁRIO DA LIGAÇÃO:</strong> ${item.horario_ligacao || ''}</div>
+                            <div class="ficha-field"><strong>HORÁRIO DO CONTATO:</strong> ${item.horario_ligacao || ''}</div>
                             <div class="checkbox-group">
                                 ${checkbox('Atendeu', item.status_ligacao === 'Atendeu')}
                                 ${checkbox('Não atendeu', item.status_ligacao === 'Não atendeu')}

@@ -34,6 +34,26 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+$confirmApoia = Read-Host "Atualizar versao do APOIA/AppProf? (s/N)"
+if ($confirmApoia -match '^(s|S|y|Y)') {
+    $appprofScript = Join-Path $root "deploy-appprof.ps1"
+    if (Test-Path $appprofScript) {
+        & $appprofScript -AutoVersion -UpdateProfessorVersion -SkipGit -SkipVercel
+    } else {
+        Write-Host "Script nao encontrado: $appprofScript" -ForegroundColor Yellow
+    }
+}
+
+$confirmEnc = Read-Host "Atualizar versao do Encaminhamentos? (s/N)"
+if ($confirmEnc -match '^(s|S|y|Y)') {
+    $encScript = Join-Path $root "deploy-encaminhamentos.ps1"
+    if (Test-Path $encScript) {
+        & $encScript -AutoVersion
+    } else {
+        Write-Host "Script nao encontrado: $encScript" -ForegroundColor Yellow
+    }
+}
+
 $origin = git remote get-url origin 2>$null
 if ($GitRemoteUrl) {
     if ($origin) {
