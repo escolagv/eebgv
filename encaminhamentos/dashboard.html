@@ -5,49 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Encaminhamentos</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
-<body>
-    <header class="top-bar">
-        <div class="top-bar-left">
-            <strong>Usuário:</strong> <span id="user-name">-</span>
+<body class="bg-gray-100 text-gray-800">
+    <header class="bg-white shadow-md p-3 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+        <div class="flex items-center gap-3">
+            <img src="../apoia/logo.png" alt="Logo Escola" class="h-12 w-12">
+            <div>
+                <h1 class="text-lg font-bold leading-tight">Encaminhamentos</h1>
+                <p class="text-xs text-gray-500">Dashboard</p>
+            </div>
         </div>
-        <nav class="top-bar-center nav-links">
-            <a href="dashboard.html" class="nav-link active">Dashboard</a>
-            <a href="encaminhamento.html" class="nav-link">Registrar</a>
-            <a href="consulta.html" class="nav-link">Consultar</a>
-            <a href="relatorios.html" class="nav-link">Relatórios</a>
+        <nav class="flex flex-wrap justify-center gap-3 text-sm font-semibold">
+            <a href="dashboard.html" class="text-blue-600 nav-link-active">Dashboard</a>
+            <a href="encaminhamento.html" class="text-gray-600 hover:text-blue-600">Registrar</a>
+            <a href="consulta.html" class="text-gray-600 hover:text-blue-600">Consultar</a>
+            <a href="relatorios.html" class="text-gray-600 hover:text-blue-600">Relatórios</a>
         </nav>
-        <div class="top-bar-right">
-            <button type="button" id="logout-btn" class="secondary-btn">Sair</button>
+        <div class="flex items-center gap-3 justify-end">
+            <div class="text-right">
+                <p class="text-xs text-gray-500">Usuário</p>
+                <p class="text-sm font-semibold" id="user-name">-</p>
+            </div>
+            <button type="button" id="logout-btn" class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
         </div>
     </header>
 
-    <main class="container">
-        <h1>Dashboard</h1>
-        <p class="muted-text">Visão inicial do sistema de encaminhamentos. Em breve com indicadores e alertas.</p>
-
-        <div class="dashboard-grid">
-            <a class="dashboard-card" href="encaminhamento.html">
-                <h3>Registrar Encaminhamento</h3>
-                <p>Crie um novo registro de encaminhamento.</p>
-            </a>
-            <a class="dashboard-card" href="consulta.html">
-                <h3>Consultar Encaminhamentos</h3>
-                <p>Faça buscas por aluno, professor ou data.</p>
-            </a>
-            <a class="dashboard-card" href="relatorios.html">
-                <h3>Relatórios</h3>
-                <p>Gere relatórios simples ou completos.</p>
-            </a>
-        </div>
-
-        <div class="dashboard-placeholder">
-            <h2>Em breve</h2>
-            <p>Indicadores de acompanhamento e atalhos rápidos.</p>
+    <main class="px-4 py-6 max-w-5xl mx-auto">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-bold text-gray-900">Dashboard</h2>
+            <p class="text-sm text-gray-500 mt-1">Visão inicial do sistema de encaminhamentos. Em breve com indicadores e alertas.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <a href="encaminhamento.html" class="block p-4 rounded-lg border border-gray-200 hover:shadow-md transition">
+                    <h3 class="font-semibold text-gray-900">Registrar Encaminhamento</h3>
+                    <p class="text-sm text-gray-500 mt-1">Crie um novo registro.</p>
+                </a>
+                <a href="consulta.html" class="block p-4 rounded-lg border border-gray-200 hover:shadow-md transition">
+                    <h3 class="font-semibold text-gray-900">Consultar Encaminhamentos</h3>
+                    <p class="text-sm text-gray-500 mt-1">Busque por aluno, professor ou data.</p>
+                </a>
+                <a href="relatorios.html" class="block p-4 rounded-lg border border-gray-200 hover:shadow-md transition">
+                    <h3 class="font-semibold text-gray-900">Relatórios</h3>
+                    <p class="text-sm text-gray-500 mt-1">Gere relatórios simples ou completos.</p>
+                </a>
+            </div>
         </div>
     </main>
 

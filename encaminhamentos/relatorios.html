@@ -5,41 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relatórios - Encaminhamentos</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
-<body>
-    <header class="top-bar">
-        <div class="top-bar-left">
-            <strong>Usuário:</strong> <span id="user-name">-</span>
+<body class="bg-gray-100 text-gray-800">
+    <header class="bg-white shadow-md p-3 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+        <div class="flex items-center gap-3">
+            <img src="../apoia/logo.png" alt="Logo Escola" class="h-12 w-12">
+            <div>
+                <h1 class="text-lg font-bold leading-tight">Encaminhamentos</h1>
+                <p class="text-xs text-gray-500">Relatórios</p>
+            </div>
         </div>
-        <nav class="top-bar-center nav-links">
-            <a href="dashboard.html" class="nav-link">Dashboard</a>
-            <a href="encaminhamento.html" class="nav-link">Registrar</a>
-            <a href="consulta.html" class="nav-link">Consultar</a>
-            <a href="relatorios.html" class="nav-link active">Relatórios</a>
+        <nav class="flex flex-wrap justify-center gap-3 text-sm font-semibold">
+            <a href="dashboard.html" class="text-gray-600 hover:text-blue-600">Dashboard</a>
+            <a href="encaminhamento.html" class="text-gray-600 hover:text-blue-600">Registrar</a>
+            <a href="consulta.html" class="text-gray-600 hover:text-blue-600">Consultar</a>
+            <a href="relatorios.html" class="text-blue-600 nav-link-active">Relatórios</a>
         </nav>
-        <div class="top-bar-right">
-            <button type="button" id="logout-btn" class="secondary-btn">Sair</button>
+        <div class="flex items-center gap-3 justify-end">
+            <div class="text-right">
+                <p class="text-xs text-gray-500">Usuário</p>
+                <p class="text-sm font-semibold" id="user-name">-</p>
+            </div>
+            <button type="button" id="logout-btn" class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
         </div>
     </header>
 
-    <div class="container-consulta">
-        <h1>Relatórios</h1>
+    <div class="px-4 py-6 max-w-5xl mx-auto">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <h2 class="text-xl font-bold text-gray-900">Relatórios</h2>
+                <a href="consulta.html" class="text-sm font-semibold text-blue-600 hover:underline">Nova Busca / Voltar</a>
+            </div>
 
-        <a href="consulta.html" class="back-button">Nova Busca / Voltar</a>
-
-        <div id="results-summary" class="results-summary"></div>
-        <div id="results-area">
-            <p id="loading-message" style="text-align:center;">Carregando...</p>
-            <div id="results-table"></div>
-        </div>
-        <div id="pagination-container" class="pagination-container"></div>
-        <div class="report-buttons">
-            <button id="simple-report-button">Gerar Relatório Simples</button>
-            <button id="complete-report-button">Gerar Relatório Completo</button>
+            <div id="results-summary" class="text-sm text-gray-500 mt-3"></div>
+            <div id="results-area" class="mt-4">
+                <p id="loading-message" class="text-center text-sm text-gray-500">Carregando...</p>
+                <div id="results-table"></div>
+            </div>
+            <div id="pagination-container" class="flex flex-wrap gap-2 mt-4"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                <button id="simple-report-button" class="py-2 px-4 font-semibold text-white bg-slate-700 rounded-md hover:bg-slate-800">Gerar Relatório Simples</button>
+                <button id="complete-report-button" class="py-2 px-4 font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-950">Gerar Relatório Completo</button>
+            </div>
         </div>
     </div>
 
