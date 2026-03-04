@@ -43,17 +43,16 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
     const encaminhamentoForm = document.getElementById('encaminhamentoForm');
     const salvarEdicaoButton = document.getElementById('btnSalvarEdicao');
-    const cancelarEdicaoButton = document.getElementById('btnCancelarEdicao');
     const logoutBtn = document.getElementById('logout-btn');
     const syncNowBtn = document.getElementById('sync-now-btn');
 
     createCheckboxes('motivos-container', motivosOptions, 'motivo');
     createCheckboxes('acoes-container', acoesOptions, 'acao');
     createCheckboxes('providencias-container', providenciasOptions, 'providencia');
+    initSearchPanels();
 
     encaminhamentoForm.addEventListener('submit', saveRecord);
     salvarEdicaoButton.addEventListener('click', updateRecord);
-    cancelarEdicaoButton.addEventListener('click', resetForm);
     if (syncNowBtn) {
         syncNowBtn.addEventListener('click', async () => {
             await syncEncCache();
@@ -92,6 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         toggleWhatsapp();
     }
 
+    switchToEditMode(false);
     await initApp();
 });
 
@@ -181,6 +181,7 @@ async function loadCaches() {
     state.turmasById = new Map(state.turmas.map(t => [Number(t.id), t]));
 
     populateSelects();
+    refreshSearchLists();
 }
 
 function populateSelects() {
@@ -206,14 +207,116 @@ function populateSelects() {
         });
 }
 
+// ===================================================================
+// BUSCA RÁPIDA (ALUNOS / PROFESSORES)
+// ===================================================================
+const searchPanels = {
+    aluno: {
+        toggleId: 'toggle-aluno-search',
+        panelId: 'aluno-search-panel',
+        inputId: 'aluno-search-input',
+        listId: 'aluno-search-list',
+        selectId: 'estudante'
+    },
+    professor: {
+        toggleId: 'toggle-professor-search',
+        panelId: 'professor-search-panel',
+        inputId: 'professor-search-input',
+        listId: 'professor-search-list',
+        selectId: 'professor'
+    }
+};
+
+function initSearchPanels() {
+    Object.entries(searchPanels).forEach(([type, cfg]) => {
+        const toggle = document.getElementById(cfg.toggleId);
+        const panel = document.getElementById(cfg.panelId);
+        const input = document.getElementById(cfg.inputId);
+        const list = document.getElementById(cfg.listId);
+        if (!toggle || !panel || !input || !list) return;
+
+        toggle.addEventListener('click', () => {
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                input.value = '';
+                renderSearchList(type, '');
+                input.focus();
+            } else {
+                panel.classList.add('hidden');
+            }
+        });
+
+        input.addEventListener('input', () => {
+            renderSearchList(type, input.value);
+        });
+    });
+}
+
+function refreshSearchLists() {
+    renderSearchList('aluno', document.getElementById(searchPanels.aluno.inputId)?.value || '');
+    renderSearchList('professor', document.getElementById(searchPanels.professor.inputId)?.value || '');
+}
+
+function renderSearchList(type, query) {
+    const cfg = searchPanels[type];
+    if (!cfg) return;
+    const list = document.getElementById(cfg.listId);
+    if (!list) return;
+
+    const q = (query || '').trim().toLowerCase();
+    const items = type === 'aluno'
+        ? state.alunos.filter(a => a.status !== 'inativo')
+        : state.professores.filter(p => p.status !== 'inativo');
+
+    const filtered = !q ? items : items.filter(item => {
+        if (type === 'aluno') {
+            const nome = (item.nome_completo || '').toLowerCase();
+            const matricula = (item.matricula || '').toLowerCase();
+            return nome.includes(q) || matricula.includes(q);
+        }
+        const nome = (item.nome || '').toLowerCase();
+        return nome.includes(q);
+    });
+
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'py-2 text-gray-500 text-sm';
+        empty.textContent = 'Nenhum resultado.';
+        list.appendChild(empty);
+        return;
+    }
+
+    filtered.forEach(item => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'w-full text-left px-2 py-1 hover:bg-gray-100';
+        row.dataset.value = type === 'aluno' ? item.id : item.user_uid;
+        if (type === 'aluno') {
+            const matricula = item.matricula ? ` • ${item.matricula}` : '';
+            const turma = item.turma_id ? state.turmasById.get(Number(item.turma_id)) : null;
+            const turmaLabel = turma?.nome_turma ? ` • ${turma.nome_turma}` : '';
+            row.textContent = `${item.nome_completo || ''}${matricula}${turmaLabel}`;
+        } else {
+            row.textContent = item.nome || item.user_uid;
+        }
+        row.addEventListener('click', () => {
+            const select = document.getElementById(cfg.selectId);
+            if (select) select.value = row.dataset.value || '';
+            if (type === 'aluno') handleAlunoChange();
+            const panel = document.getElementById(cfg.panelId);
+            if (panel) panel.classList.add('hidden');
+        });
+        list.appendChild(row);
+    });
+}
+
 function handleAlunoChange() {
     const alunoId = Number(document.getElementById('estudante').value);
-    const turmaInput = document.getElementById('turma');
     const telefoneInput = document.getElementById('numeroTelefone');
     const responsavelInput = document.getElementById('responsavelNome');
     const aluno = state.alunosById.get(alunoId);
-    const turma = aluno ? state.turmasById.get(Number(aluno.turma_id)) : null;
-    turmaInput.value = turma ? turma.nome_turma : '';
     telefoneInput.value = aluno?.telefone || '';
     responsavelInput.value = aluno?.nome_responsavel || '';
     updateContatoResumo();
@@ -371,7 +474,6 @@ function populateForm(data) {
     ensureSelectOption('estudante', data.aluno_id, data.aluno_nome || `Aluno ${data.aluno_id}`);
     document.getElementById('professor').value = data.professor_uid || '';
     document.getElementById('estudante').value = data.aluno_id || '';
-    document.getElementById('turma').value = data.turma_nome || '';
     setCheckboxValues('motivo', data.motivos);
     document.getElementById('detalhesMotivo').value = data.detalhes_motivo || '';
     setCheckboxValues('acao', data.acoes_tomadas);
@@ -391,7 +493,6 @@ function populateForm(data) {
     setSolicitacaoComparecimentoFields(data.solicitacao_comparecimento || '');
     updateContatoResumo();
     setCheckboxValues('providencia', data.providencias);
-    document.getElementById('solicitacaoComparecimento').value = data.solicitacao_comparecimento || '';
     document.getElementById('status').value = data.status || '';
     document.getElementById('outrasInformacoes').value = data.outras_informacoes || '';
     document.getElementById('registradoPor').value = data.registrado_por_nome || '';
@@ -422,7 +523,6 @@ function resetForm() {
             radio.disabled = true;
         });
     }
-    document.getElementById('turma').value = '';
     document.getElementById('responsavelNome').value = '';
     document.getElementById('solicitacaoComparecimentoData').value = '';
     document.getElementById('solicitacaoComparecimentoHora').value = '';
@@ -434,18 +534,14 @@ function resetForm() {
 function switchToEditMode(isEditing) {
     const btnRegistrar = document.getElementById('btnRegistrar');
     const btnSalvar = document.getElementById('btnSalvarEdicao');
-    const btnCancelar = document.getElementById('btnCancelarEdicao');
 
     btnRegistrar.disabled = isEditing;
     btnSalvar.disabled = !isEditing;
-    btnCancelar.disabled = !isEditing;
 
     btnRegistrar.classList.toggle('opacity-50', isEditing);
     btnRegistrar.classList.toggle('cursor-not-allowed', isEditing);
     btnSalvar.classList.toggle('opacity-50', !isEditing);
     btnSalvar.classList.toggle('cursor-not-allowed', !isEditing);
-    btnCancelar.classList.toggle('opacity-50', !isEditing);
-    btnCancelar.classList.toggle('cursor-not-allowed', !isEditing);
 }
 
 function showStatusMessage(message, isSuccess) {

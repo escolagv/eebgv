@@ -71,21 +71,27 @@
                                     <input type="date" id="dataEncaminhamento" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                 </div>
                                 <div>
-                                    <label for="turma" class="text-sm font-medium text-gray-700">Turma</label>
-                                    <input type="text" id="turma" readonly class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm bg-gray-50">
+                                    <label for="professor" class="text-sm font-medium text-gray-700">Professor(a)</label>
+                                    <select id="professor" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="">Carregando...</option>
+                                    </select>
+                                    <button type="button" id="toggle-professor-search" class="mt-2 text-xs font-semibold text-blue-700 hover:text-blue-900">Encontrar professor</button>
+                                    <div id="professor-search-panel" class="hidden mt-2 border border-gray-200 rounded-md bg-white p-2">
+                                        <input type="text" id="professor-search-input" placeholder="Digite para filtrar..." class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md">
+                                        <div id="professor-search-list" class="mt-2 max-h-56 overflow-y-auto text-sm divide-y divide-gray-100"></div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="mt-4">
-                                <label for="professor" class="text-sm font-medium text-gray-700">Professor(a)</label>
-                                <select id="professor" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Carregando...</option>
-                                </select>
                             </div>
                             <div class="mt-4">
                                 <label for="estudante" class="text-sm font-medium text-gray-700">Estudante</label>
                                 <select id="estudante" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">Carregando...</option>
                                 </select>
+                                <button type="button" id="toggle-aluno-search" class="mt-2 text-xs font-semibold text-blue-700 hover:text-blue-900">Encontrar aluno</button>
+                                <div id="aluno-search-panel" class="hidden mt-2 border border-gray-200 rounded-md bg-white p-2">
+                                    <input type="text" id="aluno-search-input" placeholder="Digite para filtrar..." class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md">
+                                    <div id="aluno-search-list" class="mt-2 max-h-56 overflow-y-auto text-sm divide-y divide-gray-100"></div>
+                                </div>
                             </div>
                             <div class="mt-4">
                                 <label class="text-sm font-medium text-gray-700">Motivo(s)</label>
@@ -190,10 +196,9 @@
                         </div>
 
                         <div class="pt-2">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <button type="submit" id="btnRegistrar" class="w-full py-2 px-4 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Registrar Encaminhamento</button>
-                                <button type="button" id="btnSalvarEdicao" class="w-full py-2 px-4 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700">Salvar Alterações</button>
-                                <button type="button" id="btnCancelarEdicao" class="w-full py-2 px-4 font-semibold text-white bg-amber-500 rounded-md hover:bg-amber-600">Cancelar Edição</button>
+                                <button type="button" id="btnSalvarEdicao" class="w-full py-2 px-4 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 opacity-50 cursor-not-allowed" disabled>Salvar Alterações</button>
                             </div>
                         </div>
                     </form>
