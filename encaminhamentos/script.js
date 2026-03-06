@@ -39,7 +39,9 @@ const state = {
     syncTimer: null,
     encYear: null,
     editYear: null,
-    currentCodigo: ''
+    currentCodigo: '',
+    scanJob: null,
+    scanUrl: ''
 };
 
 // ===================================================================
@@ -161,6 +163,7 @@ async function loadApp(user, profile) {
 
     await syncEncCache();
     await loadCaches();
+    await loadScanJobFromParams();
     checkEditMode();
     startSyncTimer();
     updateContatoResumo();
@@ -446,6 +449,7 @@ async function saveRecord(e) {
         await ensureEncaminhamentosYear(encYear);
         const tableName = getEncaminhamentosTableName(encYear);
         const { data: created } = await safeQuery(db.from(tableName).insert(newRecord).select().single());
+        await linkScanJob(created?.id);
         const codigoMsg = created?.codigo ? ` Código: ${created.codigo}` : '';
         showStatusMessage(`✅ Encaminhamento registrado com sucesso!${codigoMsg}`, true);
         resetForm();
@@ -511,6 +515,97 @@ async function checkEditMode() {
     }
 }
 
+async function loadScanJobFromParams() {
+    const params = new URLSearchParams(window.location.search);
+    const scanId = params.get('scanId');
+    const editId = params.get('editId');
+    if (!scanId || editId) return;
+
+    try {
+        const { data: job } = await safeQuery(
+            db.from('enc_scan_jobs')
+                .select('id, status, storage_path, mime_type, created_at, device_id')
+                .eq('id', scanId)
+                .single()
+        );
+
+        if (!job) return;
+        state.scanJob = job;
+        state.scanUrl = '';
+
+        if (job.storage_path) {
+            const { data: signed, error } = await db.storage
+                .from('enc_temp')
+                .createSignedUrl(job.storage_path, 60 * 60);
+            if (!error && signed?.signedUrl) {
+                state.scanUrl = signed.signedUrl;
+            }
+        }
+        showScanPreview(job, state.scanUrl);
+    } catch (err) {
+        console.warn('Falha ao carregar scan:', err?.message || err);
+    }
+}
+
+function showScanPreview(job, url) {
+    const container = document.getElementById('scan-preview');
+    const meta = document.getElementById('scan-meta');
+    const img = document.getElementById('scan-image');
+    const link = document.getElementById('scan-open-link');
+    const clearBtn = document.getElementById('scan-clear-btn');
+    if (!container || !meta || !img || !link) return;
+
+    const created = job?.created_at ? formatDateTimeSP(job.created_at) : '-';
+    const status = job?.status || 'novo';
+    meta.textContent = `Enviado em ${created} • Status ${status}`;
+
+    if (url) {
+        img.src = url;
+        link.href = url;
+        link.classList.remove('hidden');
+    } else {
+        img.removeAttribute('src');
+        link.classList.add('hidden');
+    }
+
+    container.classList.remove('hidden');
+    if (clearBtn) {
+        clearBtn.onclick = () => {
+            clearScanPreview();
+            const params = new URLSearchParams(window.location.search);
+            params.delete('scanId');
+            const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}`;
+            window.history.replaceState({}, document.title, next);
+        };
+    }
+}
+
+function clearScanPreview() {
+    state.scanJob = null;
+    state.scanUrl = '';
+    const container = document.getElementById('scan-preview');
+    const img = document.getElementById('scan-image');
+    const link = document.getElementById('scan-open-link');
+    const meta = document.getElementById('scan-meta');
+    if (container) container.classList.add('hidden');
+    if (img) img.removeAttribute('src');
+    if (link) link.classList.add('hidden');
+    if (meta) meta.textContent = '-';
+}
+
+async function linkScanJob(encaminhamentoId) {
+    if (!state.scanJob?.id || !encaminhamentoId) return;
+    try {
+        await safeQuery(
+            db.from('enc_scan_jobs')
+                .update({ status: 'vinculado', encaminhamento_id: encaminhamentoId })
+                .eq('id', state.scanJob.id)
+        );
+    } catch (err) {
+        console.warn('Falha ao vincular scan:', err?.message || err);
+    }
+}
+
 function getFormData() {
     const isEditing = !!document.getElementById('editId')?.value;
     const alunoSelect = document.getElementById('estudante');
@@ -548,7 +643,8 @@ function getFormData() {
         status: document.getElementById('status').value,
         outras_informacoes: document.getElementById('outrasInformacoes').value,
         registrado_por_uid: state.currentUser?.id || null,
-        registrado_por_nome: state.profile?.nome || state.currentUser?.email || ''
+        registrado_por_nome: state.profile?.nome || state.currentUser?.email || '',
+        foto_storage_path: state.scanJob?.storage_path || null
     };
 }
 
@@ -647,6 +743,7 @@ function resetForm() {
     document.getElementById('solicitacaoComparecimentoHora').value = '';
     updateContatoResumo();
     state.currentCodigo = '';
+    clearScanPreview();
     loadCodigoPreview(true);
     switchToEditMode(false);
     window.history.pushState({}, document.title, window.location.pathname);

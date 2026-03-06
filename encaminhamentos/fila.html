@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relatórios - Encaminhamentos</title>
+    <title>Fila de Scans</title>
     <link rel="icon" type="image/x-icon" href="../apoia/favicon.ico">
     <link rel="apple-touch-icon" href="../apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
@@ -30,9 +30,9 @@
                 <a href="dashboard.html" class="block px-4 py-2 rounded-md hover:bg-gray-700">Dashboard</a>
                 <a href="encaminhamento.html" class="block px-4 py-2 rounded-md hover:bg-gray-700">Registrar</a>
                 <a href="consulta.html" class="block px-4 py-2 rounded-md hover:bg-gray-700">Consultar</a>
-                <a href="relatorios.html" class="block px-4 py-2 rounded-md bg-gray-700">Relatórios</a>
+                <a href="relatorios.html" class="block px-4 py-2 rounded-md hover:bg-gray-700">Relatórios</a>
                 <a href="cadastros.html" class="block px-4 py-2 rounded-md hover:bg-gray-700">Cadastros</a>
-                <a href="fila.html" class="block px-4 py-2 rounded-md hover:bg-gray-700">Fila de Scans</a>
+                <a href="fila.html" class="block px-4 py-2 rounded-md bg-gray-700">Fila de Scans</a>
             </nav>
             <div class="p-4 border-t border-gray-700 space-y-4">
                 <div class="text-xs text-center text-gray-400">
@@ -42,7 +42,7 @@
                     <p>WhatsApp: (48) 99100-4780</p>
                     <a href="#" id="support-link-enc" class="text-blue-400 hover:underline">Suporte Técnico</a>
                 </div>
-                <div id="enc-app-version" class="text-xs text-center text-gray-400" data-version="1.0.7">V1.0.7</div>
+                <div id="enc-app-version" class="text-xs text-center text-gray-400" data-version="1.0.6">V1.0.6</div>
                 <button id="logout-btn" class="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
             </div>
         </aside>
@@ -53,49 +53,27 @@
                     <button id="mobile-menu-btn" class="text-gray-600 hover:text-gray-800 md:hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
                     </button>
+                    <button id="queue-refresh-btn" class="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Atualizar</button>
                 </div>
 
                 <div class="bg-white p-6 rounded-lg shadow-md">
-                    <div class="flex items-center justify-between flex-wrap gap-3">
-                        <h2 class="text-2xl font-bold">Relatórios</h2>
-                        <a href="consulta.html" class="text-sm font-semibold text-blue-600 hover:underline">Nova Busca / Voltar</a>
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <h2 class="text-2xl font-bold">Fila de Scans</h2>
+                            <p class="text-sm text-gray-500">Selecione uma foto para abrir no cadastro.</p>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            Total: <strong id="queue-count">0</strong>
+                        </div>
                     </div>
 
-                    <div id="results-summary" class="text-sm text-gray-500 mt-3"></div>
-                    <div id="results-area" class="mt-4">
-                        <p id="loading-message" class="text-center text-sm text-gray-500">Carregando...</p>
-                        <div id="results-table"></div>
-                    </div>
-                    <div id="pagination-container" class="flex flex-wrap gap-2 mt-4"></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-                        <button id="simple-report-button" class="py-2 px-4 font-semibold text-white bg-slate-700 rounded-md hover:bg-slate-800">Gerar Relatório Simples</button>
-                        <button id="complete-report-button" class="py-2 px-4 font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-950">Gerar Relatório Completo</button>
-                    </div>
+                    <div id="queue-list" class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
                 </div>
             </div>
         </main>
     </div>
 
-    <div id="report-layout-modal" class="hidden fixed inset-0 z-40 bg-black/50 flex items-center justify-center px-4">
-        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h3 class="text-lg font-semibold mb-2">Formato do Relatório Completo</h3>
-            <p class="text-sm text-gray-600 mb-4">Escolha como deseja imprimir as fichas completas.</p>
-            <div class="grid grid-cols-1 gap-3">
-                <button type="button" data-layout="single" class="w-full py-2 px-4 rounded-md bg-slate-800 text-white hover:bg-slate-900">1 ficha por folha</button>
-                <button type="button" data-layout="double" class="w-full py-2 px-4 rounded-md bg-slate-700 text-white hover:bg-slate-800">2 fichas por folha (paisagem)</button>
-                <button type="button" id="report-layout-cancel" class="w-full py-2 px-4 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100">Cancelar</button>
-            </div>
-        </div>
-    </div>
-
     <script type="module" src="js/sidebar.js"></script>
-    <script type="module" src="results.js"></script>
+    <script type="module" src="fila.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
