@@ -89,14 +89,13 @@ function renderQueue() {
         const status = job.status || 'novo';
         const disabled = status !== 'novo';
         const deleteDisabled = status === 'vinculado';
+        const matriculaValue = job.aluno_matricula ? String(job.aluno_matricula) : (job.ocr_json?.fields?.matricula || '');
+        const alunoNome = sanitizeOcrName(job.ocr_json?.fields?.estudante || '');
+        const profNome = sanitizeOcrName(job.ocr_json?.fields?.professor || '');
         const driveLink = job.drive_url ? `<a href="${job.drive_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir no Drive</a>` : '';
         const previewHtml = preview
             ? `<img src="${preview}" data-url="${preview}" data-aluno="${alunoNome || ''}" data-professor="${profNome || ''}" data-matricula="${matriculaValue || ''}" data-data="${created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
             : `<div class="w-full h-40 flex items-center justify-center bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-400">Sem prévia</div>`;
-
-        const matriculaValue = job.aluno_matricula ? String(job.aluno_matricula) : (job.ocr_json?.fields?.matricula || '');
-        const alunoNome = sanitizeOcrName(job.ocr_json?.fields?.estudante || '');
-        const profNome = sanitizeOcrName(job.ocr_json?.fields?.professor || '');
         return `
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
                 ${previewHtml}
