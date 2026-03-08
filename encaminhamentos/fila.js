@@ -148,14 +148,20 @@ function renderQueue() {
                 <div class="text-xs text-gray-600">Aluno: <span class="font-semibold text-gray-800">${alunoNome || '-'}</span></div>
                 <div class="text-xs text-gray-600">Professor: <span class="font-semibold text-gray-800">${profNome || '-'}</span></div>
                 ${driveLink}
-                <div class="flex gap-2">
-                    <button type="button" class="queue-select-btn flex-1 px-3 py-2 text-xs font-semibold rounded-md ${disabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}"
-                        data-id="${job.id}" ${disabled ? 'disabled' : ''}>
-                        Selecionar para cadastro
-                    </button>
-                    <button type="button" class="queue-delete-btn px-3 py-2 text-xs font-semibold rounded-md ${deleteDisabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}"
-                        data-id="${job.id}" data-path="${job.storage_path || ''}" ${deleteDisabled ? 'disabled' : ''}>
-                        Excluir
+                <div class="flex flex-col gap-2">
+                    <div class="flex gap-2">
+                        <button type="button" class="queue-select-btn flex-1 px-3 py-2 text-xs font-semibold rounded-md ${disabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}"
+                            data-id="${job.id}" ${disabled ? 'disabled' : ''}>
+                            Selecionar para cadastro
+                        </button>
+                        <button type="button" class="queue-delete-btn px-3 py-2 text-xs font-semibold rounded-md ${deleteDisabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}"
+                            data-id="${job.id}" data-path="${job.storage_path || ''}" ${deleteDisabled ? 'disabled' : ''}>
+                            Excluir
+                        </button>
+                    </div>
+                    <button type="button" class="queue-ocr-btn w-full px-3 py-2 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
+                        data-id="${job.id}">
+                        Reprocessar OCR
                     </button>
                 </div>
             </div>
@@ -194,6 +200,14 @@ document.querySelectorAll('.queue-select-btn').forEach(btn => {
         });
     });
 
+    document.querySelectorAll('.queue-ocr-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            if (!id) return;
+            await reprocessOcr(id, btn);
+        });
+    });
+
     document.querySelectorAll('.queue-image').forEach(img => {
         img.addEventListener('click', () => {
             openZoom(img.getAttribute('data-url') || img.src, {
@@ -210,6 +224,52 @@ function renderQueueError() {
     const list = document.getElementById('queue-list');
     if (!list) return;
     list.innerHTML = '<p class="text-sm text-red-600">Erro ao carregar a fila. Tente novamente.</p>';
+}
+
+async function reprocessOcr(jobId, button) {
+    if (!window.Tesseract) {
+        alert('OCR não disponível. Verifique a conexão e recarregue a página.');
+        return;
+    }
+    const job = state.jobs.find(item => String(item.id) === String(jobId));
+    if (!job) return;
+    const previewUrl = state.signedUrls.get(job.id);
+    if (!previewUrl) {
+        alert('Prévia não disponível para reprocessar.');
+        return;
+    }
+    const originalText = button?.textContent || 'Reprocessar OCR';
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Processando...';
+        button.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    try {
+        const response = await fetch(previewUrl);
+        if (!response.ok) throw new Error('Falha ao baixar a imagem.');
+        const blob = await response.blob();
+        const ocrJson = await runOcrFromBlob(blob);
+        if (!ocrJson) throw new Error('OCR não retornou dados.');
+        const updatePayload = { ocr_json: ocrJson };
+        if (ocrJson.fields?.matricula) {
+            updatePayload.aluno_matricula = ocrJson.fields.matricula;
+        }
+        await safeQuery(
+            db.from('enc_scan_jobs')
+                .update(updatePayload)
+                .eq('id', jobId)
+        );
+        await loadQueue();
+        alert('OCR reprocessado com sucesso.');
+    } catch (err) {
+        alert(err?.message || 'Falha ao reprocessar OCR.');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
 }
 
 let zoomScale = 1;
@@ -306,4 +366,469 @@ function printZoomImage(url, meta) {
         </html>
     `);
     win.document.close();
+}
+
+async function runOcrFromBlob(blob) {
+    if (!window.Tesseract) return null;
+    try {
+        const image = await createImageBitmap(blob);
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(image, 0, 0);
+        preprocessCanvas(ctx, canvas.width, canvas.height);
+
+        const result = await window.Tesseract.recognize(canvas, 'por', {
+            logger: () => {},
+            tessedit_pageseg_mode: 6,
+            preserve_interword_spaces: '1'
+        });
+        const data = result?.data;
+        if (!data) return null;
+
+        const headerData = await runHeaderOcr(image);
+        const headerFields = headerData ? extractHeaderFields(headerData, headerData.width || 0, headerData.height || 0) : null;
+        const fields = mergeHeaderFields(headerFields, extractHeaderFields(data, canvas.width, canvas.height));
+
+        const motivos = extractCheckedLabels(data, ctx, motivoDefs, canvas.width);
+        const acoes = extractCheckedLabels(data, ctx, acaoDefs, canvas.width);
+        const providencias = extractCheckedLabels(data, ctx, providenciaDefs, canvas.width);
+
+        return {
+            fields,
+            motivos,
+            acoes,
+            providencias,
+            raw_text: data.text || '',
+            header_text: headerData?.text || ''
+        };
+    } catch (err) {
+        console.warn('OCR falhou:', err?.message || err);
+        return null;
+    }
+}
+
+async function runHeaderOcr(image) {
+    try {
+        const headerCanvas = document.createElement('canvas');
+        const headerHeight = Math.floor(image.height * 0.5);
+        const scale = 1.5;
+        headerCanvas.width = Math.floor(image.width * scale);
+        headerCanvas.height = Math.floor(headerHeight * scale);
+        const hctx = headerCanvas.getContext('2d');
+        hctx.drawImage(
+            image,
+            0,
+            0,
+            image.width,
+            headerHeight,
+            0,
+            0,
+            headerCanvas.width,
+            headerCanvas.height
+        );
+        preprocessCanvas(hctx, headerCanvas.width, headerCanvas.height);
+
+        const headerResult = await window.Tesseract.recognize(headerCanvas, 'por', {
+            logger: () => {},
+            tessedit_pageseg_mode: 6,
+            preserve_interword_spaces: '1'
+        });
+        const headerData = headerResult?.data;
+        if (!headerData) return null;
+        return { ...headerData, width: headerCanvas.width, height: headerCanvas.height };
+    } catch (err) {
+        return null;
+    }
+}
+
+function mergeHeaderFields(primary, fallback) {
+    const base = fallback || { professor: '', estudante: '', turma: '', data: '', matricula: '' };
+    if (!primary) return base;
+    return {
+        professor: primary.professor || base.professor || '',
+        estudante: primary.estudante || base.estudante || '',
+        turma: primary.turma || base.turma || '',
+        data: primary.data || base.data || '',
+        matricula: primary.matricula || base.matricula || ''
+    };
+}
+
+function normalizeNameCandidate(text) {
+    return (text || '')
+        .replace(/[|_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function isLikelyPersonName(text) {
+    const cleaned = normalizeNameCandidate(text);
+    if (!cleaned) return false;
+    if (/\d/.test(cleaned)) return false;
+
+    const words = cleaned.split(' ').filter(Boolean);
+    if (words.length < 2) {
+        const letters = (cleaned.match(/[a-zà-ÿ]/gi) || []).length;
+        return cleaned.length >= 5 && letters >= Math.max(4, Math.floor(cleaned.length * 0.7));
+    }
+
+    const meaningfulWords = words.filter(word => /[a-zà-ÿ]{2,}/i.test(word));
+    if (meaningfulWords.length < 2) return false;
+
+    const letters = (cleaned.match(/[a-zà-ÿ]/gi) || []).length;
+    return letters >= Math.max(6, Math.floor(cleaned.length * 0.7));
+}
+
+function startsWithKnownFieldLabel(text) {
+    const normalized = normalizeText(text);
+    return /^(?:professor|profes+sor|profe+sor|profes0r|aluno|alun0|estudante|turma|data|matri|matricula|matr1)/i.test(normalized);
+}
+
+function extractValueAfterLabel(text, pattern) {
+    const match = (text || '').match(pattern);
+    if (!match) return '';
+    return (match[1] || '').replace(/^[\s:;.,|_-]+/, '').trim();
+}
+
+function getOrderedOcrLines(data) {
+    const lines = Array.isArray(data?.lines) ? [...data.lines] : [];
+    if (lines.length > 0) {
+        return lines
+            .filter(line => (line?.text || '').trim())
+            .sort((a, b) => {
+                const ay = a?.bbox?.y0 ?? 0;
+                const by = b?.bbox?.y0 ?? 0;
+                if (ay !== by) return ay - by;
+                const ax = a?.bbox?.x0 ?? 0;
+                const bx = b?.bbox?.x0 ?? 0;
+                return ax - bx;
+            })
+            .map(line => ({ text: line.text || '', bbox: line.bbox || null }));
+    }
+
+    return (data?.text || '')
+        .split(/\r?\n/)
+        .map(text => ({ text, bbox: null }))
+        .filter(line => line.text.trim());
+}
+
+function getHeaderCandidateLines(lines, imageWidth, imageHeight) {
+    if (!Array.isArray(lines) || lines.length === 0) return [];
+    if (!imageWidth && !imageHeight) return lines;
+
+    const maxY = imageHeight ? imageHeight * 0.45 : null;
+    const maxX = imageWidth ? imageWidth * 0.85 : null;
+    const filtered = lines.filter(line => {
+        const bbox = line?.bbox;
+        if (!bbox) return true;
+        if (maxY !== null && bbox.y0 > maxY) return false;
+        if (maxX !== null && bbox.x0 > maxX) return false;
+        return true;
+    });
+
+    return filtered.length ? filtered : lines;
+}
+
+function extractFieldFromLines(lines, pattern, options = {}) {
+    const { digitsOnly = false, normalizedPattern = null } = options;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const raw = (lines[index]?.text || '').trim();
+        if (!raw) continue;
+        const normalized = normalizeText(raw);
+
+        const directValue = extractValueAfterLabel(raw, pattern);
+        if (directValue) {
+            return digitsOnly ? directValue.replace(/\D+/g, '').trim() : directValue;
+        }
+
+        const matchesLabel = normalizedPattern ? normalizedPattern.test(normalized) : pattern.test(raw);
+        if (!matchesLabel) continue;
+
+        for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
+            const nextRaw = (lines[nextIndex]?.text || '').trim();
+            if (!nextRaw) continue;
+            if (startsWithKnownFieldLabel(nextRaw)) return '';
+            return digitsOnly ? nextRaw.replace(/\D+/g, '').trim() : nextRaw;
+        }
+    }
+
+    return '';
+}
+
+function extractDateFromText(text) {
+    const raw = (text || '').trim();
+    if (!raw) return '';
+    const match = raw.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+    if (match) return match[0];
+    const isoMatch = raw.match(/\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/);
+    if (isoMatch) return isoMatch[0];
+    return '';
+}
+
+function extractHeaderFieldsFromLines(lines) {
+    const fields = { professor: '', estudante: '', turma: '', data: '', matricula: '' };
+    const professorLabelPattern = /^(?:professor|profes+sor|profe+sor|profes0r|profesor)/;
+    const alunoLabelPattern = /^(?:aluno|alun0|estudante|estudant[ea3]?)/;
+    const matriculaLabelPattern = /^(?:matricula|matricu1a|matricuia|matr1cula|matri?cula)/;
+    const dataLabelPattern = /^(?:data|dat[a4])/;
+
+    fields.professor = extractFieldFromLines(lines, /^\s*prof(?:e|o|0)?s{1,2}or(?:\(a\))?\s*[:;\-_.|]*\s*(.*)$/i, {
+        normalizedPattern: professorLabelPattern
+    });
+    fields.estudante = extractFieldFromLines(lines, /^\s*(?:estudante|aluno)\s*[:;\-_.|]*\s*(.*)$/i, {
+        normalizedPattern: alunoLabelPattern
+    });
+    fields.turma = extractFieldFromLines(lines, /^\s*turma\s*[:;\-_.|]*\s*(.*)$/i);
+    fields.data = extractFieldFromLines(lines, /^\s*data\s*[:;\-_.|]*\s*(.*)$/i, {
+        normalizedPattern: dataLabelPattern
+    });
+    fields.matricula = extractFieldFromLines(lines, /^\s*matr(?:[íi]cula|icula|icu1a|icuia)\s*[:;\-_.|]*\s*(.*)$/i, {
+        digitsOnly: true,
+        normalizedPattern: matriculaLabelPattern
+    });
+
+    if (!fields.data) {
+        for (const line of lines) {
+            const dateValue = extractDateFromText(line?.text || '');
+            if (dateValue) {
+                fields.data = dateValue;
+                break;
+            }
+        }
+    }
+
+    if (!fields.estudante || !fields.professor) {
+        const candidates = [];
+        for (const line of lines) {
+            const raw = (line?.text || '').trim();
+            if (!raw) continue;
+            const normalized = normalizeText(raw);
+            if (/^(?:aluno|estudante|professor|professora|turma|data|matricula)\b/.test(normalized)) continue;
+            if (/encaminhamento|orientacao|coordenacao|unidade|profissionais|escola/.test(normalized)) continue;
+            if (!isLikelyPersonName(raw)) continue;
+            candidates.push(raw);
+        }
+        if (!fields.estudante && candidates[0]) fields.estudante = candidates[0];
+        if (!fields.professor) {
+            const next = candidates.find(name => normalizeText(name) !== normalizeText(fields.estudante || ''));
+            if (next) fields.professor = next;
+        }
+    }
+
+    return fields;
+}
+
+function extractHeaderFields(data, imageWidth, imageHeight) {
+    const lines = getOrderedOcrLines(data);
+    const headerLines = getHeaderCandidateLines(lines, imageWidth, imageHeight);
+    const headerFields = extractHeaderFieldsFromLines(headerLines);
+    const fallbackFields = extractHeaderFieldsFromLines(lines);
+    const fields = {
+        professor: headerFields.professor || fallbackFields.professor || '',
+        estudante: headerFields.estudante || fallbackFields.estudante || '',
+        turma: headerFields.turma || fallbackFields.turma || '',
+        data: headerFields.data || fallbackFields.data || '',
+        matricula: headerFields.matricula || fallbackFields.matricula || ''
+    };
+
+    if (!fields.matricula) {
+        const match = (data.text || '').match(/matr[íi]cula[^\d]*([0-9]{4,})/i);
+        if (match) fields.matricula = match[1];
+    }
+    if (!fields.data) {
+        const dateMatch = (data.text || '').match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+        if (dateMatch) fields.data = dateMatch[0];
+    }
+
+    fields.professor = cleanName(fields.professor);
+    fields.estudante = cleanName(fields.estudante);
+    if (fields.matricula && fields.matricula.length < 4) {
+        fields.matricula = '';
+    }
+    return fields;
+}
+
+function cleanName(value) {
+    const text = normalizeNameCandidate(value);
+    if (!text) return '';
+    if (text.length < 3) return '';
+    if (/^(?:aluno|estudante|professor(?:a)?|turma|data|matricula)$/i.test(normalizeText(text))) return '';
+    if (/profissionais|unidade escolar|acima citado|direcionado/i.test(text)) return '';
+    if (!isLikelyPersonName(text)) return '';
+    return text;
+}
+
+const motivoDefs = [
+    { label: 'Indisciplina / Xingamentos', tokens: ['indisciplina', 'indiscip', 'xing', 'xinga'], minHits: 1, section: 'motivo' },
+    { label: 'Gazeando aula', tokens: ['gazeando', 'gazendo', 'gaz'], minHits: 1, section: 'motivo' },
+    { label: 'Agressão / Bullying / Discriminação', tokens: ['agressao', 'bullying', 'discrimin'], minHits: 1, section: 'motivo' },
+    { label: 'Uso de celular / fone de ouvido', tokens: ['celular', 'fone', 'ouvido', 'uso'], minHits: 1, section: 'motivo' },
+    { label: 'Dificuldade de aprendizado', tokens: ['dificuldade', 'aprendizado', 'aprendiz'], minHits: 1, section: 'motivo' },
+    { label: 'Desrespeito com professor / profissionais da unidade escolar', tokens: ['desrespeito', 'professor', 'profissionais', 'unidade'], minHits: 1, section: 'motivo' },
+    { label: 'Não produz e não participa em sala', tokens: ['nao produz', 'nao participa', 'produz', 'participa'], minHits: 1, section: 'motivo' }
+];
+
+const acaoDefs = [
+    { label: 'Diálogo com o estudante', tokens: ['dialogo', 'estudante'], minHits: 1, section: 'acao' },
+    { label: 'Comunicado aos responsáveis', tokens: ['comunicado', 'responsaveis', 'responsavel'], minHits: 1, section: 'acao' },
+    { label: 'Mensagem via WhatsApp', tokens: ['mensagem', 'whatsapp'], minHits: 1, section: 'acao' }
+];
+
+const providenciaDefs = [
+    { label: 'Solicitar comparecimento do responsável na escola', tokens: ['comparecimento', 'responsavel'], minHits: 1, section: 'acao' },
+    { label: 'Advertência', tokens: ['advertencia', 'advertencia', 'advert'], minHits: 1, section: 'acao' }
+];
+
+function extractCheckedLabels(data, ctx, defs, imageWidth) {
+    const lines = data.lines || [];
+    const bounds = getSectionBounds(lines, ctx?.canvas?.height || 0);
+    const checked = [];
+    defs.forEach(def => {
+        const line = findBestLineForDef(lines, def, bounds);
+        if (!line) return;
+        if (lineHasTextMark(line.text)) {
+            checked.push(def.label);
+            return;
+        }
+        if (!line.bbox) return;
+        if (imageWidth && line.bbox.x0 > imageWidth * 0.75) return;
+        const isChecked = detectMarkLeft(ctx, line.bbox);
+        if (isChecked) checked.push(def.label);
+    });
+    return checked;
+}
+
+function findBestLineForDef(lines, def, bounds) {
+    const minHits = def.minHits || 1;
+    const section = def.section || '';
+    let best = null;
+    let bestScore = 0;
+    for (const line of lines) {
+        if (section && bounds && line?.bbox) {
+            const range = bounds[section];
+            if (range && (line.bbox.y0 < range.min || line.bbox.y0 > range.max)) {
+                continue;
+            }
+        }
+        const norm = normalizeText(line.text);
+        if (!norm) continue;
+        let score = 0;
+        for (const token of def.tokens) {
+            if (norm.includes(token)) score += 1;
+        }
+        if (score > bestScore) {
+            bestScore = score;
+            best = line;
+        }
+    }
+    if (bestScore >= minHits) return best;
+    return null;
+}
+
+function getSectionBounds(lines, imageHeight) {
+    const bounds = {
+        motivo: { min: 0, max: Infinity },
+        acao: { min: 0, max: Infinity }
+    };
+    const normalizedLines = (lines || []).map(line => ({
+        text: line?.text || '',
+        norm: normalizeText(line?.text || ''),
+        bbox: line?.bbox || null
+    }));
+
+    const motivoHeader = normalizedLines.find(line => line.norm.includes('educacional') && line.norm.includes('motivo'));
+    const acaoHeader = normalizedLines.find(line => line.norm.includes('encaminhamentos') && line.norm.includes('orientacao'));
+
+    if (motivoHeader?.bbox) {
+        bounds.motivo.min = motivoHeader.bbox.y0;
+    }
+    if (acaoHeader?.bbox) {
+        bounds.motivo.max = acaoHeader.bbox.y0;
+        bounds.acao.min = acaoHeader.bbox.y0;
+    }
+
+    if (!motivoHeader && imageHeight) {
+        bounds.motivo.min = imageHeight * 0.2;
+        bounds.motivo.max = imageHeight * 0.6;
+    }
+    if (!acaoHeader && imageHeight) {
+        bounds.acao.min = imageHeight * 0.6;
+        bounds.acao.max = imageHeight * 0.95;
+    }
+
+    return bounds;
+}
+
+function lineHasTextMark(text) {
+    const raw = (text || '').trim();
+    if (!raw) return false;
+    const compact = raw.replace(/\s+/g, '');
+    if (/\([xXvV\/\\*\+\-✓]\)/.test(compact)) return true;
+    if (/\[[xXvV\/\\*\+\-✓]\]/.test(compact)) return true;
+    if (/^[xXvV✓]\b/.test(raw)) return true;
+    return false;
+}
+
+function detectMarkLeft(ctx, bbox) {
+    const { x0, y0, x1, y1 } = bbox;
+    const height = y1 - y0;
+    const width = Math.max(20, height * 0.9);
+    const x = Math.max(0, x0 - width - 14);
+    const y = Math.max(0, y0 - 3);
+    const w = Math.max(10, width);
+    const h = Math.max(10, height + 6);
+    if (isRegionCenterMarked(ctx, x, y, w, h, 0.16)) return true;
+    return isRegionDark(ctx, x, y, w, h, 0.1);
+}
+
+function isRegionDark(ctx, x, y, w, h, threshold) {
+    try {
+        const imageData = ctx.getImageData(x, y, w, h);
+        const data = imageData.data;
+        let dark = 0;
+        const total = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const lum = (r + g + b) / 3;
+            if (lum < 130) dark += 1;
+        }
+        const ratio = dark / total;
+        return ratio > threshold;
+    } catch (err) {
+        return false;
+    }
+}
+
+function isRegionCenterMarked(ctx, x, y, w, h, threshold) {
+    const cx = x + Math.floor(w * 0.25);
+    const cy = y + Math.floor(h * 0.25);
+    const cw = Math.max(6, Math.floor(w * 0.5));
+    const ch = Math.max(6, Math.floor(h * 0.5));
+    return isRegionDark(ctx, cx, cy, cw, ch, threshold);
+}
+
+function preprocessCanvas(ctx, width, height) {
+    try {
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        const contrast = 1.3;
+        const brightness = 8;
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const gray = (r * 0.299 + g * 0.587 + b * 0.114);
+            const adj = Math.min(255, Math.max(0, (gray - 128) * contrast + 128 + brightness));
+            data[i] = adj;
+            data[i + 1] = adj;
+            data[i + 2] = adj;
+        }
+        ctx.putImageData(imageData, 0, 0);
+    } catch (err) {
+        // ignore
+    }
 }

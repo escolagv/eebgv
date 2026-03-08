@@ -466,45 +466,104 @@ function extractHeaderFields(data, imageWidth, imageHeight) {
 }
 
 const motivoDefs = [
-    { label: 'Indisciplina / Xingamentos', tokens: ['indisciplina', 'xing'] },
-    { label: 'Gazeando aula', tokens: ['gazeando'] },
-    { label: 'Agressão / Bullying / Discriminação', tokens: ['agressao', 'bullying'] },
-    { label: 'Uso de celular / fone de ouvido', tokens: ['uso', 'celular'] },
-    { label: 'Dificuldade de aprendizado', tokens: ['dificuldade', 'aprendizado'] },
-    { label: 'Desrespeito com professor / profissionais da unidade escolar', tokens: ['desrespeito', 'professor'] },
-    { label: 'Não produz e não participa em sala', tokens: ['nao', 'produz'] }
+    { label: 'Indisciplina / Xingamentos', tokens: ['indisciplina', 'indiscip', 'xing', 'xinga'], minHits: 1, section: 'motivo' },
+    { label: 'Gazeando aula', tokens: ['gazeando', 'gazendo', 'gaz'], minHits: 1, section: 'motivo' },
+    { label: 'Agressão / Bullying / Discriminação', tokens: ['agressao', 'bullying', 'discrimin'], minHits: 1, section: 'motivo' },
+    { label: 'Uso de celular / fone de ouvido', tokens: ['celular', 'fone', 'ouvido', 'uso'], minHits: 1, section: 'motivo' },
+    { label: 'Dificuldade de aprendizado', tokens: ['dificuldade', 'aprendizado', 'aprendiz'], minHits: 1, section: 'motivo' },
+    { label: 'Desrespeito com professor / profissionais da unidade escolar', tokens: ['desrespeito', 'professor', 'profissionais', 'unidade'], minHits: 1, section: 'motivo' },
+    { label: 'Não produz e não participa em sala', tokens: ['nao produz', 'nao participa', 'produz', 'participa'], minHits: 1, section: 'motivo' }
 ];
 
 const acaoDefs = [
-    { label: 'Diálogo com o estudante', tokens: ['dialogo', 'estudante'] },
-    { label: 'Comunicado aos responsáveis', tokens: ['comunicado', 'responsaveis'] },
-    { label: 'Mensagem via WhatsApp', tokens: ['mensagem', 'whatsapp'] }
+    { label: 'Diálogo com o estudante', tokens: ['dialogo', 'estudante'], minHits: 1, section: 'acao' },
+    { label: 'Comunicado aos responsáveis', tokens: ['comunicado', 'responsaveis', 'responsavel'], minHits: 1, section: 'acao' },
+    { label: 'Mensagem via WhatsApp', tokens: ['mensagem', 'whatsapp'], minHits: 1, section: 'acao' }
 ];
 
 const providenciaDefs = [
-    { label: 'Solicitar comparecimento do responsável na escola', tokens: ['comparecimento'] },
-    { label: 'Advertência', tokens: ['advertencia'] }
+    { label: 'Solicitar comparecimento do responsável na escola', tokens: ['comparecimento', 'responsavel'], minHits: 1, section: 'acao' },
+    { label: 'Advertência', tokens: ['advertencia', 'advertencia', 'advert'], minHits: 1, section: 'acao' }
 ];
 
 function extractCheckedLabels(data, ctx, defs, imageWidth) {
     const lines = data.lines || [];
+    const bounds = getSectionBounds(lines, ctx?.canvas?.height || 0);
     const checked = [];
     defs.forEach(def => {
-        const line = lines.find(l => {
-            const norm = normalizeText(l.text);
-            return def.tokens.every(token => norm.includes(token));
-        });
+        const line = findBestLineForDef(lines, def, bounds);
         if (!line) return;
         if (lineHasTextMark(line.text)) {
             checked.push(def.label);
             return;
         }
         if (!line.bbox) return;
-        if (imageWidth && line.bbox.x0 > imageWidth * 0.4) return;
+        if (imageWidth && line.bbox.x0 > imageWidth * 0.75) return;
         const isChecked = detectMarkLeft(ctx, line.bbox);
         if (isChecked) checked.push(def.label);
     });
     return checked;
+}
+
+function findBestLineForDef(lines, def, bounds) {
+    const minHits = def.minHits || 1;
+    const section = def.section || '';
+    let best = null;
+    let bestScore = 0;
+    for (const line of lines) {
+        if (section && bounds && line?.bbox) {
+            const range = bounds[section];
+            if (range && (line.bbox.y0 < range.min || line.bbox.y0 > range.max)) {
+                continue;
+            }
+        }
+        const norm = normalizeText(line.text);
+        if (!norm) continue;
+        let score = 0;
+        for (const token of def.tokens) {
+            if (norm.includes(token)) score += 1;
+        }
+        if (score > bestScore) {
+            bestScore = score;
+            best = line;
+        }
+    }
+    if (bestScore >= minHits) return best;
+    return null;
+}
+
+function getSectionBounds(lines, imageHeight) {
+    const bounds = {
+        motivo: { min: 0, max: Infinity },
+        acao: { min: 0, max: Infinity }
+    };
+    const normalizedLines = (lines || []).map(line => ({
+        text: line?.text || '',
+        norm: normalizeText(line?.text || ''),
+        bbox: line?.bbox || null
+    }));
+
+    const motivoHeader = normalizedLines.find(line => line.norm.includes('educacional') && line.norm.includes('motivo'));
+    const acaoHeader = normalizedLines.find(line => line.norm.includes('encaminhamentos') && line.norm.includes('orientacao'));
+
+    if (motivoHeader?.bbox) {
+        bounds.motivo.min = motivoHeader.bbox.y0;
+    }
+    if (acaoHeader?.bbox) {
+        bounds.motivo.max = acaoHeader.bbox.y0;
+        bounds.acao.min = acaoHeader.bbox.y0;
+    }
+
+    if (!motivoHeader && imageHeight) {
+        bounds.motivo.min = imageHeight * 0.2;
+        bounds.motivo.max = imageHeight * 0.6;
+    }
+    if (!acaoHeader && imageHeight) {
+        bounds.acao.min = imageHeight * 0.6;
+        bounds.acao.max = imageHeight * 0.95;
+    }
+
+    return bounds;
 }
 
 function lineHasTextMark(text) {
@@ -525,8 +584,8 @@ function detectMarkLeft(ctx, bbox) {
     const y = Math.max(0, y0 - 3);
     const w = Math.max(10, width);
     const h = Math.max(10, height + 6);
-    if (isRegionCenterMarked(ctx, x, y, w, h, 0.2)) return true;
-    return isRegionDark(ctx, x, y, w, h, 0.12);
+    if (isRegionCenterMarked(ctx, x, y, w, h, 0.16)) return true;
+    return isRegionDark(ctx, x, y, w, h, 0.1);
 }
 
 function isRegionDark(ctx, x, y, w, h, threshold) {
