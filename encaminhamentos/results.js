@@ -1,4 +1,4 @@
-import { db, safeQuery, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosYear, getCurrentYear } from './js/core.js';
+import { db, safeQuery, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady, getCurrentYear } from './js/core.js';
 import { requireAdminSession, signOut } from './js/auth.js';
 
 // ===================================================================
@@ -75,7 +75,7 @@ async function handleSearch() {
         const targetYear = filters.data
             ? getYearFromDateString(filters.data)
             : (Number(filters.ano) || getCurrentYear());
-        await ensureEncaminhamentosYear(targetYear);
+        await ensureEncaminhamentosTableReady(targetYear);
         const tableName = getEncaminhamentosTableName(targetYear);
         let query = db
             .from(tableName)

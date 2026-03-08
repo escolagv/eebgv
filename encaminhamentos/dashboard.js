@@ -1,4 +1,4 @@
-import { db, safeQuery, getLocalDateString, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosYear, SUPABASE_URL, SUPABASE_ANON_KEY } from './js/core.js';
+import { db, safeQuery, getLocalDateString, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady, SUPABASE_URL, SUPABASE_ANON_KEY } from './js/core.js';
 import { requireAdminSession, signOut } from './js/auth.js';
 
 const motivosOptions = [
@@ -246,7 +246,7 @@ async function loadDashboardData() {
 
     try {
         const year = getYearFromDateString(range.start);
-        await ensureEncaminhamentosYear(year);
+        await ensureEncaminhamentosTableReady(year);
         const tableName = getEncaminhamentosTableName(year);
         const { data } = await safeQuery(
             db.from(tableName)

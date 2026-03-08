@@ -51,6 +51,34 @@ export async function ensureEncaminhamentosYear(year) {
     }
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isSchemaCacheError(err) {
+    const status = err?.status;
+    const text = [err?.message, err?.details, err?.hint].filter(Boolean).join(' ').toLowerCase();
+    return status === 409 && (text.includes('schema') || text.includes('relation') || text.includes('cache'));
+}
+
+export async function ensureEncaminhamentosTableReady(year) {
+    const safeYear = Number(year) || getCurrentYear();
+    await ensureEncaminhamentosYear(safeYear);
+    const tableName = getEncaminhamentosTableName(safeYear);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+            await safeQuery(db.from(tableName).select('id').limit(1));
+            return;
+        } catch (err) {
+            if (isSchemaCacheError(err) && attempt === 0) {
+                await delay(700);
+                continue;
+            }
+            throw err;
+        }
+    }
+}
+
 export async function safeQuery(queryBuilder) {
     const { data, error, count } = await queryBuilder;
     if (error) {

@@ -1,4 +1,4 @@
-import { db, safeQuery, getLocalDateString, formatDateTimeSP, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosYear, getCurrentYear } from './js/core.js';
+import { db, safeQuery, getLocalDateString, formatDateTimeSP, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady, getCurrentYear } from './js/core.js';
 import { signOut, requireAdminSession } from './js/auth.js';
 
 // ===================================================================
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (dataEncInput) {
         dataEncInput.addEventListener('change', async () => {
             state.encYear = getYearFromDateString(dataEncInput.value);
-            await ensureEncaminhamentosYear(state.encYear);
+            await ensureEncaminhamentosTableReady(state.encYear);
             await loadCodigoPreview(true);
         });
     }
@@ -159,7 +159,7 @@ async function loadApp(user, profile) {
     if (registradoLabel) registradoLabel.textContent = profile.nome || user.email || '';
     document.getElementById('dataEncaminhamento').value = getLocalDateString();
     state.encYear = getYearFromDateString(document.getElementById('dataEncaminhamento').value);
-    await ensureEncaminhamentosYear(state.encYear);
+    await ensureEncaminhamentosTableReady(state.encYear);
 
     await syncEncCache();
     await loadCaches();
@@ -446,7 +446,7 @@ async function saveRecord(e) {
     setLoadingState(true, 'Salvando...');
     try {
         const encYear = getYearFromDateString(newRecord.data_encaminhamento);
-        await ensureEncaminhamentosYear(encYear);
+        await ensureEncaminhamentosTableReady(encYear);
         const tableName = getEncaminhamentosTableName(encYear);
         const { data: created } = await safeQuery(db.from(tableName).insert(newRecord).select().single());
         await linkScanJob(created?.id);
@@ -467,7 +467,7 @@ async function updateRecord() {
     setLoadingState(true, 'Atualizando...', true);
     try {
         const encYear = state.editYear || getYearFromDateString(updatedRecord.data_encaminhamento);
-        await ensureEncaminhamentosYear(encYear);
+        await ensureEncaminhamentosTableReady(encYear);
         const tableName = getEncaminhamentosTableName(encYear);
         await safeQuery(
             db.from(tableName)
@@ -491,7 +491,7 @@ async function checkEditMode() {
     if (recordId) {
         const yearParam = Number(params.get('year')) || getCurrentYear();
         state.editYear = yearParam;
-        await ensureEncaminhamentosYear(yearParam);
+        await ensureEncaminhamentosTableReady(yearParam);
         const formTitle = document.getElementById('form-title');
         formTitle.textContent = "Editando Encaminhamento";
         showStatusMessage('Carregando dados...', false);
