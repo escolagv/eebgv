@@ -43,6 +43,8 @@
                     if (reportLayout === 'double') {
                         document.body.classList.add('report-double');
                         injectPageStyle('landscape');
+                    } else {
+                        document.body.classList.add('report-single');
                     }
                 }
                 document.getElementById('report-main-content').innerHTML = contentHTML;

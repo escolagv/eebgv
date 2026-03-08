@@ -78,12 +78,30 @@
                                     <div>
                                         <p class="text-sm font-semibold text-gray-800">Foto da fila selecionada</p>
                                         <p id="scan-meta" class="text-xs text-gray-500">-</p>
+                                        <p id="scan-drive-meta" class="text-xs text-gray-500">Drive: -</p>
                                     </div>
-                                    <button type="button" id="scan-clear-btn" class="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">Remover</button>
+                                    <div class="flex flex-col items-end gap-1">
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" id="scan-zoom-btn" class="px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Visualizar</button>
+                                            <button type="button" id="scan-clear-btn" class="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">Remover</button>
+                                        </div>
+                                        <p class="text-xs text-gray-500">Imagem disponível</p>
+                                    </div>
                                 </div>
                                 <div class="mt-3 space-y-2">
-                                    <img id="scan-image" alt="Foto da fila" class="w-full max-h-72 object-contain rounded-md border border-gray-200">
-                                    <a id="scan-open-link" href="#" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir imagem em nova guia</a>
+                                    <div id="scan-inline-preview" class="hidden">
+                                        <img id="scan-image" alt="Foto da fila" class="w-full max-h-72 object-contain rounded-md border border-gray-200">
+                                        <a id="scan-open-link" href="#" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir imagem em nova guia</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="scan-missing" class="hidden mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-sm font-semibold text-yellow-900">Nenhuma imagem vinculada</p>
+                                        <p class="text-xs text-yellow-700">Você pode adicionar a foto depois, selecionando na fila.</p>
+                                    </div>
+                                    <button type="button" id="scan-add-btn" class="px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded-md hover:bg-yellow-200">Adicionar imagem</button>
                                 </div>
                             </div>
                             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -230,9 +248,10 @@
                         </div>
 
                         <div class="pt-2">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <button type="submit" id="btnRegistrar" class="w-full py-2 px-4 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Registrar Encaminhamento</button>
                                 <button type="button" id="btnSalvarEdicao" class="w-full py-2 px-4 font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 opacity-50 cursor-not-allowed" disabled>Salvar Alterações</button>
+                                <button type="button" id="btnExcluir" class="w-full py-2 px-4 font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 hidden">Excluir Encaminhamento</button>
                             </div>
                         </div>
                     </form>
@@ -240,6 +259,24 @@
                 </div>
             </div>
         </main>
+    </div>
+
+    <div id="scan-zoom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+        <div class="bg-white rounded-lg shadow-xl p-4 w-full max-w-3xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold text-gray-700">Zoom da imagem</h3>
+                <button id="scan-zoom-close-btn" class="text-gray-500 hover:text-gray-700 text-lg">&times;</button>
+            </div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button id="scan-zoom-in-btn" class="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Zoom +</button>
+                <button id="scan-zoom-out-btn" class="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Zoom -</button>
+                <button id="scan-zoom-reset-btn" class="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Reset</button>
+                <button type="button" id="scan-zoom-print-btn" class="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Imprimir</button>
+            </div>
+            <div class="bg-gray-50 border border-gray-200 rounded-md p-2 overflow-auto max-h-[70vh]">
+                <img id="scan-zoom-image" alt="Imagem ampliada" class="mx-auto transition-transform duration-200" style="transform: scale(1);" />
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/sidebar.js"></script>

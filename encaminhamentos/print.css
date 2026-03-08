@@ -1,7 +1,7 @@
 /* Estilos gerais para a página de relatório (impressão) */
 @page {
     size: A4;
-    margin: 16mm;
+    margin: 12mm;
 }
 
 body {
@@ -78,7 +78,7 @@ footer {
 /* Ficha de encaminhamento */
 .record-card {
     border: 2px solid #000;
-    padding: 10mm;
+    padding: 8mm;
     margin-bottom: 12mm;
     page-break-inside: avoid;
     page-break-after: always;
@@ -97,18 +97,42 @@ footer {
 
 .report-double .record-card {
     margin-bottom: 0;
-    padding: 6mm;
-    font-size: 9pt;
+    padding: 4mm;
+    font-size: 8pt;
     page-break-after: auto;
 }
 
 .report-double .ficha-field {
-    font-size: 9pt;
-    margin: 2mm 0;
+    font-size: 8pt;
+    margin: 1.5mm 0;
 }
 
 .report-double .checkbox-line {
-    font-size: 9pt;
+    font-size: 8pt;
+    margin: 1mm 0;
+}
+
+.report-double .ficha-header {
+    margin-bottom: 3mm;
+}
+
+.report-double .ficha-title,
+.report-double .ficha-subtitle {
+    font-size: 10pt;
+}
+
+.report-double .section-title {
+    font-size: 8.5pt;
+    margin-bottom: 2mm;
+}
+
+.report-double .line-block {
+    min-height: 4mm;
+    margin: 1.5mm 0;
+}
+
+.report-double .signature-placeholder {
+    margin-top: 3mm;
 }
 
 .ficha-header {
@@ -130,20 +154,20 @@ footer {
 }
 
 .ficha-field {
-    font-size: 10.5pt;
-    margin: 2.5mm 0;
-    padding-bottom: 1.5mm;
+    font-size: 9.5pt;
+    margin: 2mm 0;
+    padding-bottom: 1mm;
     border-bottom: 1px solid #000;
 }
 
 .ficha-section {
-    margin-top: 6mm;
+    margin-top: 4mm;
 }
 
 .section-title {
-    font-size: 10.5pt;
+    font-size: 9.5pt;
     font-weight: 700;
-    margin-bottom: 3mm;
+    margin-bottom: 2mm;
 }
 
 .checkbox-group {
@@ -151,21 +175,26 @@ footer {
 }
 
 .checkbox-line {
-    font-size: 10pt;
-    margin: 1.5mm 0;
+    font-size: 9pt;
+    margin: 1mm 0;
 }
 
 .line-block {
-    min-height: 6mm;
+    min-height: 5mm;
     border-bottom: 1px solid #000;
-    margin: 2mm 0;
-    font-size: 10pt;
+    margin: 1.5mm 0;
+    font-size: 9pt;
 }
 
 .signature-placeholder {
-    margin-top: 6mm;
-    font-size: 9pt;
+    margin-top: 4mm;
+    font-size: 8.5pt;
     color: #444;
     border-top: 1px solid #000;
     padding-top: 2mm;
+}
+
+.report-single .record-card {
+    padding: 6mm;
+    margin-bottom: 0;
 }

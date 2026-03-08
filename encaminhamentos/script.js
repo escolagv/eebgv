@@ -50,6 +50,7 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
     const encaminhamentoForm = document.getElementById('encaminhamentoForm');
     const salvarEdicaoButton = document.getElementById('btnSalvarEdicao');
+    const excluirButton = document.getElementById('btnExcluir');
     const logoutBtn = document.getElementById('logout-btn');
     const syncNowBtn = document.getElementById('sync-now-btn');
 
@@ -57,9 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     createCheckboxes('acoes-container', acoesOptions, 'acao');
     createCheckboxes('providencias-container', providenciasOptions, 'providencia');
     initSearchPanels();
+    initScanZoomControls();
 
     encaminhamentoForm.addEventListener('submit', saveRecord);
     salvarEdicaoButton.addEventListener('click', updateRecord);
+    if (excluirButton) {
+        excluirButton.addEventListener('click', deleteRecord);
+    }
     if (syncNowBtn) {
         syncNowBtn.addEventListener('click', async () => {
             await syncEncCache();
@@ -450,6 +455,7 @@ async function saveRecord(e) {
         const tableName = getEncaminhamentosTableName(encYear);
         const { data: created } = await safeQuery(db.from(tableName).insert(newRecord).select().single());
         await linkScanJob(created?.id);
+        await sendScanToDrive(created?.id, created?.codigo || '', created?.data_encaminhamento || newRecord.data_encaminhamento);
         const codigoMsg = created?.codigo ? ` Código: ${created.codigo}` : '';
         showStatusMessage(`✅ Encaminhamento registrado com sucesso!${codigoMsg}`, true);
         resetForm();
@@ -474,6 +480,8 @@ async function updateRecord() {
                 .update({ ...updatedRecord, updated_at: new Date().toISOString() })
                 .eq('id', recordId)
         );
+        if (state.scanJob?.id) await linkScanJob(recordId);
+        await sendScanToDrive(recordId, updatedRecord.codigo || state.currentCodigo || '', updatedRecord.data_encaminhamento);
         showStatusMessage('✅ Encaminhamento atualizado com sucesso!', true);
         setTimeout(() => {
             window.location.href = 'results.html';
@@ -482,6 +490,40 @@ async function updateRecord() {
         handleSupabaseError(err);
     } finally {
         setLoadingState(false, 'Salvar Alterações', true);
+    }
+}
+
+async function deleteRecord() {
+    const recordId = document.getElementById('editId')?.value;
+    if (!recordId) return;
+    const codigo = document.getElementById('codigoEncaminhamento')?.value || '';
+    const aluno = document.getElementById('estudante')?.selectedOptions?.[0]?.text || '';
+    const dataEnc = document.getElementById('dataEncaminhamento')?.value || '';
+    const infoParts = [];
+    if (codigo) infoParts.push(`Código: ${codigo}`);
+    if (aluno) infoParts.push(`Aluno: ${aluno}`);
+    if (dataEnc) infoParts.push(`Data: ${dataEnc}`);
+    const infoText = infoParts.length ? `\n\n${infoParts.join(' | ')}` : '';
+    const confirmed = window.confirm(`Tem certeza que deseja excluir este encaminhamento? Essa ação não pode ser desfeita.${infoText}`);
+    if (!confirmed) return;
+
+    setDeleteLoadingState(true);
+    try {
+        const encYear = state.editYear || getYearFromDateString(dataEnc) || getCurrentYear();
+        await ensureEncaminhamentosTableReady(encYear);
+        await safeQuery(
+            db.from(getEncaminhamentosTableName(encYear))
+                .delete()
+                .eq('id', recordId)
+        );
+        showStatusMessage('✅ Encaminhamento excluído com sucesso!', true);
+        setTimeout(() => {
+            window.location.href = 'relatorios.html';
+        }, 1200);
+    } catch (err) {
+        handleSupabaseError(err);
+    } finally {
+        setDeleteLoadingState(false);
     }
 }
 
@@ -501,7 +543,7 @@ async function checkEditMode() {
                 db.from(getEncaminhamentosTableName(yearParam)).select('*').eq('id', recordId).single()
             );
             if (data) {
-                populateForm(data);
+                await populateForm(data);
                 switchToEditMode(true);
                 document.getElementById('status-message').style.display = 'none';
             } else {
@@ -519,12 +561,12 @@ async function loadScanJobFromParams() {
     const params = new URLSearchParams(window.location.search);
     const scanId = params.get('scanId');
     const editId = params.get('editId');
-    if (!scanId || editId) return;
+    if (!scanId) return;
 
     try {
-    const { data: job } = await safeQuery(
-        db.from('enc_scan_jobs')
-                .select('id, status, storage_path, mime_type, created_at, device_id, aluno_matricula, ocr_json')
+        const { data: job } = await safeQuery(
+            db.from('enc_scan_jobs')
+                .select('id, status, storage_path, mime_type, created_at, device_id, aluno_matricula, ocr_json, drive_url, drive_file_id, encaminhamento_id')
                 .eq('id', scanId)
                 .single()
         );
@@ -543,11 +585,11 @@ async function loadScanJobFromParams() {
         }
         showScanPreview(job, state.scanUrl);
         if (job.ocr_json) {
-            applyOcrPrefill(job.ocr_json);
+            if (!editId) applyOcrPrefill(job.ocr_json);
         }
         const matriculaParam = params.get('matricula');
         const matricula = (job.aluno_matricula || matriculaParam || '').toString().trim();
-        if (matricula) {
+        if (matricula && !editId) {
             prefillAlunoByMatricula(matricula);
         }
     } catch (err) {
@@ -662,22 +704,43 @@ function parseDateToIso(value) {
 function showScanPreview(job, url) {
     const container = document.getElementById('scan-preview');
     const meta = document.getElementById('scan-meta');
+    const driveMeta = document.getElementById('scan-drive-meta');
     const img = document.getElementById('scan-image');
     const link = document.getElementById('scan-open-link');
+    const inlinePreview = document.getElementById('scan-inline-preview');
+    const missing = document.getElementById('scan-missing');
+    const zoomBtn = document.getElementById('scan-zoom-btn');
     const clearBtn = document.getElementById('scan-clear-btn');
-    if (!container || !meta || !img || !link) return;
+    if (!container || !meta) return;
 
     const created = job?.created_at ? formatDateTimeSP(job.created_at) : '-';
     const status = job?.status || 'novo';
     meta.textContent = `Enviado em ${created} • Status ${status}`;
+    if (driveMeta) {
+        driveMeta.textContent = job?.drive_url ? 'Drive: disponível' : 'Drive: não disponível';
+    }
 
+    if (clearBtn) {
+        const isEditing = !!document.getElementById('editId')?.value;
+        const isLinked = job?.status === 'vinculado' || !!job?.encaminhamento_id;
+        const cameFromQueue = !!job?.id;
+        clearBtn.classList.toggle('hidden', isEditing || isLinked || cameFromQueue);
+    }
+
+    if (missing) missing.classList.add('hidden');
     if (url) {
-        img.src = url;
-        link.href = url;
-        link.classList.remove('hidden');
+        if (img) img.removeAttribute('src');
+        if (link) link.classList.add('hidden');
+        if (inlinePreview) inlinePreview.classList.add('hidden');
+        if (zoomBtn) {
+            zoomBtn.classList.remove('hidden');
+            zoomBtn.onclick = () => openScanZoom(url);
+        }
     } else {
-        img.removeAttribute('src');
-        link.classList.add('hidden');
+        if (img) img.removeAttribute('src');
+        if (link) link.classList.add('hidden');
+        if (inlinePreview) inlinePreview.classList.add('hidden');
+        if (zoomBtn) zoomBtn.classList.add('hidden');
     }
 
     container.classList.remove('hidden');
@@ -699,10 +762,224 @@ function clearScanPreview() {
     const img = document.getElementById('scan-image');
     const link = document.getElementById('scan-open-link');
     const meta = document.getElementById('scan-meta');
+    const driveMeta = document.getElementById('scan-drive-meta');
+    const zoomBtn = document.getElementById('scan-zoom-btn');
+    const inlinePreview = document.getElementById('scan-inline-preview');
+    const missing = document.getElementById('scan-missing');
     if (container) container.classList.add('hidden');
     if (img) img.removeAttribute('src');
     if (link) link.classList.add('hidden');
     if (meta) meta.textContent = '-';
+    if (driveMeta) driveMeta.textContent = 'Drive: -';
+    if (zoomBtn) zoomBtn.classList.add('hidden');
+    if (inlinePreview) inlinePreview.classList.add('hidden');
+    if (missing) missing.classList.add('hidden');
+    if (document.getElementById('editId')?.value) {
+        showMissingScanPrompt();
+    }
+}
+
+function showMissingScanPrompt() {
+    const missing = document.getElementById('scan-missing');
+    const addBtn = document.getElementById('scan-add-btn');
+    if (!missing) return;
+    missing.classList.remove('hidden');
+    if (addBtn) {
+        addBtn.onclick = () => {
+            const editId = document.getElementById('editId')?.value;
+            const target = editId ? `fila.html?editId=${encodeURIComponent(editId)}` : 'fila.html';
+            window.location.href = target;
+        };
+    }
+}
+
+function buildDriveImageUrl(fileId) {
+    if (!fileId) return '';
+    return `https://drive.google.com/uc?id=${encodeURIComponent(fileId)}`;
+}
+
+async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
+    if (!encaminhamentoId) return;
+    try {
+        const { data } = await safeQuery(
+            db.from('enc_scan_jobs')
+                .select('id, status, storage_path, mime_type, created_at, drive_url, drive_file_id, encaminhamento_id')
+                .eq('encaminhamento_id', encaminhamentoId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+        );
+        const job = Array.isArray(data) ? data[0] : data;
+        if (!job) {
+            showMissingScanPrompt();
+            return;
+        }
+        state.scanJob = job;
+        if (job.drive_file_id) {
+            state.scanUrl = buildDriveImageUrl(job.drive_file_id);
+            showScanPreview(job, state.scanUrl);
+            return;
+        }
+        if (job.storage_path) {
+            const { data: signed, error } = await db.storage
+                .from('enc_temp')
+                .createSignedUrl(job.storage_path, 60 * 60);
+            if (!error && signed?.signedUrl) {
+                state.scanUrl = signed.signedUrl;
+            }
+            showScanPreview(job, state.scanUrl);
+            return;
+        }
+        showMissingScanPrompt();
+    } catch (err) {
+        console.warn('Falha ao carregar imagem vinculada:', err?.message || err);
+    }
+}
+
+async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
+    if (!state.scanJob?.id || !state.scanJob?.storage_path) return;
+    if (state.scanJob.drive_file_id || state.scanJob.drive_url) return;
+    try {
+        const payload = {
+            storage_path: state.scanJob.storage_path,
+            codigo,
+            data_encaminhamento: dataEncaminhamento,
+            mime_type: state.scanJob.mime_type || 'image/jpeg'
+        };
+        const { data, error } = await db.functions.invoke('enc_drive_upload', { body: payload });
+        if (error) throw error;
+        const driveUrl = data?.webViewLink || data?.drive_url || '';
+        const driveFileId = data?.file_id || '';
+        await safeQuery(
+            db.from('enc_scan_jobs')
+                .update({
+                    drive_url: driveUrl || null,
+                    drive_file_id: driveFileId || null,
+                    status: 'vinculado',
+                    encaminhamento_id: encaminhamentoId
+                })
+                .eq('id', state.scanJob.id)
+        );
+        await db.storage.from('enc_temp').remove([state.scanJob.storage_path]);
+        state.scanJob = {
+            ...state.scanJob,
+            drive_url: driveUrl,
+            drive_file_id: driveFileId,
+            status: 'vinculado',
+            encaminhamento_id: encaminhamentoId
+        };
+        if (driveFileId) {
+            state.scanUrl = buildDriveImageUrl(driveFileId);
+        }
+        showScanPreview(state.scanJob, state.scanUrl);
+    } catch (err) {
+        console.warn('Falha ao enviar para o Drive:', err?.message || err);
+    }
+}
+
+let scanZoomScale = 1;
+function openScanZoom(url) {
+    const modal = document.getElementById('scan-zoom-modal');
+    const img = document.getElementById('scan-zoom-image');
+    const printBtn = document.getElementById('scan-zoom-print-btn');
+    if (!modal || !img || !url) return;
+    img.src = url;
+    scanZoomScale = 1;
+    img.style.transform = `scale(${scanZoomScale})`;
+    if (printBtn) {
+        printBtn.onclick = () => printScanImage(url);
+    }
+    modal.classList.remove('hidden');
+}
+
+function printScanImage(url) {
+    if (!url) return;
+    const aluno = document.getElementById('estudante')?.selectedOptions?.[0]?.text || '-';
+    const codigo = document.getElementById('codigoEncaminhamento')?.value || '';
+    const data = document.getElementById('dataEncaminhamento')?.value || '';
+    const professor = document.getElementById('professor')?.selectedOptions?.[0]?.text || '';
+    const logoUrl = new URL('../apoia/logo.png', window.location.href).href;
+    const infoParts = [
+        `Aluno: ${aluno}`
+    ];
+    if (professor) infoParts.push(`Professor: ${professor}`);
+    if (codigo) infoParts.push(`Codigo: ${codigo}`);
+    if (data) infoParts.push(`Data: ${data}`);
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Imprimir imagem</title>
+            <style>
+                @page { size: A4 portrait; margin: 12mm; }
+                body { font-family: Arial, sans-serif; margin: 0; color: #000; }
+                .header { display: flex; align-items: center; gap: 8mm; margin-bottom: 8mm; }
+                .logo { height: 24mm; width: auto; }
+                .title { font-weight: 700; font-size: 11pt; letter-spacing: 0.3px; margin: 0 0 1mm 0; }
+                .line { font-size: 9pt; margin: 0; }
+                img { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <img class="logo" src="${logoUrl}" alt="Logo" />
+                <div>
+                    <div class="title">E.E.B GETULIO VARGAS</div>
+                    <div class="line">${infoParts.join(' • ')}</div>
+                </div>
+            </div>
+            <img src="${url}" alt="Documento" />
+            <script>
+                window.onload = () => { window.print(); };
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+function initScanZoomControls() {
+    const modal = document.getElementById('scan-zoom-modal');
+    const img = document.getElementById('scan-zoom-image');
+    const closeBtn = document.getElementById('scan-zoom-close-btn');
+    const zoomIn = document.getElementById('scan-zoom-in-btn');
+    const zoomOut = document.getElementById('scan-zoom-out-btn');
+    const reset = document.getElementById('scan-zoom-reset-btn');
+    if (!modal || !img) return;
+
+    const applyScale = () => {
+        img.style.transform = `scale(${scanZoomScale})`;
+    };
+
+    zoomIn?.addEventListener('click', () => {
+        scanZoomScale = Math.min(3, scanZoomScale + 0.25);
+        applyScale();
+    });
+    zoomOut?.addEventListener('click', () => {
+        scanZoomScale = Math.max(0.75, scanZoomScale - 0.25);
+        applyScale();
+    });
+    reset?.addEventListener('click', () => {
+        scanZoomScale = 1;
+        applyScale();
+    });
+    closeBtn?.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) modal.classList.add('hidden');
+    });
+}
+
+async function loadStoredScanPreview(storagePath, referenceDate) {
+    if (!storagePath) return;
+    try {
+        const { data, error } = await db.storage.from('enc_temp').createSignedUrl(storagePath, 60 * 60);
+        if (error || !data?.signedUrl) return;
+        state.scanUrl = data.signedUrl;
+        showScanPreview({ created_at: referenceDate || null, status: 'vinculado' }, state.scanUrl);
+    } catch (err) {
+        console.warn('Falha ao carregar imagem vinculada:', err?.message || err);
+    }
 }
 
 async function linkScanJob(encaminhamentoId) {
@@ -760,7 +1037,7 @@ function getFormData() {
     };
 }
 
-function populateForm(data) {
+async function populateForm(data) {
     state.currentCodigo = (data.codigo || '').toString().replace(/\s+/g, '');
     const codigoInput = document.getElementById('codigoEncaminhamento');
     if (codigoInput) codigoInput.value = state.currentCodigo;
@@ -781,7 +1058,7 @@ function populateForm(data) {
         document.getElementById('whatsapp-enviado').checked = !!data.whatsapp_enviado;
         document.querySelectorAll('input[name="whatsapp-status"]').forEach(radio => {
             radio.disabled = !data.whatsapp_enviado;
-            radio.checked = radio.value === data.whatsapp_status;
+            radio.checked = normalizeText(radio.value) === normalizeText(data.whatsapp_status || '');
         });
     }
     document.getElementById('recadoCom').value = data.recado_com || '';
@@ -791,6 +1068,18 @@ function populateForm(data) {
     document.getElementById('status').value = data.status || '';
     document.getElementById('outrasInformacoes').value = data.outras_informacoes || '';
     document.getElementById('registradoPor').value = data.registrado_por_nome || '';
+
+    if (data.foto_storage_path) {
+        state.scanJob = {
+            id: null,
+            status: 'vinculado',
+            storage_path: data.foto_storage_path,
+            created_at: data.created_at || data.data_encaminhamento || null
+        };
+        loadStoredScanPreview(data.foto_storage_path, data.created_at || data.data_encaminhamento || null);
+    } else if (!state.scanJob?.storage_path) {
+        await loadLinkedScanByEncaminhamentoId(data.id);
+    }
 }
 
 async function loadCodigoPreview(force = false) {
@@ -864,6 +1153,7 @@ function resetForm() {
 function switchToEditMode(isEditing) {
     const btnRegistrar = document.getElementById('btnRegistrar');
     const btnSalvar = document.getElementById('btnSalvarEdicao');
+    const btnExcluir = document.getElementById('btnExcluir');
 
     btnRegistrar.disabled = isEditing;
     btnSalvar.disabled = !isEditing;
@@ -872,6 +1162,13 @@ function switchToEditMode(isEditing) {
     btnRegistrar.classList.toggle('cursor-not-allowed', isEditing);
     btnSalvar.classList.toggle('opacity-50', !isEditing);
     btnSalvar.classList.toggle('cursor-not-allowed', !isEditing);
+
+    if (btnExcluir) {
+        btnExcluir.classList.toggle('hidden', !isEditing);
+        btnExcluir.disabled = !isEditing;
+        btnExcluir.classList.toggle('opacity-50', !isEditing);
+        btnExcluir.classList.toggle('cursor-not-allowed', !isEditing);
+    }
 }
 
 function showStatusMessage(message, isSuccess) {
@@ -895,6 +1192,13 @@ function setLoadingState(isLoading, text, isEditing = false) {
     button.textContent = text;
 }
 
+function setDeleteLoadingState(isLoading) {
+    const button = document.getElementById('btnExcluir');
+    if (!button) return;
+    button.disabled = isLoading;
+    button.textContent = isLoading ? 'Excluindo...' : 'Excluir Encaminhamento';
+}
+
 function getCheckboxValues(name) {
     const selected = [];
     document.querySelectorAll(`input[name="${name}"]:checked`).forEach(checkbox => {
@@ -912,16 +1216,20 @@ function getCheckboxValues(name) {
 
 function setCheckboxValues(name, valuesString) {
     if (!valuesString) return;
-    const values = valuesString.split(', ');
+    const rawValues = Array.isArray(valuesString)
+        ? valuesString.map(v => String(v).trim()).filter(Boolean)
+        : String(valuesString).split(/[;,|•]/).map(v => v.trim()).filter(Boolean);
+    const normalizedValues = rawValues.map(v => normalizeText(v));
     document.querySelectorAll(`input[name="${name}"]`).forEach(checkbox => {
-        checkbox.checked = values.includes(checkbox.value);
+        const normalizedCheckbox = normalizeText(checkbox.value);
+        checkbox.checked = normalizedValues.includes(normalizedCheckbox);
         if (checkbox.value === "Outros") {
-            const outrosValue = values.find(v => v.startsWith("Outros: "));
+            const outrosValue = rawValues.find(v => normalizeText(v).startsWith('outros:'));
             if (outrosValue) {
                 checkbox.checked = true;
                 const textInput = document.getElementById(`${name}-outros-text`);
                 if (textInput) {
-                    textInput.value = outrosValue.replace("Outros: ", "");
+                    textInput.value = outrosValue.replace(/outros:\s*/i, '');
                     textInput.disabled = false;
                 }
             }
@@ -977,11 +1285,12 @@ function setLigacaoStatus(value) {
     const ligacaoCheckbox = document.getElementById('ligacao-realizada');
     if (!ligacaoCheckbox) return;
     const status = (value || '').trim();
+    const normalizedStatus = normalizeText(status);
     if (status) {
         ligacaoCheckbox.checked = true;
         document.querySelectorAll('input[name="ligacao-status"]').forEach(radio => {
             radio.disabled = false;
-            radio.checked = radio.value === status;
+            radio.checked = normalizeText(radio.value) === normalizedStatus;
         });
     } else {
         ligacaoCheckbox.checked = false;

@@ -91,7 +91,7 @@ function renderQueue() {
         const deleteDisabled = status === 'vinculado';
         const driveLink = job.drive_url ? `<a href="${job.drive_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir no Drive</a>` : '';
         const previewHtml = preview
-            ? `<img src="${preview}" data-url="${preview}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
+            ? `<img src="${preview}" data-url="${preview}" data-aluno="${alunoNome || ''}" data-professor="${profNome || ''}" data-matricula="${matriculaValue || ''}" data-data="${created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
             : `<div class="w-full h-40 flex items-center justify-center bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-400">Sem prévia</div>`;
 
         const matriculaValue = job.aluno_matricula ? String(job.aluno_matricula) : (job.ocr_json?.fields?.matricula || '');
@@ -122,13 +122,18 @@ function renderQueue() {
         `;
     }).join('');
 
-    document.querySelectorAll('.queue-select-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            if (!id) return;
-            window.location.href = `encaminhamento.html?scanId=${encodeURIComponent(id)}`;
-        });
+document.querySelectorAll('.queue-select-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        if (!id) return;
+        const params = new URLSearchParams(window.location.search);
+        const editId = params.get('editId');
+        const target = editId
+            ? `encaminhamento.html?scanId=${encodeURIComponent(id)}&editId=${encodeURIComponent(editId)}`
+            : `encaminhamento.html?scanId=${encodeURIComponent(id)}`;
+        window.location.href = target;
     });
+});
 
     document.querySelectorAll('.queue-delete-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -151,7 +156,12 @@ function renderQueue() {
 
     document.querySelectorAll('.queue-image').forEach(img => {
         img.addEventListener('click', () => {
-            openZoom(img.getAttribute('data-url') || img.src);
+            openZoom(img.getAttribute('data-url') || img.src, {
+                aluno: img.getAttribute('data-aluno') || '',
+                professor: img.getAttribute('data-professor') || '',
+                matricula: img.getAttribute('data-matricula') || '',
+                data: img.getAttribute('data-data') || ''
+            });
         });
     });
 }
@@ -163,15 +173,19 @@ function renderQueueError() {
 }
 
 let zoomScale = 1;
-function openZoom(url) {
+let zoomMeta = null;
+function openZoom(url, meta = null) {
     const modal = document.getElementById('zoom-modal');
     const img = document.getElementById('zoom-image');
-    const link = document.getElementById('zoom-open-link');
+    const printBtn = document.getElementById('zoom-print-btn');
     if (!modal || !img || !url) return;
     img.src = url;
     zoomScale = 1;
+    zoomMeta = meta;
     img.style.transform = `scale(${zoomScale})`;
-    if (link) link.href = url;
+    if (printBtn) {
+        printBtn.onclick = () => printZoomImage(url, zoomMeta);
+    }
     modal.classList.remove('hidden');
 }
 
@@ -207,3 +221,49 @@ function initZoomControls() {
 }
 
 initZoomControls();
+
+function printZoomImage(url, meta) {
+    if (!url) return;
+    const aluno = meta?.aluno || '-';
+    const matricula = meta?.matricula || '';
+    const dataLabel = meta?.data || '';
+    const professor = meta?.professor || '';
+    const logoUrl = new URL('../apoia/logo.png', window.location.href).href;
+    const infoParts = [`Aluno: ${aluno}`];
+    if (professor) infoParts.push(`Professor: ${professor}`);
+    if (matricula) infoParts.push(`Matricula: ${matricula}`);
+    if (dataLabel) infoParts.push(`Enviado em: ${dataLabel}`);
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`
+        <html>
+        <head>
+            <title>Imprimir imagem</title>
+            <style>
+                @page { size: A4 portrait; margin: 12mm; }
+                body { font-family: Arial, sans-serif; margin: 0; color: #000; }
+                .header { display: flex; align-items: center; gap: 8mm; margin-bottom: 8mm; }
+                .logo { height: 24mm; width: auto; }
+                .title { font-weight: 700; font-size: 11pt; letter-spacing: 0.3px; margin: 0 0 1mm 0; }
+                .line { font-size: 9pt; margin: 0; }
+                img { max-width: 100%; height: auto; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <img class="logo" src="${logoUrl}" alt="Logo" />
+                <div>
+                    <div class="title">E.E.B GETULIO VARGAS</div>
+                    <div class="line">${infoParts.join(' • ')}</div>
+                </div>
+            </div>
+            <img src="${url}" alt="Documento" />
+            <script>
+                window.onload = () => { window.print(); };
+            </script>
+        </body>
+        </html>
+    `);
+    win.document.close();
+}

@@ -9,7 +9,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const loginForm = document.getElementById('login-form');
     loginForm.addEventListener('submit', handleLogin);
+    initPasswordToggle();
 });
+
+function initPasswordToggle() {
+    const toggleBtn = document.getElementById('login-password-toggle');
+    const input = document.getElementById('login-password');
+    const eye = document.getElementById('login-password-eye');
+    const eyeOff = document.getElementById('login-password-eye-off');
+    if (!toggleBtn || !input) return;
+
+    toggleBtn.addEventListener('click', () => {
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        if (eye) eye.classList.toggle('hidden', !isHidden);
+        if (eyeOff) eyeOff.classList.toggle('hidden', isHidden);
+        toggleBtn.setAttribute('aria-label', isHidden ? 'Ocultar senha' : 'Mostrar senha');
+    });
+}
 
 async function handleLogin(e) {
     e.preventDefault();

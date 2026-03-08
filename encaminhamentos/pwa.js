@@ -185,7 +185,9 @@ async function runOcr(blob) {
         preprocessCanvas(ctx, canvas.width, canvas.height);
 
         const result = await window.Tesseract.recognize(canvas, 'por', {
-            logger: () => {}
+            logger: () => {},
+            tessedit_pageseg_mode: 6,
+            preserve_interword_spaces: '1'
         });
         const data = result?.data;
         if (!data) return null;
@@ -218,8 +220,15 @@ function normalizeText(text) {
         .trim();
 }
 
+function normalizeNameCandidate(text) {
+    return (text || '')
+        .replace(/[|_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function isLikelyPersonName(text) {
-    const cleaned = (text || '').replace(/[|_]/g, ' ').replace(/\s+/g, ' ').trim();
+    const cleaned = normalizeNameCandidate(text);
     if (!cleaned) return false;
     if (/\d/.test(cleaned)) return false;
 
@@ -271,7 +280,7 @@ function getHeaderCandidateLines(lines, imageWidth, imageHeight) {
     if (!imageWidth && !imageHeight) return lines;
 
     const maxY = imageHeight ? imageHeight * 0.35 : null;
-    const maxX = imageWidth ? imageWidth * 0.6 : null;
+    const maxX = imageWidth ? imageWidth * 0.7 : null;
     const filtered = lines.filter(line => {
         const bbox = line?.bbox;
         if (!bbox) return true;
@@ -310,38 +319,73 @@ function extractFieldFromLines(lines, pattern, options = {}) {
     return '';
 }
 
-function extractHeaderFields(data, imageWidth, imageHeight) {
+function extractDateFromText(text) {
+    const raw = (text || '').trim();
+    if (!raw) return '';
+    const match = raw.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+    if (match) return match[0];
+    const isoMatch = raw.match(/\b(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\b/);
+    if (isoMatch) return isoMatch[0];
+    return '';
+}
+
+function extractHeaderFieldsFromLines(lines) {
     const fields = { professor: '', estudante: '', turma: '', data: '', matricula: '' };
-    const lines = getOrderedOcrLines(data);
-    const headerLines = getHeaderCandidateLines(lines, imageWidth, imageHeight);
     const professorLabelPattern = /^(?:professor|profes+sor|profe+sor|profes0r|profesor)/;
     const alunoLabelPattern = /^(?:aluno|alun0|estudante|estudant[ea3]?)/;
     const matriculaLabelPattern = /^(?:matricula|matricu1a|matricuia|matr1cula|matri?cula)/;
+    const dataLabelPattern = /^(?:data|dat[a4])/;
 
-    fields.professor = extractFieldFromLines(headerLines, /^\s*prof(?:e|o|0)?s{1,2}or(?:\(a\))?[^\w]*(.*)$/i, {
-        normalizedPattern: professorLabelPattern
-    }) || extractFieldFromLines(lines, /^\s*prof(?:e|o|0)?s{1,2}or(?:\(a\))?[^\w]*(.*)$/i, {
+    fields.professor = extractFieldFromLines(lines, /^\s*prof(?:e|o|0)?s{1,2}or(?:\(a\))?[^\w]*(.*)$/i, {
         normalizedPattern: professorLabelPattern
     });
-    fields.estudante = extractFieldFromLines(headerLines, /^\s*(?:estudante|aluno)[^\w]*(.*)$/i, {
-        normalizedPattern: alunoLabelPattern
-    }) || extractFieldFromLines(lines, /^\s*(?:estudante|aluno)[^\w]*(.*)$/i, {
+    fields.estudante = extractFieldFromLines(lines, /^\s*(?:estudante|aluno)[^\w]*(.*)$/i, {
         normalizedPattern: alunoLabelPattern
     });
-    fields.turma = extractFieldFromLines(headerLines, /^\s*turma[^\w]*(.*)$/i) || extractFieldFromLines(lines, /^\s*turma[^\w]*(.*)$/i);
-    fields.data = extractFieldFromLines(headerLines, /^\s*data[^\w]*(.*)$/i) || extractFieldFromLines(lines, /^\s*data[^\w]*(.*)$/i);
-    fields.matricula = extractFieldFromLines(headerLines, /^\s*matr(?:[íi]cula|icula|icu1a|icuia)[^\d]*(.*)$/i, {
-        digitsOnly: true,
-        normalizedPattern: matriculaLabelPattern
-    }) || extractFieldFromLines(lines, /^\s*matr(?:[íi]cula|icula|icu1a|icuia)[^\d]*(.*)$/i, {
+    fields.turma = extractFieldFromLines(lines, /^\s*turma[^\w]*(.*)$/i);
+    fields.data = extractFieldFromLines(lines, /^\s*data[^\w]*(.*)$/i, {
+        normalizedPattern: dataLabelPattern
+    });
+    fields.matricula = extractFieldFromLines(lines, /^\s*matr(?:[íi]cula|icula|icu1a|icuia)[^\d]*(.*)$/i, {
         digitsOnly: true,
         normalizedPattern: matriculaLabelPattern
     });
+
+    if (!fields.data) {
+        for (const line of lines) {
+            const dateValue = extractDateFromText(line?.text || '');
+            if (dateValue) {
+                fields.data = dateValue;
+                break;
+            }
+        }
+    }
+
+    return fields;
+}
+
+function extractHeaderFields(data, imageWidth, imageHeight) {
+    const lines = getOrderedOcrLines(data);
+    const headerLines = getHeaderCandidateLines(lines, imageWidth, imageHeight);
+    const headerFields = extractHeaderFieldsFromLines(headerLines);
+    const fallbackFields = extractHeaderFieldsFromLines(lines);
+    const fields = {
+        professor: headerFields.professor || fallbackFields.professor || '',
+        estudante: headerFields.estudante || fallbackFields.estudante || '',
+        turma: headerFields.turma || fallbackFields.turma || '',
+        data: headerFields.data || fallbackFields.data || '',
+        matricula: headerFields.matricula || fallbackFields.matricula || ''
+    };
 
     if (!fields.matricula) {
         const match = (data.text || '').match(/matr[íi]cula[^\d]*([0-9]{4,})/i);
         if (match) fields.matricula = match[1];
     }
+    if (!fields.data) {
+        const dateMatch = (data.text || '').match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+        if (dateMatch) fields.data = dateMatch[0];
+    }
+
     fields.professor = cleanName(fields.professor);
     fields.estudante = cleanName(fields.estudante);
     if (fields.matricula && fields.matricula.length < 4) {
@@ -427,7 +471,7 @@ function isRegionCenterMarked(ctx, x, y, w, h, threshold) {
 }
 
 function cleanName(value) {
-    const text = (value || '').replace(/[|_]/g, ' ').replace(/\s+/g, ' ').trim();
+    const text = normalizeNameCandidate(value);
     if (!text) return '';
     if (text.length < 3) return '';
     if (/^(?:aluno|estudante|professor(?:a)?|turma|data|matricula)$/i.test(normalizeText(text))) return '';
@@ -440,8 +484,8 @@ function preprocessCanvas(ctx, width, height) {
     try {
         const imageData = ctx.getImageData(0, 0, width, height);
         const data = imageData.data;
-        const contrast = 1.2;
-        const brightness = 5;
+        const contrast = 1.3;
+        const brightness = 8;
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
