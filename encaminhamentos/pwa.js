@@ -663,10 +663,17 @@ function detectMarkLeft(ctx, bbox) {
     const { x0, y0, x1, y1 } = bbox;
     const height = y1 - y0;
     const width = Math.max(20, height * 0.9);
-    const x = Math.max(0, x0 - width - 14);
     const y = Math.max(0, y0 - 3);
-    const w = Math.max(10, width);
     const h = Math.max(10, height + 6);
+
+    const lineWidth = Math.max(8, x1 - x0);
+    const markW = Math.max(10, Math.floor(lineWidth * 0.2));
+    const markX = Math.max(0, x0);
+    if (isRegionCenterMarked(ctx, markX, y, markW, h, 0.06)) return true;
+    if (isRegionInk(ctx, markX, y, markW, h, 0.015, 40)) return true;
+
+    const x = Math.max(0, x0 - width - 14);
+    const w = Math.max(10, width);
     if (isRegionCenterMarked(ctx, x, y, w, h, 0.08)) return true;
     if (isRegionCenterMarked(ctx, x, y, w, h, 0.14, 0.35)) return true;
     if (isRegionDark(ctx, x, y, w, h, 0.1)) return true;
@@ -675,7 +682,8 @@ function detectMarkLeft(ctx, bbox) {
 
 function isRegionDark(ctx, x, y, w, h, threshold) {
     try {
-        const imageData = ctx.getImageData(x, y, w, h);
+        const safe = clampBox(ctx, x, y, w, h);
+        const imageData = ctx.getImageData(safe.x, safe.y, safe.w, safe.h);
         const data = imageData.data;
         let dark = 0;
         const total = data.length / 4;
@@ -704,7 +712,8 @@ function isRegionCenterMarked(ctx, x, y, w, h, threshold, size = 0.5) {
 
 function isRegionInk(ctx, x, y, w, h, minRatio, minContrast) {
     try {
-        const imageData = ctx.getImageData(x, y, w, h);
+        const safe = clampBox(ctx, x, y, w, h);
+        const imageData = ctx.getImageData(safe.x, safe.y, safe.w, safe.h);
         const data = imageData.data;
         let dark = 0;
         let min = 255;
@@ -722,6 +731,16 @@ function isRegionInk(ctx, x, y, w, h, minRatio, minContrast) {
     } catch (err) {
         return false;
     }
+}
+
+function clampBox(ctx, x, y, w, h) {
+    const maxW = ctx?.canvas?.width || 0;
+    const maxH = ctx?.canvas?.height || 0;
+    const safeX = Math.max(0, Math.min(x, maxW - 1));
+    const safeY = Math.max(0, Math.min(y, maxH - 1));
+    const safeW = Math.max(1, Math.min(w, maxW - safeX));
+    const safeH = Math.max(1, Math.min(h, maxH - safeY));
+    return { x: safeX, y: safeY, w: safeW, h: safeH };
 }
 
 function cleanName(value) {
