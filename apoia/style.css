@@ -1,5 +1,96 @@
 body { font-family: 'Inter', sans-serif; }
 
+.admin-professores-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #e5e7eb;
+    padding-top: 0.25rem;
+    padding-bottom: 0.5rem;
+}
+
+.admin-turmas-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #e5e7eb;
+    padding-top: 0.25rem;
+    padding-bottom: 0.5rem;
+}
+
+.admin-alunos-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #e5e7eb;
+}
+
+.admin-card-scroll {
+    max-height: calc(100vh - 320px);
+    overflow: auto;
+    position: relative;
+    background: #fff;
+}
+
+.admin-card-scroll table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    position: relative;
+}
+
+.admin-card-scroll thead {
+    position: static;
+    background: #f9fafb;
+}
+
+.admin-card-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #f9fafb;
+    box-shadow: 0 1px 0 #e5e7eb;
+}
+
+.admin-card-scroll thead tr {
+    background: #f9fafb;
+}
+
+.admin-card-scroll tbody {
+    position: relative;
+    z-index: 1;
+}
+
+.admin-card-scroll tbody tr {
+    background: #fff;
+}
+
+.admin-card-scroll tbody td {
+    background: #fff;
+}
+
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sortable-th .sort-indicator {
+    margin-left: 6px;
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.sortable-th.sorted-asc .sort-indicator::after {
+    content: '▲';
+    color: #2563eb;
+}
+
+.sortable-th.sorted-desc .sort-indicator::after {
+    content: '▼';
+    color: #2563eb;
+}
+
 .table-scroll {
     max-height: calc(100vh - 320px);
     overflow-y: auto;

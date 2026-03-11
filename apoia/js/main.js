@@ -648,6 +648,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('change', (e) => {
         if (e.target.matches('#professor-status-filter')) {
             renderProfessoresPanel();
+        } else if (e.target.matches('#professor-vinculo-filter')) {
+            renderProfessoresPanel();
         }
     });
 

@@ -134,6 +134,8 @@ function initDatepicker(dateInput, clearBtn) {
         multipleDatesSeparator: ' a ',
         toggleSelected: true,
         autoClose: false,
+        position: 'bottom right',
+        offset: 8,
         isMobile: false,
         classes: 'enc-dashboard',
         onSelect: ({ date }) => {

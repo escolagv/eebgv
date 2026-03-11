@@ -271,7 +271,7 @@
                 <h3 class="text-lg font-semibold">Consistência da Chamada</h3>
                 <button type="button" id="consistencia-close-btn" class="text-gray-500 hover:text-gray-700">&times;</button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="p-4 border border-gray-200 rounded-md bg-gray-50">
                     <p class="text-xs text-gray-500">Alunos sem turma</p>
                     <p id="consistencia-alunos-sem-turma-count" class="text-2xl font-bold">...</p>
@@ -280,12 +280,8 @@
                     <p class="text-xs text-gray-500">Turmas duplicadas</p>
                     <p id="consistencia-turmas-duplicadas-count" class="text-2xl font-bold">...</p>
                 </div>
-                <div class="p-4 border border-gray-200 rounded-md bg-gray-50">
-                    <p class="text-xs text-gray-500">Alunos com turma inválida</p>
-                    <p id="consistencia-alunos-orfaos-count" class="text-2xl font-bold">...</p>
-                </div>
             </div>
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div class="border border-gray-200 rounded-md">
                     <div class="px-3 py-2 border-b text-sm font-semibold">Alunos sem turma</div>
                     <div class="max-h-64 overflow-auto">
@@ -305,17 +301,6 @@
                                 <tr><th class="p-2 text-left">Turma</th><th class="p-2 text-left">Ano</th><th class="p-2 text-left">Qtd</th></tr>
                             </thead>
                             <tbody id="consistencia-turmas-duplicadas-table"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="border border-gray-200 rounded-md">
-                    <div class="px-3 py-2 border-b text-sm font-semibold">Alunos com turma inválida</div>
-                    <div class="max-h-64 overflow-auto">
-                        <table class="w-full text-sm">
-                            <thead class="bg-gray-50">
-                                <tr><th class="p-2 text-left">Aluno</th><th class="p-2 text-left">Matrícula</th><th class="p-2 text-left">Turma</th></tr>
-                            </thead>
-                            <tbody id="consistencia-alunos-orfaos-table"></tbody>
                         </table>
                     </div>
                 </div>

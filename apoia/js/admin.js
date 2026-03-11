@@ -7,6 +7,7 @@ let notificationsPollingId = null;
 let notificationsReloadTimer = null;
 let notificationsRealtimeStopping = false;
 let notificationsChannelToken = 0;
+const professoresSort = { key: 'nome', dir: 'asc' };
 
 async function fetchAuthUserUidByEmail(email) {
     try {
@@ -551,8 +552,34 @@ export async function handleAlunoFormSubmit(e) {
 // ADMIN - APOIA (ACOMPANHAMENTO)
 // ===============================================================
 
+function bindApoiaRelatorioModal() {
+    const openBtn = document.getElementById('apoia-relatorio-open-btn');
+    const closeBtn = document.getElementById('apoia-relatorio-close-btn');
+    const modal = document.getElementById('apoia-relatorio-modal');
+    if (!openBtn || !closeBtn || !modal) return;
+    if (modal.dataset.bound === '1') return;
+    modal.dataset.bound = '1';
+
+    openBtn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+        const tableBody = document.getElementById('apoia-relatorio-table-body');
+        if (tableBody && !tableBody.children.length) {
+            tableBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Selecione o período e clique em Gerar Relatório.</td></tr>';
+        }
+    });
+
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+}
+
 export async function renderApoiaPanel(page = 1) {
     apoiaCurrentPage = page;
+    bindApoiaRelatorioModal();
     const apoiaTableBody = document.getElementById('apoia-table-body');
     apoiaTableBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Carregando...</td></tr>';
 
@@ -704,11 +731,14 @@ export async function renderProfessoresPanel(options = {}) {
     const professoresTableBody = document.getElementById('professores-table-body');
     const searchInput = document.getElementById('professor-search-input');
     const statusFilterEl = document.getElementById('professor-status-filter');
+    const vinculoFilterEl = document.getElementById('professor-vinculo-filter');
     const statusFilterValue = statusFilterEl?.value;
+    const vinculoFilterValue = vinculoFilterEl?.value;
+    bindProfessorSortHeaders();
     if (!silent) {
-        professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">Carregando...</td></tr>';
+        professoresTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">Carregando...</td></tr>';
     } else if (!professoresTableBody.children.length) {
-        professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">Carregando...</td></tr>';
+        professoresTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">Carregando...</td></tr>';
     }
     const { data, error } = await safeQuery(
         db.from('usuarios')
@@ -716,12 +746,15 @@ export async function renderProfessoresPanel(options = {}) {
             .eq('papel', 'professor')
     );
     if (error) {
-        professoresTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
+        professoresTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
         return;
     }
     let filtered = await syncEmailConfirmations(data || []);
     if (statusFilterValue) {
         filtered = filtered.filter(p => p.status === statusFilterValue);
+    }
+    if (vinculoFilterValue) {
+        filtered = filtered.filter(p => (p.vinculo || 'efetivo') === vinculoFilterValue);
     }
     const query = (searchInput?.value || '').trim().toLowerCase();
     if (query) {
@@ -732,16 +765,10 @@ export async function renderProfessoresPanel(options = {}) {
     }
     if (!filtered || filtered.length === 0) {
         const emptyMessage = query ? 'Nenhum professor encontrado.' : 'Nenhum professor cadastrado.';
-        professoresTableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center">${emptyMessage}</td></tr>`;
+        professoresTableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center">${emptyMessage}</td></tr>`;
         return;
     }
-    const orderMap = { efetivo: 0, act: 1 };
-    const sorted = [...filtered].sort((a, b) => {
-        const orderA = orderMap[a.vinculo] ?? 2;
-        const orderB = orderMap[b.vinculo] ?? 2;
-        if (orderA !== orderB) return orderA - orderB;
-        return (a.nome || '').localeCompare(b.nome || '', undefined, { sensitivity: 'base' });
-    });
+    const sorted = sortProfessores(filtered);
     professoresTableBody.innerHTML = sorted.map(p => {
         const telefoneDisplay = formatPhoneDisplay(p.telefone);
         const statusClass = p.status === 'ativo'
@@ -756,8 +783,8 @@ export async function renderProfessoresPanel(options = {}) {
         <tr>
             <td class="p-3">
                 <span class="inline-flex items-center px-2 py-0.5 mr-2 text-xs font-semibold rounded-full ${vinculoClass}">${vinculoLabel}</span>
-                ${p.nome}
             </td>
+            <td class="p-3">${p.nome}</td>
             <td class="p-3">${p.email}</td>
             <td class="p-3">${telefoneDisplay || '-'}</td>
             <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">${p.status}</span></td>
@@ -769,6 +796,75 @@ export async function renderProfessoresPanel(options = {}) {
         </tr>
     `;
     }).join('');
+}
+
+function bindProfessorSortHeaders() {
+    const panel = document.getElementById('admin-professores-panel');
+    if (!panel) return;
+    const headers = panel.querySelectorAll('th[data-sort]');
+    if (!headers.length) return;
+    headers.forEach(th => {
+        if (th.dataset.sortBound === '1') return;
+        th.dataset.sortBound = '1';
+        th.addEventListener('click', () => {
+            const key = th.dataset.sort;
+            if (!key) return;
+            if (professoresSort.key === key) {
+                professoresSort.dir = professoresSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                professoresSort.key = key;
+                professoresSort.dir = 'asc';
+            }
+            updateProfessorSortIndicators(headers);
+            renderProfessoresPanel({ silent: true });
+        });
+    });
+    updateProfessorSortIndicators(headers);
+}
+
+function updateProfessorSortIndicators(headers) {
+    headers.forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === professoresSort.key) {
+            th.classList.add(professoresSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+}
+
+function sortProfessores(list) {
+    const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+    const getValue = (p) => {
+        switch (professoresSort.key) {
+            case 'email':
+                return p.email || '';
+            case 'telefone':
+                return normalizePhoneDigits(p.telefone || '');
+            case 'status':
+                return p.status || '';
+            case 'confirmacao':
+                return p.email_confirmado ? 1 : 0;
+            case 'vinculo':
+                return p.vinculo || 'efetivo';
+            case 'nome':
+            default:
+                return p.nome || '';
+        }
+    };
+    const dir = professoresSort.dir === 'desc' ? -1 : 1;
+    return [...list].sort((a, b) => {
+        const valA = getValue(a);
+        const valB = getValue(b);
+        let cmp = 0;
+        if (typeof valA === 'number' || typeof valB === 'number') {
+            cmp = (Number(valA) || 0) - (Number(valB) || 0);
+        } else {
+            cmp = collator.compare(String(valA), String(valB));
+        }
+        if (cmp === 0) {
+            cmp = collator.compare(a.nome || '', b.nome || '');
+        }
+        return cmp * dir;
+    });
 }
 
 function formatDateTimeSP(value) {

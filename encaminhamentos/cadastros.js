@@ -213,28 +213,23 @@ async function runSyncNow() {
 async function loadConsistencia() {
     const alunosSemTurmaCountEl = document.getElementById('consistencia-alunos-sem-turma-count');
     const turmasDuplicadasCountEl = document.getElementById('consistencia-turmas-duplicadas-count');
-    const alunosOrfaosCountEl = document.getElementById('consistencia-alunos-orfaos-count');
     const alunosSemTurmaTable = document.getElementById('consistencia-alunos-sem-turma-table');
     const turmasDuplicadasTable = document.getElementById('consistencia-turmas-duplicadas-table');
-    const alunosOrfaosTable = document.getElementById('consistencia-alunos-orfaos-table');
 
     const setLoading = () => {
         if (alunosSemTurmaCountEl) alunosSemTurmaCountEl.textContent = '...';
         if (turmasDuplicadasCountEl) turmasDuplicadasCountEl.textContent = '...';
-        if (alunosOrfaosCountEl) alunosOrfaosCountEl.textContent = '...';
         if (alunosSemTurmaTable) alunosSemTurmaTable.innerHTML = '<tr><td colspan="2" class="p-4 text-center">Carregando...</td></tr>';
         if (turmasDuplicadasTable) turmasDuplicadasTable.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
-        if (alunosOrfaosTable) alunosOrfaosTable.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
     };
 
     setLoading();
 
     try {
-        const [alunosSemTurmaRes, alunosSemTurmaListRes, turmasRes, alunosComTurmaRes] = await Promise.all([
+        const [alunosSemTurmaRes, alunosSemTurmaListRes, turmasRes] = await Promise.all([
             safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').is('turma_id', null)),
             safeQuery(db.from('enc_alunos').select('id, nome_completo, matricula').eq('status', 'ativo').is('turma_id', null).order('nome_completo').limit(50)),
-            safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo')),
-            safeQuery(db.from('enc_alunos').select('id, nome_completo, matricula, turma_id').eq('status', 'ativo').not('turma_id', 'is', null))
+            safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo'))
         ]);
 
         const alunosSemTurmaCount = alunosSemTurmaRes.count || 0;
@@ -273,34 +268,12 @@ async function loadConsistencia() {
                 : '<tr><td colspan="3" class="p-4 text-center">Nenhuma duplicidade encontrada.</td></tr>';
         }
 
-        const turmasIds = new Set(turmas.map(t => Number(t.id)));
-        const alunosComTurma = alunosComTurmaRes.data || [];
-        const orfaos = alunosComTurma.filter(a => !turmasIds.has(Number(a.turma_id)));
-        const orfaosCount = orfaos.length;
-        if (alunosOrfaosCountEl) alunosOrfaosCountEl.textContent = alunosSemTurmaCount + orfaosCount;
-        if (alunosOrfaosTable) {
-            const combined = [
-                ...alunosSemTurma.map(a => ({ ...a, turmaInfo: 'Sem turma' })),
-                ...orfaos.map(a => ({ ...a, turmaInfo: `${a.turma_id} (inexistente)` }))
-            ];
-            alunosOrfaosTable.innerHTML = combined.length
-                ? combined.slice(0, 50).map(a => `
-                    <tr>
-                        <td class="p-3">${a.nome_completo || '-'}</td>
-                        <td class="p-3">${a.matricula || '-'}</td>
-                        <td class="p-3">${a.turmaInfo}</td>
-                    </tr>
-                `).join('')
-                : '<tr><td colspan="3" class="p-4 text-center">Nenhum encontrado.</td></tr>';
-        }
     } catch (err) {
         console.error('Erro ao carregar consistencia:', err);
         if (alunosSemTurmaCountEl) alunosSemTurmaCountEl.textContent = 'Erro';
         if (turmasDuplicadasCountEl) turmasDuplicadasCountEl.textContent = 'Erro';
-        if (alunosOrfaosCountEl) alunosOrfaosCountEl.textContent = 'Erro';
         if (alunosSemTurmaTable) alunosSemTurmaTable.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
         if (turmasDuplicadasTable) turmasDuplicadasTable.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
-        if (alunosOrfaosTable) alunosOrfaosTable.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
     }
 }
 

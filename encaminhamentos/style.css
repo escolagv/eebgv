@@ -189,7 +189,8 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .air-datepicker.enc-dashboard {
-    width: 520px;
+    width: 460px;
+    max-width: calc(100vw - 24px);
     border-radius: 18px;
     border: 1px solid #e2e8f0;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);

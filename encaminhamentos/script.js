@@ -901,6 +901,9 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
         }
         showScanPreview(state.scanJob, state.scanUrl);
     } catch (err) {
+        if (err?.status === 401) {
+            showStatusMessage('Sessão expirada. Faça login novamente para enviar a imagem ao Drive.', false);
+        }
         console.warn('Falha ao enviar para o Drive:', err?.message || err);
     }
 }
