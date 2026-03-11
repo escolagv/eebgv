@@ -271,8 +271,8 @@
                     <section id="tab-consultar" data-enc-panel="consultar" class="hidden">
                         <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                             <h3 class="text-base font-semibold text-gray-900">Consultar Encaminhamentos</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                <div>
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                                <div class="md:col-span-2">
                                     <label for="search-estudante" class="text-sm font-medium text-gray-700">Buscar por Estudante</label>
                                     <input type="text" id="search-estudante" placeholder="Parte do nome..." class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                 </div>
@@ -302,7 +302,7 @@
                                     <label for="search-ano" class="text-sm font-medium text-gray-700">Ano do Encaminhamento</label>
                                     <select id="search-ano" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
                                 </div>
-                                <div class="md:col-span-1">
+                                <div>
                                     <label for="search-registrado" class="text-sm font-medium text-gray-700">Buscar por Quem Registrou</label>
                                     <input type="text" id="search-registrado" placeholder="Parte do nome..." class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                 </div>
@@ -365,5 +365,3 @@
     <script type="module" src="script.js"></script>
 </body>
 </html>
-
-

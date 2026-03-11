@@ -471,6 +471,19 @@ async function saveAluno() {
         status: document.getElementById('aluno-status').value || 'ativo'
     };
     try {
+        if (payload.matricula) {
+            const { data: existing, error: existingError } = await safeQuery(
+                db.from('enc_alunos').select('id').eq('matricula', payload.matricula).limit(1)
+            );
+            if (existingError) {
+                showMessage('Erro ao validar matrícula: ' + existingError.message, true);
+                return;
+            }
+            if (existing && existing.length > 0 && String(existing[0].id) !== String(id)) {
+                showMessage('Já existe um aluno com essa matrícula.', true);
+                return;
+            }
+        }
         if (id) {
             await safeQuery(db.from('enc_alunos').update(payload).eq('id', id));
         } else {

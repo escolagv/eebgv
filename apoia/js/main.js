@@ -20,6 +20,7 @@ import {
     renderApoiaPanel,
     renderCalendarioPanel,
     renderAnoLetivoPanel,
+    renderChamadasPanel,
     renderRelatoriosPanel,
     renderConfigPanel,
     renderConsistenciaPanel,
@@ -376,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('relatorio-data-inicio').value = '';
                     document.getElementById('relatorio-data-fim').value = '';
                 }
+                else if (targetPanelId === 'admin-chamadas-panel') renderChamadasPanel();
                 else if (targetPanelId === 'admin-consistencia-panel') renderConsistenciaPanel();
                 else if (targetPanelId === 'admin-config-panel') renderConfigPanel();
             }
@@ -465,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('#imprimir-apoia-relatorio-btn')) handleImprimirRelatorio('apoia');
         if (closest('#imprimir-historico-btn')) handleImprimirRelatorio('historico');
         if (closest('#refresh-consistencia-btn')) renderConsistenciaPanel();
-        if (closest('#correcao-chamada-btn')) {
+        if (closest('#correcao-chamada-btn') || closest('#chamadas-correcao-btn')) {
             document.getElementById('correcao-chamada-modal').classList.remove('hidden');
             const sel = document.getElementById('correcao-turma-select');
             sel.innerHTML = '<option value="">Selecione uma turma...</option>';

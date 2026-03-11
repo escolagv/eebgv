@@ -486,6 +486,8 @@ export async function openAlunoModal(editId = null) {
     document.getElementById('aluno-id').value = '';
     document.getElementById('aluno-modal-title').textContent = editId ? 'Editar Aluno' : 'Adicionar Aluno';
     document.getElementById('aluno-delete-container').classList.toggle('hidden', !editId);
+    const criadoEmInput = document.getElementById('aluno-criado-em');
+    if (criadoEmInput) criadoEmInput.value = '-';
     const alunoTurmaSelect = document.getElementById('aluno-turma');
     alunoTurmaSelect.innerHTML = '<option value="">Selecione...</option>';
     const anoLetivoFilter = document.getElementById('aluno-ano-letivo-filter');
@@ -512,6 +514,7 @@ export async function openAlunoModal(editId = null) {
             document.getElementById('aluno-responsavel').value = data.nome_responsavel || '';
             document.getElementById('aluno-telefone').value = data.telefone || '';
             document.getElementById('aluno-status').value = data.status || 'ativo';
+            if (criadoEmInput) criadoEmInput.value = formatDateTimeSP(data.created_at) || '-';
         }
     }
     modal.classList.remove('hidden');
@@ -527,6 +530,20 @@ export async function handleAlunoFormSubmit(e) {
         telefone: document.getElementById('aluno-telefone').value,
         status: document.getElementById('aluno-status').value || 'ativo'
     };
+    const matriculaValue = (alunoData.matricula || '').trim();
+    if (matriculaValue) {
+        const { data: existing, error: existingError } = await safeQuery(
+            db.from('alunos').select('id').eq('matricula', matriculaValue).limit(1)
+        );
+        if (existingError) {
+            showToast('Erro ao validar matrícula: ' + existingError.message, true);
+            return;
+        }
+        if (existing && existing.length > 0 && String(existing[0].id) !== String(id)) {
+            showToast('Já existe um aluno com essa matrícula.', true);
+            return;
+        }
+    }
     if (id) {
         const { error } = await safeQuery(db.from('alunos').update(alunoData).eq('id', id));
         if (error) showToast('Erro ao salvar aluno: ' + error.message, true);
@@ -556,9 +573,34 @@ function bindApoiaRelatorioModal() {
     const openBtn = document.getElementById('apoia-relatorio-open-btn');
     const closeBtn = document.getElementById('apoia-relatorio-close-btn');
     const modal = document.getElementById('apoia-relatorio-modal');
+    const alunoSelect = document.getElementById('apoia-relatorio-aluno-select');
+    const alunoSearch = document.getElementById('apoia-relatorio-aluno-search');
     if (!openBtn || !closeBtn || !modal) return;
     if (modal.dataset.bound === '1') return;
     modal.dataset.bound = '1';
+
+    const renderAlunoOptions = (query = '') => {
+        if (!alunoSelect) return;
+        const normalized = query.trim().toLowerCase();
+        const list = state.alunosCache || [];
+        const filtered = normalized
+            ? list.filter(a => (a.nome_completo || '').toLowerCase().includes(normalized))
+            : list;
+        alunoSelect.innerHTML = '<option value="">Todos os alunos</option>';
+        filtered.forEach(a => {
+            alunoSelect.innerHTML += `<option value="${a.id}">${a.nome_completo}</option>`;
+        });
+    };
+
+    const ensureAlunosCache = async () => {
+        if (state.alunosCache && state.alunosCache.length) return;
+        const { data } = await safeQuery(
+            db.from('alunos')
+                .select('id, nome_completo')
+                .order('nome_completo', { ascending: true })
+        );
+        state.alunosCache = data || [];
+    };
 
     openBtn.addEventListener('click', () => {
         modal.classList.remove('hidden');
@@ -566,6 +608,7 @@ function bindApoiaRelatorioModal() {
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Selecione o período e clique em Gerar Relatório.</td></tr>';
         }
+        ensureAlunosCache().then(() => renderAlunoOptions(alunoSearch?.value || ''));
     });
 
     closeBtn.addEventListener('click', () => {
@@ -575,6 +618,12 @@ function bindApoiaRelatorioModal() {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
     });
+
+    if (alunoSearch) {
+        alunoSearch.addEventListener('input', (e) => {
+            renderAlunoOptions(e.target.value || '');
+        });
+    }
 }
 
 export async function renderApoiaPanel(page = 1) {
@@ -687,10 +736,12 @@ export async function handleGerarApoiaRelatorio() {
     const dataInicio = document.getElementById('apoia-relatorio-data-inicio')?.value;
     const dataFim = document.getElementById('apoia-relatorio-data-fim')?.value;
     const status = document.getElementById('apoia-relatorio-status')?.value;
+    const alunoId = document.getElementById('apoia-relatorio-aluno-select')?.value;
     let queryBuilder = db.from('apoia_encaminhamentos').select(`*, alunos(nome_completo)`).order('data_encaminhamento');
     if (dataInicio) queryBuilder = queryBuilder.gte('data_encaminhamento', dataInicio);
     if (dataFim) queryBuilder = queryBuilder.lte('data_encaminhamento', dataFim);
     if (status) queryBuilder = queryBuilder.eq('status', status);
+    if (alunoId) queryBuilder = queryBuilder.eq('aluno_id', alunoId);
     const { data, error } = await safeQuery(queryBuilder);
     const tableBody = document.getElementById('apoia-relatorio-table-body');
     const printBtn = document.getElementById('imprimir-apoia-relatorio-btn');
@@ -1114,7 +1165,7 @@ export async function handleProfessorFormSubmit(e) {
                 return;
             }
             await logAudit('reactivate', 'professor', existingProfessor.id, { nome, email, vinculo, telefone });
-            const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+            const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getPasswordRedirectUrl() });
             if (resetError) {
                 showToast('Professor reativado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
             } else {
@@ -1143,7 +1194,7 @@ export async function handleProfessorFormSubmit(e) {
             if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
             else {
                 await logAudit('create', 'professor', profileData?.id || authData.user.id, { nome, email, status: 'ativo', vinculo, telefone });
-                const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+                const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getPasswordRedirectUrl() });
                 if (resetError) {
                     showToast('Professor criado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
                 } else {
@@ -1168,9 +1219,19 @@ export async function handleProfessorFormSubmit(e) {
 }
 
 export async function handleResetPassword(email) {
-    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: getPasswordRedirectUrl() });
     if (error) showToast('Erro ao enviar email de recuperação: ' + error.message, true);
     else showToast('Email de redefinicao enviado!');
+}
+
+function getPasswordRedirectUrl() {
+    const url = new URL(window.location.href);
+    url.hash = '';
+    url.search = '';
+    if (!url.pathname.endsWith('/')) {
+        url.pathname = url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1);
+    }
+    return url.toString();
 }
 
 // ===============================================================
@@ -1346,6 +1407,33 @@ export async function renderRelatoriosPanel() {
     state.turmasCache.forEach(t => turmaFilter.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
     state.alunosCache.forEach(a => alunoFilter.innerHTML += `<option value="${a.id}">${a.nome_completo}</option>`);
     state.usuariosCache.filter(u => u.papel === 'professor').forEach(p => profFilter.innerHTML += `<option value="${p.user_uid}">${p.nome}</option>`);
+}
+
+// ===============================================================
+// ADMIN - CHAMADAS
+// ===============================================================
+
+export async function renderChamadasPanel() {
+    const emptyState = document.getElementById('chamadas-empty-state');
+    const resumoContainer = document.getElementById('chamadas-resumo-container');
+    if (!emptyState) return;
+    emptyState.textContent = 'Carregando chamadas...';
+    emptyState.classList.remove('hidden');
+    if (resumoContainer) resumoContainer.classList.add('hidden');
+
+    const { count, error } = await safeQuery(
+        db.from('presencas').select('*', { count: 'exact', head: true })
+    );
+    if (error) {
+        emptyState.textContent = 'Erro ao carregar chamadas.';
+        return;
+    }
+    if (!count) {
+        emptyState.textContent = 'Ainda não foram realizadas chamadas.';
+        return;
+    }
+    emptyState.classList.add('hidden');
+    if (resumoContainer) resumoContainer.classList.remove('hidden');
 }
 
 export async function handleGerarRelatorio() {

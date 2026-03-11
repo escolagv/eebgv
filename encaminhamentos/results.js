@@ -252,9 +252,10 @@ function displayResults(results, startIndex) {
     resultsSummary.textContent = `Mostrando registros ${startIndex + 1} a ${startIndex + results.length} de ${allResults.length} encontrado(s).`;
     let tableHTML = `<table><thead><tr><th>Código</th><th>Data</th><th>Estudante</th><th>Professor</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
     results.forEach(item => {
+        const dataDisplay = formatDatePtBr(item.data_encaminhamento);
         tableHTML += `<tr>
                         <td>${item.codigo || ''}</td>
-                        <td>${item.data_encaminhamento || ''}</td>
+                        <td>${dataDisplay}</td>
                         <td>${item.aluno_nome || ''}</td>
                         <td>${item.professor_nome || ''}</td>
                         <td>${item.status || ''}</td>
@@ -263,6 +264,17 @@ function displayResults(results, startIndex) {
     });
     tableHTML += '</tbody></table>';
     resultsTable.innerHTML = tableHTML;
+}
+
+function formatDatePtBr(value) {
+    if (!value) return '';
+    if (typeof value === 'string') {
+        const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format(date);
 }
 
 function renderPaginationControls(totalPages) {
