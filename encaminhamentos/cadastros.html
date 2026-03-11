@@ -71,7 +71,10 @@
 
                     <div id="alunos-panel">
                         <div class="flex flex-col gap-3 mb-4">
-                            <input type="text" id="aluno-search" placeholder="Buscar aluno por nome ou matrícula..." class="w-full md:max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <div class="relative w-full md:max-w-md">
+                                <input type="text" id="aluno-search" placeholder="Buscar aluno por nome ou matrícula..." class="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <button type="button" id="aluno-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 px-1" aria-label="Limpar busca">&times;</button>
+                            </div>
                             <div class="flex flex-wrap gap-2">
                                 <select id="aluno-filtro-turma" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                                     <option value="">Todas as turmas</option>

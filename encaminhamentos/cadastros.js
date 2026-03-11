@@ -67,7 +67,28 @@ function bindModals() {
     document.getElementById('aluno-save').addEventListener('click', saveAluno);
     document.getElementById('professor-save').addEventListener('click', saveProfessor);
 
-    document.getElementById('aluno-search').addEventListener('input', renderAlunos);
+    const alunoSearchInput = document.getElementById('aluno-search');
+    const alunoSearchClear = document.getElementById('aluno-search-clear');
+    const updateAlunoSearchClear = () => {
+        if (!alunoSearchClear) return;
+        alunoSearchClear.classList.toggle('hidden', !(alunoSearchInput && alunoSearchInput.value));
+    };
+
+    if (alunoSearchInput) {
+        alunoSearchInput.addEventListener('input', () => {
+            updateAlunoSearchClear();
+            renderAlunos();
+        });
+    }
+
+    if (alunoSearchClear && alunoSearchInput) {
+        alunoSearchClear.addEventListener('click', () => {
+            alunoSearchInput.value = '';
+            updateAlunoSearchClear();
+            renderAlunos();
+            alunoSearchInput.focus();
+        });
+    }
     document.getElementById('professor-search').addEventListener('input', renderProfessores);
     ['aluno-filtro-turma', 'aluno-filtro-status', 'aluno-filtro-origem', 'aluno-ordenacao']
         .forEach(id => {
@@ -173,15 +194,21 @@ async function loadSyncStatus() {
     const alunosSemTurmaEl = document.getElementById('sync-alunos-sem-turma');
     const professoresEl = document.getElementById('sync-professores-total');
     try {
-        const [{ count: alunosTotal }, { count: alunosSemTurma }, { count: professoresTotal }] = await Promise.all([
-            safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true })),
-            safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).is('turma_id', null)),
+        const [alunosRes, turmasRes, professoresRes] = await Promise.all([
+            safeQuery(db.from('enc_alunos').select('id, turma_id, status')),
+            safeQuery(db.from('turmas').select('id')),
             safeQuery(db.from('enc_professores').select('*', { count: 'exact', head: true }))
         ]);
 
-        if (alunosEl) alunosEl.textContent = String(alunosTotal ?? 0);
-        if (alunosSemTurmaEl) alunosSemTurmaEl.textContent = String(alunosSemTurma ?? 0);
-        if (professoresEl) professoresEl.textContent = String(professoresTotal ?? 0);
+        const alunos = alunosRes.data || [];
+        const turmasById = new Set((turmasRes.data || []).map(t => Number(t.id)));
+        const alunosSemTurma = alunos.filter(a =>
+            (a.status || '') === 'ativo' && (!a.turma_id || !turmasById.has(Number(a.turma_id)))
+        );
+
+        if (alunosEl) alunosEl.textContent = String(alunos.length);
+        if (alunosSemTurmaEl) alunosSemTurmaEl.textContent = String(alunosSemTurma.length);
+        if (professoresEl) professoresEl.textContent = String(professoresRes.count ?? 0);
         if (lastEl) lastEl.textContent = formatSyncDate(state.lastSyncAt);
     } catch (err) {
         showMessage('Erro ao carregar status do sync: ' + (err?.message || err), true);
@@ -226,18 +253,22 @@ async function loadConsistencia() {
     setLoading();
 
     try {
-        const [alunosSemTurmaRes, alunosSemTurmaListRes, turmasRes] = await Promise.all([
-            safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').is('turma_id', null)),
-            safeQuery(db.from('enc_alunos').select('id, nome_completo, matricula').eq('status', 'ativo').is('turma_id', null).order('nome_completo').limit(50)),
+        const [alunosAtivosRes, turmasRes] = await Promise.all([
+            safeQuery(db.from('enc_alunos').select('id, nome_completo, matricula, turma_id').eq('status', 'ativo')),
             safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo'))
         ]);
 
-        const alunosSemTurmaCount = alunosSemTurmaRes.count || 0;
+        const turmas = turmasRes.data || [];
+        const turmasById = new Set(turmas.map(t => Number(t.id)));
+        const alunosAtivos = alunosAtivosRes.data || [];
+        const alunosSemTurma = alunosAtivos
+            .filter(a => !a.turma_id || !turmasById.has(Number(a.turma_id)))
+            .sort((a, b) => (a.nome_completo || '').localeCompare(b.nome_completo || '', undefined, { sensitivity: 'base' }));
+        const alunosSemTurmaCount = alunosSemTurma.length;
         if (alunosSemTurmaCountEl) alunosSemTurmaCountEl.textContent = alunosSemTurmaCount;
-        const alunosSemTurma = alunosSemTurmaListRes.data || [];
         if (alunosSemTurmaTable) {
             alunosSemTurmaTable.innerHTML = alunosSemTurma.length
-                ? alunosSemTurma.map(a => `
+                ? alunosSemTurma.slice(0, 50).map(a => `
                     <tr>
                         <td class="p-3">${a.nome_completo || '-'}</td>
                         <td class="p-3">${a.matricula || '-'}</td>
@@ -246,7 +277,6 @@ async function loadConsistencia() {
                 : '<tr><td colspan="2" class="p-4 text-center">Nenhum encontrado.</td></tr>';
         }
 
-        const turmas = turmasRes.data || [];
         const dupMap = new Map();
         turmas.forEach(t => {
             const key = `${t.nome_turma}__${t.ano_letivo}`;
@@ -343,11 +373,14 @@ function renderAlunos() {
         if (turmaCompare !== 0) return turmaCompare;
         return (a.nome_completo || '').localeCompare(b.nome_completo || '', undefined, { sensitivity: 'base' });
     });
-    tbody.innerHTML = filtered.map(a => `
+    tbody.innerHTML = filtered.map(a => {
+        const turmaNome = turmasById.get(Number(a.turma_id)) || '';
+        const turmaLabel = turmaNome || (a.turma_id ? 'Turma não encontrada' : '-');
+        return `
         <tr class="border-b">
             <td class="py-2">${a.nome_completo || '-'}</td>
             <td class="py-2">${a.matricula || '-'}</td>
-            <td class="py-2">${turmasById.get(Number(a.turma_id)) || '-'}</td>
+            <td class="py-2">${turmaLabel}</td>
             <td class="py-2">${a.status || '-'}</td>
             <td class="py-2">${a.origem || '-'}</td>
             <td class="py-2">
@@ -356,7 +389,7 @@ function renderAlunos() {
                 <button class="text-red-600 hover:underline" data-id="${a.id}" data-action="delete-aluno">Excluir</button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 
     tbody.querySelectorAll('button[data-action="edit-aluno"]').forEach(btn => {
         btn.addEventListener('click', () => {

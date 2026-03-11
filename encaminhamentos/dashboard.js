@@ -312,11 +312,16 @@ async function loadConsistenciaSummary() {
     const semTurmaEl = document.getElementById('dash-consistencia-sem-turma');
     const semMatriculaEl = document.getElementById('dash-consistencia-sem-matricula');
     try {
-        const [alunosSemTurmaRes, alunosSemMatriculaRes] = await Promise.all([
-            safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').is('turma_id', null)),
+        const [alunosRes, turmasRes, alunosSemMatriculaRes] = await Promise.all([
+            safeQuery(db.from('enc_alunos').select('id, turma_id, status')),
+            safeQuery(db.from('turmas').select('id')),
             safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').or('matricula.is.null,matricula.eq.'))
         ]);
-        if (semTurmaEl) semTurmaEl.textContent = String(alunosSemTurmaRes.count ?? 0);
+        const turmasById = new Set((turmasRes.data || []).map(t => Number(t.id)));
+        const alunosSemTurmaCount = (alunosRes.data || []).filter(a =>
+            (a.status || '') === 'ativo' && (!a.turma_id || !turmasById.has(Number(a.turma_id)))
+        ).length;
+        if (semTurmaEl) semTurmaEl.textContent = String(alunosSemTurmaCount);
         if (semMatriculaEl) semMatriculaEl.textContent = String(alunosSemMatriculaRes.count ?? 0);
     } catch (err) {
         if (semTurmaEl) semTurmaEl.textContent = '—';
@@ -359,9 +364,8 @@ async function loadConsistenciaModal() {
     setLoading();
 
     try {
-        const [alunosSemTurmaRes, alunosSemTurmaListRes, alunosSemMatriculaRes, alunosSemMatriculaListRes, turmasRes, totalAlunosRes, totalProfessoresRes] = await Promise.all([
-            safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').is('turma_id', null)),
-            safeQuery(db.from('enc_alunos').select('id, nome_completo, matricula').eq('status', 'ativo').is('turma_id', null).order('nome_completo').limit(50)),
+        const [alunosAtivosRes, alunosSemMatriculaRes, alunosSemMatriculaListRes, turmasRes, totalAlunosRes, totalProfessoresRes] = await Promise.all([
+            safeQuery(db.from('enc_alunos').select('id, nome_completo, matricula, turma_id').eq('status', 'ativo')),
             safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').or('matricula.is.null,matricula.eq.')),
             safeQuery(db.from('enc_alunos').select('id, nome_completo, turma_id').eq('status', 'ativo').or('matricula.is.null,matricula.eq.').order('nome_completo').limit(50)),
             safeQuery(db.from('turmas').select('id, nome_turma')),
@@ -369,12 +373,17 @@ async function loadConsistenciaModal() {
             safeQuery(db.from('enc_professores').select('*', { count: 'exact', head: true }))
         ]);
 
-        const alunosSemTurmaCount = alunosSemTurmaRes.count || 0;
+        const turmas = turmasRes.data || [];
+        const turmasById = new Map(turmas.map(t => [Number(t.id), t.nome_turma]));
+        const alunosAtivos = alunosAtivosRes.data || [];
+        const alunosSemTurma = alunosAtivos
+            .filter(a => !a.turma_id || !turmasById.has(Number(a.turma_id)))
+            .sort((a, b) => (a.nome_completo || '').localeCompare(b.nome_completo || '', undefined, { sensitivity: 'base' }));
+        const alunosSemTurmaCount = alunosSemTurma.length;
         if (alunosSemTurmaCountEl) alunosSemTurmaCountEl.textContent = alunosSemTurmaCount;
-        const alunosSemTurma = alunosSemTurmaListRes.data || [];
         if (alunosSemTurmaTable) {
             alunosSemTurmaTable.innerHTML = alunosSemTurma.length
-                ? alunosSemTurma.map(a => `
+                ? alunosSemTurma.slice(0, 50).map(a => `
                     <tr>
                         <td class="p-3">${a.nome_completo || '-'}</td>
                         <td class="p-3">${a.matricula || '-'}</td>
@@ -385,8 +394,6 @@ async function loadConsistenciaModal() {
 
         if (alunosSemMatriculaCountEl) alunosSemMatriculaCountEl.textContent = alunosSemMatriculaRes.count || 0;
         const alunosSemMatricula = alunosSemMatriculaListRes.data || [];
-        const turmas = turmasRes.data || [];
-        const turmasById = new Map(turmas.map(t => [Number(t.id), t.nome_turma]));
         if (alunosSemMatriculaTable) {
             alunosSemMatriculaTable.innerHTML = alunosSemMatricula.length
                 ? alunosSemMatricula.slice(0, 50).map(a => `

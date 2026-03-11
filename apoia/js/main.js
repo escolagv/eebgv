@@ -640,6 +640,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const alunoSearchInput = document.getElementById('aluno-search-input');
+    const alunoSearchClear = document.getElementById('aluno-search-clear');
+    const updateAlunoSearchClear = () => {
+        if (!alunoSearchInput || !alunoSearchClear) return;
+        alunoSearchClear.classList.toggle('hidden', !alunoSearchInput.value);
+    };
+    if (alunoSearchInput) {
+        alunoSearchInput.addEventListener('input', updateAlunoSearchClear);
+        updateAlunoSearchClear();
+    }
+    if (alunoSearchClear && alunoSearchInput) {
+        alunoSearchClear.addEventListener('click', () => {
+            alunoSearchInput.value = '';
+            updateAlunoSearchClear();
+            renderAlunosPanel();
+            alunoSearchInput.focus();
+        });
+    }
+
     document.body.addEventListener('input', (e) => {
         if (e.target.matches('#aluno-search-input')) {
             renderAlunosPanel();

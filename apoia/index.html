@@ -233,7 +233,13 @@
                                 </div>
                                 <div class="admin-alunos-header bg-white p-4 rounded-lg shadow-md mb-4">
                                     <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                                        <div class="w-full sm:flex-[2] sm:min-w-[260px]"><label for="aluno-search-input" class="block text-sm font-medium text-gray-700">Buscar</label><input type="text" id="aluno-search-input" class="p-2 w-full border rounded-md mt-1" placeholder="Nome, matrícula..."></div>
+                                        <div class="w-full sm:flex-[2] sm:min-w-[260px]">
+                                            <label for="aluno-search-input" class="block text-sm font-medium text-gray-700">Buscar</label>
+                                            <div class="relative">
+                                                <input type="text" id="aluno-search-input" class="p-2 w-full border rounded-md mt-1 pr-9" placeholder="Nome, matrícula...">
+                                                <button type="button" id="aluno-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 px-1" aria-label="Limpar busca">&times;</button>
+                                            </div>
+                                        </div>
                                         <div class="w-full sm:flex-[1] sm:min-w-[200px]"><label for="aluno-turma-filter" class="block text-sm font-medium text-gray-700">Turma</label><select id="aluno-turma-filter" class="p-2 w-full border rounded-md bg-white mt-1"></select></div>
                                         <div class="w-full sm:flex-[1] sm:min-w-[150px]"><label for="aluno-ano-letivo-filter" class="block text-sm font-medium text-gray-700">Ano Letivo</label><select id="aluno-ano-letivo-filter" class="p-2 w-full border rounded-md bg-white mt-1"></select></div>
                                     </div>
