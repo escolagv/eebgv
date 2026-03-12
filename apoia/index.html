@@ -220,8 +220,71 @@
                                     <button id="chamadas-correcao-btn" class="px-4 py-2 font-semibold text-white bg-orange-500 rounded-md hover:bg-orange-600">Corrigir/Lançar Chamada</button>
                                 </div>
                                 <div class="bg-white p-6 rounded-lg shadow-md">
+                                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <div class="chamadas-calendar-wrap">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <div class="text-sm font-semibold text-gray-700">Período</div>
+                                                    <div id="chamadas-periodo-label" class="text-xs text-gray-500">Hoje</div>
+                                                    <button type="button" id="chamadas-calendar-toggle" class="mt-2 text-xs font-semibold text-blue-600 hover:underline">Selecionar período</button>
+                                                </div>
+                                                <button type="button" id="chamadas-periodo-clear" class="text-gray-400 hover:text-gray-700 px-1" aria-label="Limpar período">&times;</button>
+                                            </div>
+                                            <div id="chamadas-calendar-panel" class="chamadas-calendar-panel hidden">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <button id="chamadas-prev-month" class="p-2 rounded-full hover:bg-gray-200">&lt;</button>
+                                                    <h3 id="chamadas-month-year" class="text-sm font-semibold"></h3>
+                                                    <button id="chamadas-next-month" class="p-2 rounded-full hover:bg-gray-200">&gt;</button>
+                                                </div>
+                                                <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-gray-600">
+                                                    <div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div>
+                                                </div>
+                                                <div id="chamadas-calendar-grid" class="grid grid-cols-7 text-center mt-2"></div>
+                                                <div class="flex flex-wrap gap-2 mt-3">
+                                                    <button id="chamadas-quick-today" class="px-3 py-1 text-xs font-semibold text-gray-700 bg-white border rounded-md hover:bg-gray-100">Hoje</button>
+                                                    <button id="chamadas-quick-yesterday" class="px-3 py-1 text-xs font-semibold text-gray-700 bg-white border rounded-md hover:bg-gray-100">Ontem</button>
+                                                </div>
+                                                <div class="text-xs text-gray-400 mt-2">Clique 1x para início e 2x para fim. Clique no mesmo dia para limpar.</div>
+                                            </div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <label for="chamadas-professor-filter" class="block text-sm font-medium text-gray-700">Professor</label>
+                                            <div class="relative">
+                                                <input type="text" id="chamadas-professor-filter" list="chamadas-professor-options" class="w-full mt-1 p-2 border rounded-md bg-white pr-9" placeholder="Digite nome ou email">
+                                                <button type="button" id="chamadas-professor-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 px-1" aria-label="Limpar professor">&times;</button>
+                                            </div>
+                                            <datalist id="chamadas-professor-options"></datalist>
+                                            <div class="text-xs text-gray-400 mt-2">Sem período: mostra todos os registros.</div>
+                                        </div>
+                                        <div class="bg-gray-50 p-4 rounded-lg">
+                                            <div class="text-sm font-semibold text-gray-700 mb-2">Resumo</div>
+                                            <div id="chamadas-summary" class="text-xs text-gray-500">Carregando...</div>
+                                        </div>
+                                    </div>
                                     <p id="chamadas-empty-state" class="text-sm text-gray-500">Carregando chamadas...</p>
-                                    <div id="chamadas-resumo-container" class="hidden"></div>
+                                    <div id="chamadas-resumo-container" class="hidden">
+                                        <div id="chamadas-pagination-top" class="flex flex-wrap items-center justify-between gap-2 mb-3 text-sm"></div>
+                                        <div class="table-scroll chamadas-log-scroll">
+                                            <table class="w-full text-sm">
+                                                <thead class="bg-gray-50 sticky top-0 z-10">
+                                                    <tr>
+                                                        <th class="p-3 text-left text-sm font-semibold text-gray-600">Data</th>
+                                                        <th class="p-3 text-left text-sm font-semibold text-gray-600">Turma</th>
+                                                        <th class="p-3 text-left text-sm font-semibold text-gray-600">Professor</th>
+                                                        <th class="p-3 text-left text-sm font-semibold text-gray-600">Registro</th>
+                                                        <th class="p-3 text-center text-sm font-semibold text-gray-600">Presenças</th>
+                                                        <th class="p-3 text-center text-sm font-semibold text-gray-600">Justificadas</th>
+                                                        <th class="p-3 text-center text-sm font-semibold text-gray-600">Injustificadas</th>
+                                                        <th class="p-3 text-center text-sm font-semibold text-gray-600">Hora</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="chamadas-table-body"></tbody>
+                                            </table>
+                                        </div>
+                                        <div id="chamadas-pagination-bottom" class="flex flex-wrap items-center justify-between gap-2 mt-3 text-sm"></div>
+                                    </div>
                                 </div>
                             </div>
                             <div id="admin-professores-panel" class="admin-panel hidden"><div class="admin-professores-header flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between"><h2 class="text-xl sm:text-2xl font-bold">Gerenciar Professores</h2><div class="flex flex-col gap-3 w-full sm:w-auto sm:flex-row sm:flex-wrap sm:items-center"><input type="text" id="professor-search-input" class="p-2 border rounded-md bg-white w-full sm:w-64" placeholder="Pesquisar por nome ou email"><select id="professor-vinculo-filter" class="p-2 border rounded-md bg-white w-full sm:w-auto"><option value="">Todos</option><option value="act">ACT</option><option value="efetivo">Efetivo</option></select><select id="professor-status-filter" class="p-2 border rounded-md bg-white w-full sm:w-auto"><option value="ativo" selected>Ativos</option><option value="inativo">Inativos</option><option value="">Todos</option></select><button id="add-professor-btn" class="w-full sm:w-auto px-4 py-2 text-sm sm:text-base font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 whitespace-nowrap">Adicionar</button><button id="professor-consulta-btn" class="w-full sm:w-auto px-4 py-2 text-sm sm:text-base font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 whitespace-nowrap">Consulta</button></div></div><div class="bg-white p-4 sm:p-6 rounded-lg shadow-md"><div class="table-scroll"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-3 text-left text-sm font-semibold text-gray-600 sortable-th" data-sort="vinculo">Cargo<span class="sort-indicator"></span></th><th class="p-3 text-left text-sm font-semibold text-gray-600 sortable-th" data-sort="nome">Nome<span class="sort-indicator"></span></th><th class="p-3 text-left text-sm font-semibold text-gray-600 sortable-th" data-sort="email">Email<span class="sort-indicator"></span></th><th class="p-3 text-left text-sm font-semibold text-gray-600 sortable-th" data-sort="telefone">Telefone<span class="sort-indicator"></span></th><th class="p-3 text-left text-sm font-semibold text-gray-600 sortable-th" data-sort="status">Status<span class="sort-indicator"></span></th><th class="p-3 text-center text-sm font-semibold text-gray-600 sortable-th" data-sort="confirmacao">Confirmação<span class="sort-indicator"></span></th><th class="p-3 text-left text-sm font-semibold text-gray-600">Ações</th></tr></thead><tbody id="professores-table-body"></tbody></table></div></div></div>
@@ -614,6 +677,32 @@
                     <div id="correcao-chamada-lista-alunos" class="space-y-4"></div>
                 </div>
             </form>
+        </div>
+    </div>
+    <div id="chamada-log-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-xl font-bold">Detalhes da Chamada</h3>
+                    <p id="chamada-log-subtitle" class="text-sm text-gray-500"></p>
+                    <div id="chamada-log-stamps" class="flex flex-wrap gap-2 text-xs text-gray-500 mt-2"></div>
+                </div>
+                <button type="button" class="px-3 py-2 bg-gray-200 rounded-md cancel-modal-btn">Fechar</button>
+            </div>
+            <div id="chamada-log-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center mb-4"></div>
+            <div class="max-h-96 overflow-y-auto border rounded-lg">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 sticky top-0">
+                        <tr>
+                            <th class="p-3 text-left text-sm font-semibold text-gray-600">Aluno</th>
+                            <th class="p-3 text-center text-sm font-semibold text-gray-600">Status</th>
+                            <th class="p-3 text-left text-sm font-semibold text-gray-600">Justificativa</th>
+                            <th class="p-3 text-center text-sm font-semibold text-gray-600">Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chamada-log-table-body"></tbody>
+                </table>
+            </div>
         </div>
     </div>
     <div id="aluno-historico-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"><div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6"><div class="printable-area"><div class="print-header"><img src="./logo.png" alt="Logo da Escola"><div class="print-header-info"><h2 id="historico-titulo-impressao">Histórico de Frequência do Aluno</h2><p id="historico-aluno-nome-impressao"></p></div></div><div id="historico-summary" class="grid grid-cols-3 gap-4 mb-4 text-center"><div><p class="text-sm text-gray-500">Total de Presenças</p><p id="historico-presencas" class="text-xl font-bold text-green-600">0</p></div><div><p class="text-sm text-gray-500">Total de Faltas</p><p id="historico-faltas" class="text-xl font-bold text-red-600">0</p></div><div><p class="text-sm text-gray-500">Taxa de Assiduidade</p><p id="historico-assiduidade" class="text-xl font-bold text-blue-600">0%</p></div></div><div class="max-h-80 overflow-y-auto border-t pt-4"><table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="p-2 text-left font-semibold text-gray-600">Data</th><th class="p-2 text-left font-semibold text-gray-600">Hora</th><th class="p-2 text-left font-semibold text-gray-600">Status</th><th class="p-2 text-left font-semibold text-gray-600">Justificativa</th></tr></thead><tbody id="aluno-historico-table-body"></tbody></table></div></div><div class="mt-6 flex justify-end gap-4 no-print"><button type="button" class="px-4 py-2 bg-gray-200 rounded-md cancel-modal-btn">Fechar</button><button type="button" id="imprimir-historico-btn" class="px-4 py-2 bg-gray-600 text-white rounded-md ml-2">Imprimir</button></div></div></div>

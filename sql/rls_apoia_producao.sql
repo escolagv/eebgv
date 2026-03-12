@@ -15,17 +15,25 @@ CREATE TABLE IF NOT EXISTS public.professor_uids (
     user_uid uuid PRIMARY KEY
 );
 
+CREATE TABLE IF NOT EXISTS public.suporte_uids (
+    user_uid uuid PRIMARY KEY
+);
+
 -- Protecao direta das tabelas auxiliares (evita auto-promocao)
 ALTER TABLE public.admin_uids ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.professor_uids ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.suporte_uids ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.admin_uids FROM PUBLIC;
 REVOKE ALL ON TABLE public.professor_uids FROM PUBLIC;
+REVOKE ALL ON TABLE public.suporte_uids FROM PUBLIC;
 REVOKE ALL ON TABLE public.admin_uids FROM anon, authenticated;
 REVOKE ALL ON TABLE public.professor_uids FROM anon, authenticated;
+REVOKE ALL ON TABLE public.suporte_uids FROM anon, authenticated;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.admin_uids TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.professor_uids TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.suporte_uids TO service_role;
 
 DROP POLICY IF EXISTS admin_uids_service_only ON public.admin_uids;
 CREATE POLICY admin_uids_service_only
@@ -38,6 +46,14 @@ WITH CHECK (true);
 DROP POLICY IF EXISTS professor_uids_service_only ON public.professor_uids;
 CREATE POLICY professor_uids_service_only
 ON public.professor_uids
+FOR ALL
+TO service_role
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS suporte_uids_service_only ON public.suporte_uids;
+CREATE POLICY suporte_uids_service_only
+ON public.suporte_uids
 FOR ALL
 TO service_role
 USING (true)
@@ -115,6 +131,42 @@ SELECT user_uid FROM public.usuarios
 WHERE papel = 'professor' AND status = 'ativo'
 ON CONFLICT (user_uid) DO NOTHING;
 
+-- Sincroniza suporte_uids com usuarios (papel/status)
+CREATE OR REPLACE FUNCTION public.sync_suporte_uids()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        DELETE FROM public.suporte_uids WHERE user_uid = OLD.user_uid;
+        RETURN OLD;
+    END IF;
+
+    IF NEW.papel = 'suporte' AND NEW.status = 'ativo' THEN
+        INSERT INTO public.suporte_uids(user_uid)
+        VALUES (NEW.user_uid)
+        ON CONFLICT (user_uid) DO NOTHING;
+    ELSE
+        DELETE FROM public.suporte_uids WHERE user_uid = NEW.user_uid;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS usuarios_suporte_uids_sync ON public.usuarios;
+CREATE TRIGGER usuarios_suporte_uids_sync
+AFTER INSERT OR UPDATE OR DELETE ON public.usuarios
+FOR EACH ROW EXECUTE FUNCTION public.sync_suporte_uids();
+
+-- Bootstrap inicial (rodar uma vez)
+INSERT INTO public.suporte_uids(user_uid)
+SELECT user_uid FROM public.usuarios
+WHERE papel = 'suporte' AND status = 'ativo'
+ON CONFLICT (user_uid) DO NOTHING;
+
 -- Funcoes auxiliares
 CREATE OR REPLACE FUNCTION public.is_admin(p_uid uuid)
 RETURNS boolean
@@ -154,6 +206,25 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_suporte(p_uid uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+SET row_security = off
+AS $$
+DECLARE
+    v_exists boolean;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.suporte_uids s
+        WHERE s.user_uid = p_uid
+    ) INTO v_exists;
+    RETURN v_exists;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.is_professor_of_turma(p_uid uuid, p_turma_id bigint)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -176,6 +247,7 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_professor(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_suporte(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_professor_of_turma(uuid, bigint) TO authenticated;
 
 -- ===============================================================
@@ -192,6 +264,9 @@ ALTER TABLE public.apoia_encaminhamentos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alertas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Garantir permissao basica de leitura/atualizacao para usuarios autenticados
+GRANT SELECT, UPDATE ON TABLE public.usuarios TO authenticated;
+
 -- ===============================================================
 -- POLITICAS: USUARIOS
 -- (usa admin_uids direto para evitar recursao)
@@ -205,8 +280,8 @@ CREATE POLICY usuarios_admin_all
 ON public.usuarios
 FOR ALL
 TO authenticated
-USING (EXISTS (SELECT 1 FROM public.admin_uids a WHERE a.user_uid = auth.uid()))
-WITH CHECK (EXISTS (SELECT 1 FROM public.admin_uids a WHERE a.user_uid = auth.uid()));
+USING (public.is_admin(auth.uid()))
+WITH CHECK (public.is_admin(auth.uid()));
 
 CREATE POLICY usuarios_self_read
 ON public.usuarios

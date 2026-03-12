@@ -1,7 +1,19 @@
 import { db, state, getLocalDateString, safeQuery, showToast, closeModal, closeAllModals, logAudit, SUPABASE_URL, SUPABASE_ANON_KEY } from './core.js';
 
 const APOIA_ITEMS_PER_PAGE = 10;
+const CHAMADAS_ITEMS_PER_PAGE = 100;
 let apoiaCurrentPage = 1;
+let chamadasCurrentPage = 1;
+let chamadasStartDate = null;
+let chamadasEndDate = null;
+let chamadasProfessorId = '';
+let chamadasProfessorSearch = '';
+let chamadasDateCleared = false;
+let chamadasCalendarOpen = false;
+let chamadasCalendar = { month: new Date().getMonth(), year: new Date().getFullYear() };
+let chamadasCacheKey = '';
+let chamadasCacheRows = [];
+let chamadasProfessorLookup = new Map();
 let notificationsChannel = null;
 let notificationsPollingId = null;
 let notificationsReloadTimer = null;
@@ -1420,129 +1432,556 @@ export async function renderRelatoriosPanel() {
 // ADMIN - CHAMADAS
 // ===============================================================
 
-export async function renderChamadasPanel() {
-    const emptyState = document.getElementById('chamadas-empty-state');
-    const resumoContainer = document.getElementById('chamadas-resumo-container');
-    if (!emptyState) return;
-    emptyState.textContent = 'Carregando chamadas...';
-    emptyState.classList.remove('hidden');
-    if (resumoContainer) {
-        resumoContainer.classList.add('hidden');
-        resumoContainer.innerHTML = '';
+function formatChamadasDateDisplay(value) {
+    if (!value) return '';
+    return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR');
+}
+
+function formatChamadasFullDateDisplay(value) {
+    if (!value) return '';
+    return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatChamadasTimeDisplay(value) {
+    return value ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
+}
+
+function formatChamadasDateTimeDisplay(value) {
+    if (!value) return '-';
+    const dt = new Date(value);
+    const date = dt.toLocaleDateString('pt-BR');
+    const time = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
+}
+
+function syncChamadasCalendarToSelection() {
+    if (!chamadasStartDate) return;
+    const base = new Date(`${chamadasStartDate}T00:00:00`);
+    chamadasCalendar = { month: base.getMonth(), year: base.getFullYear() };
+}
+
+function ensureChamadasDefaults() {
+    if (!chamadasDateCleared && !chamadasStartDate) {
+        chamadasStartDate = getLocalDateString();
+        chamadasEndDate = null;
+    }
+    syncChamadasCalendarToSelection();
+}
+
+function updateChamadasPeriodoLabel() {
+    const label = document.getElementById('chamadas-periodo-label');
+    const clearBtn = document.getElementById('chamadas-periodo-clear');
+    if (!label) return;
+    if (chamadasStartDate && chamadasEndDate) {
+        label.textContent = `${formatChamadasDateDisplay(chamadasStartDate)} - ${formatChamadasDateDisplay(chamadasEndDate)}`;
+        if (clearBtn) clearBtn.classList.remove('opacity-30');
+    } else if (chamadasStartDate) {
+        label.textContent = formatChamadasDateDisplay(chamadasStartDate);
+        if (clearBtn) clearBtn.classList.remove('opacity-30');
+    } else {
+        label.textContent = 'Sem filtro de data';
+        if (clearBtn) clearBtn.classList.add('opacity-30');
+    }
+}
+
+function renderChamadasCalendar() {
+    const grid = document.getElementById('chamadas-calendar-grid');
+    const monthYearEl = document.getElementById('chamadas-month-year');
+    if (!grid || !monthYearEl) return;
+    const monthNames = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const { month, year } = chamadasCalendar;
+    monthYearEl.textContent = `${monthNames[month]} ${year}`;
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startDateObj = chamadasStartDate ? new Date(`${chamadasStartDate}T00:00:00`) : null;
+    const endDateObj = chamadasEndDate ? new Date(`${chamadasEndDate}T00:00:00`) : null;
+
+    let html = '';
+    for (let i = 0; i < firstDay; i++) html += '<div></div>';
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dateObj = new Date(`${dateStr}T00:00:00`);
+        const isWeekend = [0, 6].includes(dateObj.getDay());
+        const isStart = !!startDateObj && dateStr === chamadasStartDate;
+        const isEnd = !!endDateObj && dateStr === chamadasEndDate;
+        const isRange = !!startDateObj && !!endDateObj && dateObj >= startDateObj && dateObj <= endDateObj;
+        const rangeClass = isRange && !isStart && !isEnd ? 'calendar-day-range' : '';
+        const startClass = isStart ? 'calendar-day-start' : '';
+        const endClass = isEnd ? 'calendar-day-end' : '';
+        html += `
+            <div class="calendar-day-container chamadas-calendar-day ${rangeClass} ${startClass} ${endClass}" data-date="${dateStr}">
+                <div class="calendar-day-content ${isWeekend ? 'calendar-day-weekend' : ''}">
+                    <span class="calendar-day-number">${day}</span>
+                </div>
+            </div>
+        `;
+    }
+    grid.innerHTML = html;
+}
+
+function buildChamadasQueryKey() {
+    return `${chamadasStartDate || ''}|${chamadasEndDate || ''}|${chamadasProfessorId || ''}|${(chamadasProfessorSearch || '').toLowerCase()}`;
+}
+
+async function loadChamadasData() {
+    const key = buildChamadasQueryKey();
+    if (key === chamadasCacheKey) return { data: chamadasCacheRows };
+
+    let query = db.from('presencas')
+        .select('data, registrado_em, status, justificativa, turma_id, registrado_por_uid, turmas ( nome_turma ), usuarios ( nome, email )');
+
+    if (chamadasProfessorId) query = query.eq('registrado_por_uid', chamadasProfessorId);
+    if (chamadasStartDate && chamadasEndDate) {
+        query = query.gte('data', chamadasStartDate).lte('data', chamadasEndDate);
+    } else if (chamadasStartDate) {
+        query = query.eq('data', chamadasStartDate);
     }
 
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(startDate.getDate() - 30);
-    const startDateStr = startDate.toISOString().split('T')[0];
+    query = query.order('data', { ascending: false }).order('registrado_em', { ascending: false });
 
-    const { data, error } = await safeQuery(
-        db.from('presencas')
-            .select('data, registrado_em, status, justificativa, turma_id, registrado_por_uid, turmas ( nome_turma ), usuarios ( nome )')
-            .gte('data', startDateStr)
-            .order('data', { ascending: false })
-            .order('registrado_em', { ascending: false })
-            .limit(2000)
+    const { data, error } = await safeQuery(query);
+    if (error) return { data: [], error };
+
+    const grupos = new Map();
+    (data || []).forEach((row) => {
+        const keyItem = `${row.data}|${row.turma_id}|${row.registrado_por_uid || 'null'}`;
+        const existing = grupos.get(keyItem) || {
+            data: row.data,
+            turmaId: row.turma_id,
+            turma: row.turmas?.nome_turma || '-',
+            professor: row.usuarios?.nome || '-',
+            professorEmail: row.usuarios?.email || '',
+            professorId: row.registrado_por_uid || '',
+            registradoEm: row.registrado_em,
+            presentes: 0,
+            faltasJustificadas: 0,
+            faltasInjustificadas: 0
+        };
+        if (row.status === 'presente') existing.presentes += 1;
+        if (row.status === 'falta') {
+            if (row.justificativa === 'Falta justificada') existing.faltasJustificadas += 1;
+            else existing.faltasInjustificadas += 1;
+        }
+        if (!existing.registradoEm || (row.registrado_em && row.registrado_em > existing.registradoEm)) {
+            existing.registradoEm = row.registrado_em;
+        }
+        grupos.set(keyItem, existing);
+    });
+
+    let rows = Array.from(grupos.values()).sort((a, b) => {
+        if (a.data !== b.data) return a.data < b.data ? 1 : -1;
+        if (!a.registradoEm && b.registradoEm) return 1;
+        if (a.registradoEm && !b.registradoEm) return -1;
+        if (!a.registradoEm && !b.registradoEm) return 0;
+        return a.registradoEm < b.registradoEm ? 1 : -1;
+    });
+
+    const { data: auditLogs } = await safeQuery(
+        db.from('audit_logs')
+            .select('created_at, user_uid, details')
+            .eq('action', 'chamada_correcao')
+            .eq('entity', 'presencas')
     );
+    const adjustedKeys = new Set();
+    const adjustmentsMap = new Map();
+    const adjustmentUsers = new Set();
+    (auditLogs || []).forEach(log => {
+        const details = log.details || {};
+        const turmaId = details.turma_id || details.turmaId;
+        const dataVal = details.data || details.data_chamada || details.date;
+        if (turmaId && dataVal) {
+            adjustedKeys.add(`${turmaId}|${dataVal}`);
+            const key = `${turmaId}|${dataVal}`;
+            const list = adjustmentsMap.get(key) || [];
+            list.push({ user_uid: log.user_uid, created_at: log.created_at });
+            adjustmentsMap.set(key, list);
+            if (log.user_uid) adjustmentUsers.add(log.user_uid);
+        }
+    });
+
+    const userNameMap = new Map();
+    state.usuariosCache.forEach(u => userNameMap.set(u.user_uid, u.nome));
+    const missingUsers = Array.from(adjustmentUsers).filter(uid => uid && !userNameMap.has(uid));
+    if (missingUsers.length > 0) {
+        const { data: extraUsers } = await safeQuery(
+            db.from('usuarios')
+                .select('user_uid, nome')
+                .in('user_uid', missingUsers)
+        );
+        (extraUsers || []).forEach(u => userNameMap.set(u.user_uid, u.nome));
+    }
+
+    rows = rows.map(r => ({
+        ...r,
+        adjusted: adjustedKeys.has(`${r.turmaId}|${r.data}`),
+        adjustments: (adjustmentsMap.get(`${r.turmaId}|${r.data}`) || [])
+            .map(a => ({
+                ...a,
+                nome: userNameMap.get(a.user_uid) || (a.user_uid ? `UID ${a.user_uid}` : 'Desconhecido')
+            }))
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    }));
+
+    const search = (chamadasProfessorSearch || '').trim().toLowerCase();
+    if (!chamadasProfessorId && search) {
+        rows = rows.filter(r =>
+            (r.professor || '').toLowerCase().includes(search) ||
+            (r.professorEmail || '').toLowerCase().includes(search)
+        );
+    }
+
+    chamadasCacheKey = key;
+    chamadasCacheRows = rows;
+    return { data: rows };
+}
+
+function renderChamadasPagination(container, currentPage, totalPages) {
+    if (!container) return;
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    const prevDisabled = currentPage <= 1;
+    const nextDisabled = currentPage >= totalPages;
+    container.innerHTML = `
+        <div class="flex items-center gap-2">
+            <button class="px-3 py-1 border rounded-md ${prevDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}" ${prevDisabled ? 'disabled' : ''} data-chamadas-page="${currentPage - 1}">Anterior</button>
+            <button class="px-3 py-1 border rounded-md ${nextDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'}" ${nextDisabled ? 'disabled' : ''} data-chamadas-page="${currentPage + 1}">Próxima</button>
+        </div>
+        <div class="text-gray-500">Página ${currentPage} de ${totalPages}</div>
+    `;
+}
+
+function fillChamadasProfessorFilter() {
+    const input = document.getElementById('chamadas-professor-filter');
+    const datalist = document.getElementById('chamadas-professor-options');
+    if (!input || !datalist) return;
+    const currentValue = (input.value || '').trim();
+    datalist.innerHTML = '';
+    chamadasProfessorLookup = new Map();
+    state.usuariosCache
+        .filter(u => u.papel === 'professor')
+        .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+        .forEach(p => {
+            const label = p.email ? `${p.nome} <${p.email}>` : p.nome;
+            const normalized = label.trim().toLowerCase();
+            datalist.innerHTML += `<option value="${label}"></option>`;
+            if (normalized) chamadasProfessorLookup.set(normalized, p.user_uid);
+            if (p.email) chamadasProfessorLookup.set(p.email.trim().toLowerCase(), p.user_uid);
+            if (p.nome) chamadasProfessorLookup.set(p.nome.trim().toLowerCase(), p.user_uid);
+        });
+
+    if (chamadasProfessorId) {
+        const prof = state.usuariosCache.find(u => u.user_uid === chamadasProfessorId);
+        if (prof) {
+            input.value = prof.email ? `${prof.nome} <${prof.email}>` : prof.nome;
+            return;
+        }
+    }
+    if (!currentValue && chamadasProfessorSearch) {
+        input.value = chamadasProfessorSearch;
+    }
+    const clearBtn = document.getElementById('chamadas-professor-clear');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !(input.value || '').trim());
+    }
+}
+
+export function handleChamadasCalendarSelect(dateStr) {
+    if (!dateStr) return;
+    if (!chamadasStartDate) {
+        chamadasStartDate = dateStr;
+        chamadasEndDate = null;
+    } else if (!chamadasEndDate) {
+        if (dateStr === chamadasStartDate) {
+            chamadasStartDate = null;
+            chamadasEndDate = null;
+            chamadasDateCleared = true;
+        } else if (dateStr > chamadasStartDate) {
+            chamadasEndDate = dateStr;
+        } else {
+            chamadasEndDate = chamadasStartDate;
+            chamadasStartDate = dateStr;
+        }
+    } else {
+        if (dateStr === chamadasStartDate && dateStr === chamadasEndDate) {
+            chamadasStartDate = null;
+            chamadasEndDate = null;
+            chamadasDateCleared = true;
+        } else {
+            chamadasStartDate = dateStr;
+            chamadasEndDate = null;
+        }
+    }
+    chamadasDateCleared = chamadasStartDate === null && chamadasEndDate === null;
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    syncChamadasCalendarToSelection();
+    renderChamadasPanel();
+}
+
+export function handleChamadasCalendarNav(direction) {
+    const nextMonth = chamadasCalendar.month + direction;
+    if (nextMonth < 0) {
+        chamadasCalendar.month = 11;
+        chamadasCalendar.year -= 1;
+    } else if (nextMonth > 11) {
+        chamadasCalendar.month = 0;
+        chamadasCalendar.year += 1;
+    } else {
+        chamadasCalendar.month = nextMonth;
+    }
+    renderChamadasCalendar();
+}
+
+export function handleChamadasQuickDate(action) {
+    const today = getLocalDateString();
+    let target = today;
+    if (action === 'yesterday') {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        target = d.toISOString().split('T')[0];
+    }
+    chamadasStartDate = target;
+    chamadasEndDate = null;
+    chamadasDateCleared = false;
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    syncChamadasCalendarToSelection();
+    renderChamadasPanel();
+}
+
+export function handleChamadasClearDates() {
+    chamadasStartDate = null;
+    chamadasEndDate = null;
+    chamadasDateCleared = true;
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    renderChamadasPanel();
+}
+
+export function handleChamadasToggleCalendar() {
+    chamadasCalendarOpen = !chamadasCalendarOpen;
+    renderChamadasPanel();
+}
+
+export function handleChamadasCloseCalendar() {
+    if (!chamadasCalendarOpen) return;
+    chamadasCalendarOpen = false;
+    renderChamadasPanel();
+}
+
+export function handleChamadasProfessorFilterChange(value) {
+    const raw = (value || '').trim();
+    chamadasProfessorSearch = raw;
+    const normalized = raw.toLowerCase();
+    chamadasProfessorId = chamadasProfessorLookup.get(normalized) || '';
+    const clearBtn = document.getElementById('chamadas-professor-clear');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !raw);
+    }
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    renderChamadasPanel();
+}
+
+export function handleChamadasPageChange(page) {
+    if (!page || page < 1) return;
+    chamadasCurrentPage = page;
+    renderChamadasPanel();
+}
+
+export async function renderChamadasPanel() {
+    ensureChamadasDefaults();
+    fillChamadasProfessorFilter();
+    updateChamadasPeriodoLabel();
+    renderChamadasCalendar();
+    const calendarPanel = document.getElementById('chamadas-calendar-panel');
+    if (calendarPanel) {
+        calendarPanel.classList.toggle('hidden', !chamadasCalendarOpen);
+    }
+
+    const emptyState = document.getElementById('chamadas-empty-state');
+    const resumoContainer = document.getElementById('chamadas-resumo-container');
+    const tableBody = document.getElementById('chamadas-table-body');
+    const summaryEl = document.getElementById('chamadas-summary');
+    if (!emptyState || !tableBody) return;
+
+    emptyState.textContent = 'Carregando chamadas...';
+    emptyState.classList.remove('hidden');
+    if (resumoContainer) resumoContainer.classList.add('hidden');
+
+    const { data, error } = await loadChamadasData();
     if (error) {
         emptyState.textContent = 'Erro ao carregar chamadas.';
         return;
     }
     if (!data || data.length === 0) {
-        emptyState.textContent = 'Ainda não foram realizadas chamadas.';
+        emptyState.textContent = 'Nenhum registro encontrado.';
+        if (summaryEl) summaryEl.textContent = 'Sem dados para o filtro atual.';
+        tableBody.innerHTML = '';
+        if (resumoContainer) resumoContainer.classList.add('hidden');
         return;
     }
 
-    const grupos = new Map();
-    data.forEach((row) => {
-        const key = `${row.data}|${row.turma_id}|${row.registrado_por_uid || 'null'}`;
-        const existing = grupos.get(key) || {
-            data: row.data,
-            turmaId: row.turma_id,
-            turma: row.turmas?.nome_turma || '-',
-            professor: row.usuarios?.nome || '-',
-            registradoEm: row.registrado_em,
-            presentes: 0,
-            faltas: 0,
-            faltasJustificadas: 0
-        };
-        if (row.status === 'presente') existing.presentes += 1;
-        if (row.status === 'falta') {
-            existing.faltas += 1;
-            if (row.justificativa === 'Falta justificada') existing.faltasJustificadas += 1;
-        }
-        if (!existing.registradoEm || (row.registrado_em && row.registrado_em > existing.registradoEm)) {
-            existing.registradoEm = row.registrado_em;
-        }
-        grupos.set(key, existing);
-    });
+    const totalPages = Math.max(1, Math.ceil(data.length / CHAMADAS_ITEMS_PER_PAGE));
+    if (chamadasCurrentPage > totalPages) chamadasCurrentPage = totalPages;
+    const startIndex = (chamadasCurrentPage - 1) * CHAMADAS_ITEMS_PER_PAGE;
+    const pageRows = data.slice(startIndex, startIndex + CHAMADAS_ITEMS_PER_PAGE);
 
-    const formatHora = (value) => value ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
-    const formatData = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR') : '-';
+    const totalPresencas = data.reduce((sum, r) => sum + r.presentes, 0);
+    const totalJustificadas = data.reduce((sum, r) => sum + r.faltasJustificadas, 0);
+    const totalInjustificadas = data.reduce((sum, r) => sum + r.faltasInjustificadas, 0);
 
-    const rows = Array.from(grupos.values())
-        .sort((a, b) => {
-            if (a.data !== b.data) return a.data < b.data ? 1 : -1;
-            if (!a.registradoEm && b.registradoEm) return 1;
-            if (a.registradoEm && !b.registradoEm) return -1;
-            if (!a.registradoEm && !b.registradoEm) return 0;
-            return a.registradoEm < b.registradoEm ? 1 : -1;
-        })
-        .slice(0, 50);
-
-    const totalChamadas = rows.length;
-    const totalPresencas = rows.reduce((sum, r) => sum + r.presentes, 0);
-    const totalFaltas = rows.reduce((sum, r) => sum + r.faltas, 0);
-
-    if (resumoContainer) {
-        resumoContainer.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-center">
-                <div class="p-3 rounded border bg-gray-50">
-                    <div class="text-xs text-gray-500">Chamadas (últimos 30 dias)</div>
-                    <div class="text-xl font-bold">${totalChamadas}</div>
-                </div>
-                <div class="p-3 rounded border bg-gray-50">
-                    <div class="text-xs text-gray-500">Presenças</div>
-                    <div class="text-xl font-bold text-green-700">${totalPresencas}</div>
-                </div>
-                <div class="p-3 rounded border bg-gray-50">
-                    <div class="text-xs text-gray-500">Faltas</div>
-                    <div class="text-xl font-bold text-red-700">${totalFaltas}</div>
-                </div>
-            </div>
-            <div class="text-xs text-gray-500 mb-3">Mostrando as 50 últimas chamadas registradas.</div>
-            <div class="table-scroll">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="p-3 text-left">Data</th>
-                            <th class="p-3 text-left">Turma</th>
-                            <th class="p-3 text-left">Professor</th>
-                            <th class="p-3 text-center">Presenças</th>
-                            <th class="p-3 text-center">Faltas</th>
-                            <th class="p-3 text-center">Justificadas</th>
-                            <th class="p-3 text-center">Hora</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.map((r) => `
-                            <tr class="border-t">
-                                <td class="p-3">${formatData(r.data)}</td>
-                                <td class="p-3">${r.turma}</td>
-                                <td class="p-3">${r.professor}</td>
-                                <td class="p-3 text-center">${r.presentes}</td>
-                                <td class="p-3 text-center">${r.faltas}</td>
-                                <td class="p-3 text-center">${r.faltasJustificadas}</td>
-                                <td class="p-3 text-center">${formatHora(r.registradoEm)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+    if (summaryEl) {
+        summaryEl.innerHTML = `
+            <div class="flex flex-col gap-1">
+                <span><strong>${data.length}</strong> chamadas encontradas</span>
+                <span>Presenças: <strong>${totalPresencas}</strong></span>
+                <span>Justificadas: <strong>${totalJustificadas}</strong></span>
+                <span>Injustificadas: <strong>${totalInjustificadas}</strong></span>
             </div>
         `;
-        resumoContainer.classList.remove('hidden');
     }
+
+    tableBody.innerHTML = pageRows.map(r => `
+        <tr class="border-t chamadas-log-row hover:bg-gray-50 cursor-pointer" data-chamada-date="${r.data}" data-chamada-turma-id="${r.turmaId}" data-chamada-prof-id="${r.professorId || ''}" data-chamada-turma="${r.turma}" data-chamada-professor="${r.professor}" data-chamada-ajustada="${r.adjusted ? '1' : '0'}">
+            <td class="p-3">${formatChamadasDateDisplay(r.data)}</td>
+            <td class="p-3">${r.turma}</td>
+            <td class="p-3">
+                <div class="font-medium">${r.professor}</div>
+            </td>
+            <td class="p-3">
+                <div class="flex flex-wrap gap-2 mb-1">
+                    <span class="chamada-stamp ${r.adjusted ? 'chamada-stamp-adjusted' : 'chamada-stamp-original'}">
+                        ${r.adjusted ? 'Ajustada' : 'Original'}
+                    </span>
+                </div>
+                <div class="text-xs text-gray-500">Feita por: ${r.professor}</div>
+                <div class="text-xs text-gray-500">Ajustes: ${r.adjustments.length}</div>
+                ${r.adjustments.length ? r.adjustments.map(a => `
+                    <div class="text-[11px] text-gray-400">${a.nome} • ${formatChamadasDateTimeDisplay(a.created_at)}</div>
+                `).join('') : ''}
+            </td>
+            <td class="p-3 text-center">${r.presentes}</td>
+            <td class="p-3 text-center">${r.faltasJustificadas}</td>
+            <td class="p-3 text-center">${r.faltasInjustificadas}</td>
+            <td class="p-3 text-center">${formatChamadasTimeDisplay(r.registradoEm)}</td>
+        </tr>
+    `).join('');
+
+    renderChamadasPagination(document.getElementById('chamadas-pagination-top'), chamadasCurrentPage, totalPages);
+    renderChamadasPagination(document.getElementById('chamadas-pagination-bottom'), chamadasCurrentPage, totalPages);
+
     emptyState.classList.add('hidden');
+    if (resumoContainer) resumoContainer.classList.remove('hidden');
+}
+
+export async function openChamadaLogModal(payload) {
+    const modal = document.getElementById('chamada-log-modal');
+    const subtitle = document.getElementById('chamada-log-subtitle');
+    const stamps = document.getElementById('chamada-log-stamps');
+    const summary = document.getElementById('chamada-log-summary');
+    const tableBody = document.getElementById('chamada-log-table-body');
+    if (!modal || !subtitle || !stamps || !summary || !tableBody) return;
+
+    const { date, turmaId, turmaName, professorId, professorName, adjusted } = payload;
+    subtitle.textContent = `${formatChamadasFullDateDisplay(date)} • Turma ${turmaName || turmaId || '-' } • ${professorName || 'Professor'}`;
+    stamps.innerHTML = `
+        <span class="chamada-stamp chamada-stamp-original">Feita por: ${professorName || '-'}</span>
+        <span class="chamada-stamp ${adjusted ? 'chamada-stamp-adjusted' : 'chamada-stamp-original'}">${adjusted ? 'Ajustada' : 'Sem ajuste'}</span>
+    `;
+    summary.innerHTML = '<div class="p-3 rounded border bg-gray-50 text-sm">Carregando...</div>';
+    tableBody.innerHTML = '';
+    modal.classList.remove('hidden');
+
+    const { data: auditLogs } = await safeQuery(
+        db.from('audit_logs')
+            .select('created_at, user_uid, details')
+            .eq('action', 'chamada_correcao')
+            .eq('entity', 'presencas')
+    );
+    const adjustments = (auditLogs || [])
+        .map(log => {
+            const details = log.details || {};
+            const turmaVal = details.turma_id || details.turmaId;
+            const dataVal = details.data || details.data_chamada || details.date;
+            if (String(turmaVal) !== String(turmaId) || String(dataVal) !== String(date)) return null;
+            return { user_uid: log.user_uid, created_at: log.created_at };
+        })
+        .filter(Boolean)
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    if (adjustments.length) {
+        const userMap = new Map(state.usuariosCache.map(u => [u.user_uid, u.nome]));
+        const missing = adjustments.map(a => a.user_uid).filter(uid => uid && !userMap.has(uid));
+        if (missing.length) {
+            const { data: extraUsers } = await safeQuery(
+                db.from('usuarios').select('user_uid, nome').in('user_uid', missing)
+            );
+            (extraUsers || []).forEach(u => userMap.set(u.user_uid, u.nome));
+        }
+        const listHtml = adjustments.map(a => {
+            const nome = userMap.get(a.user_uid) || (a.user_uid ? `UID ${a.user_uid}` : 'Desconhecido');
+            return `<span class="chamada-stamp chamada-stamp-adjusted">Ajuste: ${nome} • ${formatChamadasDateTimeDisplay(a.created_at)}</span>`;
+        }).join('');
+        stamps.innerHTML += listHtml;
+    }
+
+    let query = db.from('presencas')
+        .select('status, justificativa, registrado_em, alunos ( nome_completo )')
+        .eq('turma_id', turmaId)
+        .eq('data', date);
+    if (professorId) query = query.eq('registrado_por_uid', professorId);
+    query = query.order('nome_completo', { foreignTable: 'alunos', ascending: true });
+
+    const { data, error } = await safeQuery(query);
+    if (error) {
+        summary.innerHTML = '<div class="p-3 rounded border bg-red-50 text-sm text-red-600">Erro ao carregar detalhes.</div>';
+        return;
+    }
+    if (!data || data.length === 0) {
+        summary.innerHTML = '<div class="p-3 rounded border bg-gray-50 text-sm">Nenhum registro encontrado.</div>';
+        return;
+    }
+
+    let presentes = 0;
+    let just = 0;
+    let injust = 0;
+    tableBody.innerHTML = data.map((item) => {
+        const statusRaw = item.status || '';
+        const status = statusRaw.toLowerCase();
+        const justificativa = item.justificativa || (status === 'falta' ? 'Falta injustificada' : '-');
+        if (status === 'presente') presentes += 1;
+        if (status === 'falta') {
+            if (justificativa === 'Falta justificada') just += 1;
+            else injust += 1;
+        }
+        return `
+            <tr class="border-t">
+                <td class="p-3">${item.alunos?.nome_completo || '-'}</td>
+                <td class="p-3 text-center">${statusRaw || status || '-'}</td>
+                <td class="p-3">${justificativa}</td>
+                <td class="p-3 text-center">${formatChamadasTimeDisplay(item.registrado_em)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    summary.innerHTML = `
+        <div class="p-3 rounded border bg-green-50 text-sm">
+            <div class="text-xs text-gray-500">Presenças</div>
+            <div class="text-lg font-bold text-green-700">${presentes}</div>
+        </div>
+        <div class="p-3 rounded border bg-yellow-50 text-sm">
+            <div class="text-xs text-gray-500">Justificadas</div>
+            <div class="text-lg font-bold text-yellow-700">${just}</div>
+        </div>
+        <div class="p-3 rounded border bg-red-50 text-sm">
+            <div class="text-xs text-gray-500">Injustificadas</div>
+            <div class="text-lg font-bold text-red-700">${injust}</div>
+        </div>
+    `;
 }
 
 export async function handleGerarRelatorio() {

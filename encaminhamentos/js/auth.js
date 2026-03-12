@@ -18,7 +18,7 @@ export async function requireAdminSession() {
             db.from('usuarios')
                 .select('papel, nome, status')
                 .eq('user_uid', session.user.id)
-                .single()
+                .maybeSingle()
         );
         if (!data || data.status !== 'ativo' || data.papel !== 'admin') {
             await signOut();

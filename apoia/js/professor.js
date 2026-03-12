@@ -766,7 +766,7 @@ export async function loadCorrecaoChamada() {
         avisoCalendario.textContent = `Aviso: Esta data está marcada no calendário como "${eventoCalendario.descricao}"${periodoTexto}.`;
         avisoCalendario.classList.remove('hidden');
     }
-    correcaoListaAlunos.innerHTML = '<div class="loader mx-auto"></div>';
+    correcaoListaAlunos.innerHTML = '<p class="text-center text-gray-500">Carregando alunos...</p>';
     const { data: alunos } = await safeQuery(
         db.from('alunos')
             .select('id, nome_completo')
@@ -784,11 +784,15 @@ export async function loadCorrecaoChamada() {
             .eq('turma_id', turmaId)
             .eq('data', data)
     );
-    const presencasMap = new Map((presencas || []).map(p => [p.aluno_id, { status: p.status, justificativa: p.justificativa }]));
+    const presencasMap = new Map((presencas || []).map(p => [
+        p.aluno_id,
+        { status: (p.status || '').toLowerCase(), justificativa: p.justificativa }
+    ]));
     alunos.forEach(aluno => {
         const presenca = presencasMap.get(aluno.id) || { status: 'presente', justificativa: null };
+        const statusValue = presenca.status || 'presente';
         const isJustificada = presenca.justificativa === 'Falta justificada';
-        const isInjustificada = presenca.justificativa === 'Falta injustificada' || (!presenca.justificativa && presenca.status === 'falta');
+        const isInjustificada = presenca.justificativa === 'Falta injustificada' || (!presenca.justificativa && statusValue === 'falta');
         const isOutros = !isJustificada && !isInjustificada && presenca.justificativa;
         const alunoDiv = document.createElement('div');
         alunoDiv.className = 'p-3 bg-gray-50 rounded-lg';
@@ -797,11 +801,11 @@ export async function loadCorrecaoChamada() {
             <div class="flex items-center justify-between">
                 <span class="font-medium">${aluno.nome_completo}</span>
                 <div class="flex items-center gap-4">
-                    <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="presente" class="form-radio h-5 w-5 text-green-600 status-radio" ${presenca.status === 'presente' ? 'checked' : ''}><span class="ml-2 text-sm">Presente</span></label>
-                    <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="falta" class="form-radio h-5 w-5 text-red-600 status-radio" ${presenca.status === 'falta' ? 'checked' : ''}><span class="ml-2 text-sm">Falta</span></label>
+                    <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="presente" class="form-radio h-5 w-5 text-green-600 status-radio" ${statusValue === 'presente' ? 'checked' : ''}><span class="ml-2 text-sm">Presente</span></label>
+                    <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="falta" class="form-radio h-5 w-5 text-red-600 status-radio" ${statusValue === 'falta' ? 'checked' : ''}><span class="ml-2 text-sm">Falta</span></label>
                 </div>
             </div>
-            <div class="justificativa-container mt-3 pt-3 border-t border-gray-200 ${presenca.status === 'falta' ? '' : 'hidden'}">
+            <div class="justificativa-container mt-3 pt-3 border-t border-gray-200 ${statusValue === 'falta' ? '' : 'hidden'}">
                 <div class="text-sm font-medium mb-2">Justificativa:</div>
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pl-2">
                     <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="Falta justificada" class="form-radio h-4 w-4" ${isJustificada ? 'checked' : ''}><span class="ml-2 text-sm">Justificada</span></label>

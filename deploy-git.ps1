@@ -114,6 +114,10 @@ if ($GitRemoteUrl) {
 }
 
 git add -A | Out-Null
+$commitInput = Read-Host "Mensagem do commit (Enter para usar: $CommitMessage)"
+if (-not [string]::IsNullOrWhiteSpace($commitInput)) {
+    $CommitMessage = $commitInput.Trim()
+}
 git commit -m $CommitMessage | Out-Null
 $githubToken = $env:GITHUB_TOKEN
 if ($githubToken) {

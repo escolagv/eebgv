@@ -24,6 +24,7 @@ import {
     renderRelatoriosPanel,
     renderConfigPanel,
     renderConsistenciaPanel,
+    openChamadaLogModal,
     handleGerarRelatorio,
     handleImprimirRelatorio,
     handleGerarApoiaRelatorio,
@@ -38,6 +39,14 @@ import {
     handleConfirmDelete,
     handleResetPassword,
     openAssiduidadeModal,
+    handleChamadasCalendarSelect,
+    handleChamadasCalendarNav,
+    handleChamadasQuickDate,
+    handleChamadasClearDates,
+    handleChamadasToggleCalendar,
+    handleChamadasCloseCalendar,
+    handleChamadasProfessorFilterChange,
+    handleChamadasPageChange,
     generateAssiduidadeReport,
     openPromoverTurmasModal,
     handlePromoverTurmas,
@@ -344,6 +353,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        if (closest('#chamadas-periodo-clear')) {
+            handleChamadasClearDates();
+        }
+        if (closest('#chamadas-calendar-toggle')) {
+            e.stopPropagation();
+            handleChamadasToggleCalendar();
+        }
+        if (closest('#chamadas-professor-clear')) {
+            const input = document.getElementById('chamadas-professor-filter');
+            if (input) {
+                input.value = '';
+                handleChamadasProfessorFilterChange('');
+                input.focus();
+            }
+        }
+        if (closest('#chamadas-prev-month')) {
+            e.stopPropagation();
+            handleChamadasCalendarNav(-1);
+        }
+        if (closest('#chamadas-next-month')) {
+            e.stopPropagation();
+            handleChamadasCalendarNav(1);
+        }
+        if (closest('#chamadas-quick-today')) {
+            e.stopPropagation();
+            handleChamadasQuickDate('today');
+        }
+        if (closest('#chamadas-quick-yesterday')) {
+            e.stopPropagation();
+            handleChamadasQuickDate('yesterday');
+        }
+        if (closest('.chamadas-calendar-day')) {
+            e.stopPropagation();
+            const date = closest('.chamadas-calendar-day').dataset.date;
+            handleChamadasCalendarSelect(date);
+        }
+        if (closest('[data-chamadas-page]')) {
+            const page = parseInt(closest('[data-chamadas-page]').dataset.chamadasPage, 10);
+            handleChamadasPageChange(page);
+        }
+
         if (closest('#forgot-password-link')) {
             e.preventDefault();
             document.getElementById('forgot-password-modal').classList.remove('hidden');
@@ -467,11 +517,29 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('#imprimir-apoia-relatorio-btn')) handleImprimirRelatorio('apoia');
         if (closest('#imprimir-historico-btn')) handleImprimirRelatorio('historico');
         if (closest('#refresh-consistencia-btn')) renderConsistenciaPanel();
+        if (closest('.chamadas-log-row')) {
+            const row = closest('.chamadas-log-row');
+            openChamadaLogModal({
+                date: row.dataset.chamadaDate,
+                turmaId: row.dataset.chamadaTurmaId,
+                turmaName: row.dataset.chamadaTurma,
+                professorId: row.dataset.chamadaProfId,
+                professorName: row.dataset.chamadaProfessor,
+                adjusted: row.dataset.chamadaAjustada === '1'
+            });
+        }
         if (closest('#correcao-chamada-btn') || closest('#chamadas-correcao-btn')) {
             document.getElementById('correcao-chamada-modal').classList.remove('hidden');
             const sel = document.getElementById('correcao-turma-select');
             sel.innerHTML = '<option value="">Selecione uma turma...</option>';
             state.turmasCache.forEach(t => sel.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
+            const dataInput = document.getElementById('correcao-data-select');
+            if (dataInput) {
+                dataInput.value = getLocalDateString();
+            }
+            if (sel.value && dataInput && dataInput.value) {
+                loadCorrecaoChamada();
+            }
         }
         if (closest('#prev-month-btn')) { state.dashboardCalendar.month--; if (state.dashboardCalendar.month < 0) { state.dashboardCalendar.month = 11; state.dashboardCalendar.year--; } renderDashboardCalendar(); }
         if (closest('#next-month-btn')) { state.dashboardCalendar.month++; if (state.dashboardCalendar.month > 11) { state.dashboardCalendar.month = 0; state.dashboardCalendar.year++; } renderDashboardCalendar(); }
@@ -522,6 +590,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (notificationPanelLocal && !notificationPanelLocal.classList.contains('hidden') && !e.target.closest('#notification-panel') && !e.target.closest('#notification-bell')) {
             notificationPanelLocal.classList.add('hidden');
         }
+        const chamadasPanel = document.getElementById('chamadas-calendar-panel');
+        if (chamadasPanel && !chamadasPanel.classList.contains('hidden')) {
+            if (!e.target.closest('#chamadas-calendar-panel')
+                && !e.target.closest('#chamadas-calendar-toggle')
+                && !e.target.closest('.chamadas-calendar-day')
+                && !e.target.closest('#chamadas-quick-today')
+                && !e.target.closest('#chamadas-quick-yesterday')
+                && !e.target.closest('#chamadas-prev-month')
+                && !e.target.closest('#chamadas-next-month')) {
+                handleChamadasCloseCalendar();
+            }
+        }
     });
 
     const clearNotificationsBtn = document.getElementById('clear-notifications-btn');
@@ -567,6 +647,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
+            container.addEventListener('click', e => {
+                const radio = e.target.closest('input.status-radio');
+                if (!radio) return;
+                const row = radio.closest('[data-aluno-id]');
+                if (!row) return;
+                const justDiv = row.querySelector('.justificativa-container');
+                const isFalta = radio.value === 'falta';
+                if (justDiv) {
+                    justDiv.classList.toggle('hidden', !isFalta);
+                    if (isFalta) {
+                        const radiosJust = Array.from(row.querySelectorAll('input[name^="just-"], input[name^="corr-just-"]'));
+                        const hasChecked = radiosJust.some(r => r.checked);
+                        if (!hasChecked) {
+                            const injustificadaRadio = radiosJust.find(r => r.value === 'Falta injustificada');
+                            if (injustificadaRadio) injustificadaRadio.checked = true;
+                        }
+                    }
+                }
+            });
         }
     });
 
@@ -586,6 +685,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAlunosPanel({ resetTurmaFilter: true });
         } else if (e.target.matches('#aluno-turma-filter')) {
             renderAlunosPanel();
+        } else if (e.target.matches('#chamadas-professor-filter')) {
+            handleChamadasProfessorFilterChange(e.target.value);
         } else if (e.target.matches('#evento-data-inicio-filter') || e.target.matches('#evento-data-fim-filter')) {
             renderCalendarioPanel();
         } else if (e.target.matches('#promover-turmas-ano-origem')) {
@@ -664,6 +765,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAlunosPanel();
         } else if (e.target.matches('#professor-search-input')) {
             renderProfessoresPanel();
+        } else if (e.target.matches('#chamadas-professor-filter')) {
+            handleChamadasProfessorFilterChange(e.target.value);
         }
     });
     document.body.addEventListener('change', (e) => {

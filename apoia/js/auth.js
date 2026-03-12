@@ -34,7 +34,10 @@ export async function handleAuthChange(event, session) {
     try {
         state.currentUser = session.user;
         const { data, error } = await safeQuery(
-            db.from('usuarios').select('papel, nome, status, vinculo, precisa_trocar_senha, senha_aviso_count').eq('user_uid', state.currentUser.id).single()
+            db.from('usuarios')
+                .select('papel, nome, status, vinculo, precisa_trocar_senha, senha_aviso_count')
+                .eq('user_uid', state.currentUser.id)
+                .maybeSingle()
         );
         if (error || !data || data.status !== 'ativo') {
             const errorMessage = !data
