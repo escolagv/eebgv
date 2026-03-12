@@ -46,6 +46,11 @@ import {
     handleChamadasToggleCalendar,
     handleChamadasCloseCalendar,
     handleChamadasProfessorFilterChange,
+    handleChamadasTurmaFilterChange,
+    handleChamadasRegistroFilterChange,
+    handleChamadasAnoFilterChange,
+    toggleChamadasExtraFilter,
+    closeChamadasFilterPopovers,
     handleChamadasPageChange,
     generateAssiduidadeReport,
     openPromoverTurmasModal,
@@ -368,6 +373,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.focus();
             }
         }
+        if (closest('#chamadas-turma-clear')) {
+            const input = document.getElementById('chamadas-turma-filter');
+            if (input) {
+                input.value = '';
+                handleChamadasTurmaFilterChange('');
+                input.focus();
+            }
+        }
+        if (closest('#chamadas-registro-clear')) {
+            const input = document.getElementById('chamadas-registro-filter');
+            if (input) {
+                input.value = '';
+                handleChamadasRegistroFilterChange('');
+                input.focus();
+            }
+        }
+        if (closest('#chamadas-ano-clear')) {
+            const input = document.getElementById('chamadas-ano-filter');
+            if (input) {
+                input.value = '';
+                handleChamadasAnoFilterChange('');
+                input.focus();
+            }
+        }
         if (closest('#chamadas-prev-month')) {
             e.stopPropagation();
             handleChamadasCalendarNav(-1);
@@ -516,6 +545,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('#gerar-apoia-relatorio-btn')) handleGerarApoiaRelatorio();
         if (closest('#imprimir-apoia-relatorio-btn')) handleImprimirRelatorio('apoia');
         if (closest('#imprimir-historico-btn')) handleImprimirRelatorio('historico');
+        if (closest('#imprimir-chamada-log-btn')) handleImprimirRelatorio('chamada');
+        if (closest('#chamadas-filter-turma-btn')) toggleChamadasExtraFilter('turma');
+        if (closest('#chamadas-filter-registro-btn')) toggleChamadasExtraFilter('registro');
+        if (closest('#chamadas-filter-ano-btn')) toggleChamadasExtraFilter('ano');
+        if (!closest('.filter-popover-wrap')) {
+            closeChamadasFilterPopovers();
+        }
         if (closest('#refresh-consistencia-btn')) renderConsistenciaPanel();
         if (closest('.chamadas-log-row')) {
             const row = closest('.chamadas-log-row');
@@ -687,6 +723,12 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAlunosPanel();
         } else if (e.target.matches('#chamadas-professor-filter')) {
             handleChamadasProfessorFilterChange(e.target.value);
+        } else if (e.target.matches('#chamadas-turma-filter')) {
+            handleChamadasTurmaFilterChange(e.target.value);
+        } else if (e.target.matches('#chamadas-registro-filter')) {
+            handleChamadasRegistroFilterChange(e.target.value);
+        } else if (e.target.matches('#chamadas-ano-filter')) {
+            handleChamadasAnoFilterChange(e.target.value);
         } else if (e.target.matches('#evento-data-inicio-filter') || e.target.matches('#evento-data-fim-filter')) {
             renderCalendarioPanel();
         } else if (e.target.matches('#promover-turmas-ano-origem')) {
@@ -767,6 +809,12 @@ document.addEventListener('DOMContentLoaded', () => {
             renderProfessoresPanel();
         } else if (e.target.matches('#chamadas-professor-filter')) {
             handleChamadasProfessorFilterChange(e.target.value);
+        } else if (e.target.matches('#chamadas-turma-filter')) {
+            handleChamadasTurmaFilterChange(e.target.value);
+        } else if (e.target.matches('#chamadas-registro-filter')) {
+            handleChamadasRegistroFilterChange(e.target.value);
+        } else if (e.target.matches('#chamadas-ano-filter')) {
+            handleChamadasAnoFilterChange(e.target.value);
         }
     });
     document.body.addEventListener('change', (e) => {

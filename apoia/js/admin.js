@@ -8,12 +8,22 @@ let chamadasStartDate = null;
 let chamadasEndDate = null;
 let chamadasProfessorId = '';
 let chamadasProfessorSearch = '';
+let chamadasTurmaId = '';
+let chamadasRegistroFilter = '';
+let chamadasAnoLetivo = '';
+let chamadasTurmaSearch = '';
+let chamadasRegistroSearch = '';
+let chamadasAnoSearch = '';
 let chamadasDateCleared = false;
 let chamadasCalendarOpen = false;
 let chamadasCalendar = { month: new Date().getMonth(), year: new Date().getFullYear() };
 let chamadasCacheKey = '';
 let chamadasCacheRows = [];
 let chamadasProfessorLookup = new Map();
+let chamadasTurmaLookup = new Map();
+let chamadasRegistroLookup = new Map();
+let chamadasAnoLookup = new Map();
+let chamadasSort = { key: 'data', dir: 'desc' };
 let notificationsChannel = null;
 let notificationsPollingId = null;
 let notificationsReloadTimer = null;
@@ -1521,7 +1531,7 @@ function renderChamadasCalendar() {
 }
 
 function buildChamadasQueryKey() {
-    return `${chamadasStartDate || ''}|${chamadasEndDate || ''}|${chamadasProfessorId || ''}|${(chamadasProfessorSearch || '').toLowerCase()}`;
+    return `${chamadasStartDate || ''}|${chamadasEndDate || ''}|${chamadasProfessorId || ''}|${(chamadasProfessorSearch || '').toLowerCase()}|${chamadasTurmaId || ''}|${(chamadasTurmaSearch || '').toLowerCase()}|${chamadasRegistroFilter || ''}|${(chamadasRegistroSearch || '').toLowerCase()}|${chamadasAnoLetivo || ''}|${(chamadasAnoSearch || '').toLowerCase()}`;
 }
 
 async function loadChamadasData() {
@@ -1529,7 +1539,7 @@ async function loadChamadasData() {
     if (key === chamadasCacheKey) return { data: chamadasCacheRows };
 
     let query = db.from('presencas')
-        .select('data, registrado_em, status, justificativa, turma_id, registrado_por_uid, turmas ( nome_turma ), usuarios ( nome, email )');
+        .select('data, registrado_em, status, justificativa, turma_id, registrado_por_uid, turmas ( nome_turma, ano_letivo ), usuarios ( nome, email )');
 
     if (chamadasProfessorId) query = query.eq('registrado_por_uid', chamadasProfessorId);
     if (chamadasStartDate && chamadasEndDate) {
@@ -1550,6 +1560,7 @@ async function loadChamadasData() {
             data: row.data,
             turmaId: row.turma_id,
             turma: row.turmas?.nome_turma || '-',
+            anoLetivo: row.turmas?.ano_letivo || '',
             professor: row.usuarios?.nome || '-',
             professorEmail: row.usuarios?.email || '',
             professorId: row.registrado_por_uid || '',
@@ -1631,9 +1642,167 @@ async function loadChamadasData() {
         );
     }
 
+    if (chamadasTurmaId) {
+        rows = rows.filter(r => String(r.turmaId) === String(chamadasTurmaId));
+    } else if (chamadasTurmaSearch) {
+        rows = rows.filter(r => (r.turma || '').toLowerCase().includes(chamadasTurmaSearch));
+    }
+    if (chamadasRegistroFilter) {
+        rows = rows.filter(r => chamadasRegistroFilter === 'alterada' ? r.adjusted : !r.adjusted);
+    }
+    if (chamadasAnoLetivo) {
+        rows = rows.filter(r => String(r.anoLetivo) === String(chamadasAnoLetivo));
+    } else if (chamadasAnoSearch) {
+        rows = rows.filter(r => String(r.anoLetivo || '').includes(chamadasAnoSearch));
+    }
+
     chamadasCacheKey = key;
     chamadasCacheRows = rows;
     return { data: rows };
+}
+
+function bindChamadasSortHeaders() {
+    const panel = document.getElementById('admin-chamadas-panel');
+    if (!panel) return;
+    const headers = panel.querySelectorAll('th[data-sort]');
+    if (!headers.length) return;
+    headers.forEach(th => {
+        if (th.dataset.sortBound === '1') return;
+        th.dataset.sortBound = '1';
+        th.addEventListener('click', () => {
+            const key = th.dataset.sort;
+            if (!key) return;
+            if (chamadasSort.key === key) {
+                chamadasSort.dir = chamadasSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                chamadasSort.key = key;
+                chamadasSort.dir = key === 'data' ? 'desc' : 'asc';
+            }
+            updateChamadasSortIndicators(headers);
+            renderChamadasPanel({ silent: true });
+        });
+    });
+    updateChamadasSortIndicators(headers);
+}
+
+function updateChamadasSortIndicators(headers) {
+    headers.forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === chamadasSort.key) {
+            th.classList.add(chamadasSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+}
+
+function sortChamadas(list) {
+    const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+    const dir = chamadasSort.dir === 'desc' ? -1 : 1;
+    const getValue = (r) => {
+        switch (chamadasSort.key) {
+            case 'turma':
+                return r.turma || '';
+            case 'professor':
+                return r.professor || '';
+            case 'registro':
+                return r.adjusted ? 1 : 0;
+            case 'presencas':
+                return r.presentes || 0;
+            case 'justificadas':
+                return r.faltasJustificadas || 0;
+            case 'injustificadas':
+                return r.faltasInjustificadas || 0;
+            case 'hora':
+                return r.registradoEm ? new Date(r.registradoEm).getTime() : 0;
+            case 'data':
+            default:
+                return r.data || '';
+        }
+    };
+    return [...list].sort((a, b) => {
+        const valA = getValue(a);
+        const valB = getValue(b);
+        let cmp = 0;
+        if (typeof valA === 'number' || typeof valB === 'number') {
+            cmp = (Number(valA) || 0) - (Number(valB) || 0);
+        } else {
+            cmp = collator.compare(String(valA), String(valB));
+        }
+        if (cmp === 0) {
+            cmp = collator.compare(String(a.turma || ''), String(b.turma || ''));
+        }
+        return cmp * dir;
+    });
+}
+
+function fillChamadasExtraFilters() {
+    const turmaInput = document.getElementById('chamadas-turma-filter');
+    const turmaOptions = document.getElementById('chamadas-turma-options');
+    const anoInput = document.getElementById('chamadas-ano-filter');
+    const anoOptions = document.getElementById('chamadas-ano-options');
+    const registroInput = document.getElementById('chamadas-registro-filter');
+    if (turmaOptions) {
+        turmaOptions.innerHTML = '';
+        chamadasTurmaLookup = new Map();
+        state.turmasCache.forEach(t => {
+            const label = t.nome_turma || String(t.id);
+            turmaOptions.innerHTML += `<option value="${label}"></option>`;
+            if (label) chamadasTurmaLookup.set(label.trim().toLowerCase(), String(t.id));
+        });
+        if (turmaInput && chamadasTurmaSearch) turmaInput.value = chamadasTurmaSearch;
+    }
+    const turmaClear = document.getElementById('chamadas-turma-clear');
+    if (turmaClear) turmaClear.classList.toggle('hidden', !chamadasTurmaSearch);
+
+    if (anoOptions) {
+        anoOptions.innerHTML = '';
+        chamadasAnoLookup = new Map();
+        state.anosLetivosCache.forEach(ano => {
+            const label = String(ano);
+            anoOptions.innerHTML += `<option value="${label}"></option>`;
+            chamadasAnoLookup.set(label.trim().toLowerCase(), label);
+        });
+        if (anoInput && chamadasAnoSearch) anoInput.value = chamadasAnoSearch;
+    }
+    const anoClear = document.getElementById('chamadas-ano-clear');
+    if (anoClear) anoClear.classList.toggle('hidden', !chamadasAnoSearch);
+
+    if (registroInput) {
+        if (!chamadasRegistroLookup.size) {
+            chamadasRegistroLookup = new Map([
+                ['original', 'original'],
+                ['alterada', 'alterada']
+            ]);
+        }
+        if (chamadasRegistroSearch) registroInput.value = chamadasRegistroSearch;
+    }
+    const registroClear = document.getElementById('chamadas-registro-clear');
+    if (registroClear) registroClear.classList.toggle('hidden', !chamadasRegistroSearch);
+
+    // Popovers are opened by user action; no automatic visibility handling here.
+}
+
+export function toggleChamadasExtraFilter(filterKey) {
+    const wraps = document.querySelectorAll('#admin-chamadas-panel .filter-popover-wrap');
+    if (!wraps.length) return;
+    wraps.forEach(wrap => {
+        const popover = wrap.querySelector('.filter-popover');
+        if (!popover) return;
+        if (wrap.dataset.filter === filterKey) {
+            popover.classList.toggle('hidden');
+            if (!popover.classList.contains('hidden')) {
+                const input = popover.querySelector('input');
+                if (input) input.focus();
+            }
+        } else {
+            popover.classList.add('hidden');
+        }
+    });
+}
+
+export function closeChamadasFilterPopovers() {
+    document.querySelectorAll('#admin-chamadas-panel .filter-popover').forEach(pop => {
+        pop.classList.add('hidden');
+    });
 }
 
 function renderChamadasPagination(container, currentPage, totalPages) {
@@ -1792,9 +1961,45 @@ export function handleChamadasPageChange(page) {
     renderChamadasPanel();
 }
 
+export function handleChamadasTurmaFilterChange(value) {
+    const raw = (value || '').trim();
+    chamadasTurmaSearch = raw;
+    const normalized = raw.toLowerCase();
+    chamadasTurmaId = chamadasTurmaLookup.get(normalized) || '';
+    const clearBtn = document.getElementById('chamadas-turma-clear');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !raw);
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    renderChamadasPanel();
+}
+
+export function handleChamadasRegistroFilterChange(value) {
+    const raw = (value || '').trim();
+    chamadasRegistroSearch = raw;
+    const normalized = raw.toLowerCase();
+    chamadasRegistroFilter = chamadasRegistroLookup.get(normalized) || '';
+    const clearBtn = document.getElementById('chamadas-registro-clear');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !raw);
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    renderChamadasPanel();
+}
+
+export function handleChamadasAnoFilterChange(value) {
+    const raw = (value || '').trim();
+    chamadasAnoSearch = raw;
+    const normalized = raw.toLowerCase();
+    chamadasAnoLetivo = chamadasAnoLookup.get(normalized) || '';
+    const clearBtn = document.getElementById('chamadas-ano-clear');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !raw);
+    chamadasCurrentPage = 1;
+    chamadasCacheKey = '';
+    renderChamadasPanel();
+}
 export async function renderChamadasPanel() {
     ensureChamadasDefaults();
     fillChamadasProfessorFilter();
+    fillChamadasExtraFilters();
     updateChamadasPeriodoLabel();
     renderChamadasCalendar();
     const calendarPanel = document.getElementById('chamadas-calendar-panel');
@@ -1825,19 +2030,20 @@ export async function renderChamadasPanel() {
         return;
     }
 
-    const totalPages = Math.max(1, Math.ceil(data.length / CHAMADAS_ITEMS_PER_PAGE));
+    const sortedRows = sortChamadas(data);
+    const totalPages = Math.max(1, Math.ceil(sortedRows.length / CHAMADAS_ITEMS_PER_PAGE));
     if (chamadasCurrentPage > totalPages) chamadasCurrentPage = totalPages;
     const startIndex = (chamadasCurrentPage - 1) * CHAMADAS_ITEMS_PER_PAGE;
-    const pageRows = data.slice(startIndex, startIndex + CHAMADAS_ITEMS_PER_PAGE);
+    const pageRows = sortedRows.slice(startIndex, startIndex + CHAMADAS_ITEMS_PER_PAGE);
 
-    const totalPresencas = data.reduce((sum, r) => sum + r.presentes, 0);
-    const totalJustificadas = data.reduce((sum, r) => sum + r.faltasJustificadas, 0);
-    const totalInjustificadas = data.reduce((sum, r) => sum + r.faltasInjustificadas, 0);
+    const totalPresencas = sortedRows.reduce((sum, r) => sum + r.presentes, 0);
+    const totalJustificadas = sortedRows.reduce((sum, r) => sum + r.faltasJustificadas, 0);
+    const totalInjustificadas = sortedRows.reduce((sum, r) => sum + r.faltasInjustificadas, 0);
 
     if (summaryEl) {
         summaryEl.innerHTML = `
             <div class="flex flex-col gap-1">
-                <span><strong>${data.length}</strong> chamadas encontradas</span>
+                <span>Chamadas encontradas: <strong>${sortedRows.length}</strong></span>
                 <span>Presenças: <strong>${totalPresencas}</strong></span>
                 <span>Justificadas: <strong>${totalJustificadas}</strong></span>
                 <span>Injustificadas: <strong>${totalInjustificadas}</strong></span>
@@ -1845,7 +2051,10 @@ export async function renderChamadasPanel() {
         `;
     }
 
-    tableBody.innerHTML = pageRows.map(r => `
+    tableBody.innerHTML = pageRows.map(r => {
+        const statusLabel = r.adjusted ? 'Alterada' : 'Original';
+        const statusClass = r.adjusted ? 'chamada-stamp-adjusted' : 'chamada-stamp-original';
+        return `
         <tr class="border-t chamadas-log-row hover:bg-gray-50 cursor-pointer" data-chamada-date="${r.data}" data-chamada-turma-id="${r.turmaId}" data-chamada-prof-id="${r.professorId || ''}" data-chamada-turma="${r.turma}" data-chamada-professor="${r.professor}" data-chamada-ajustada="${r.adjusted ? '1' : '0'}">
             <td class="p-3">${formatChamadasDateDisplay(r.data)}</td>
             <td class="p-3">${r.turma}</td>
@@ -1853,41 +2062,38 @@ export async function renderChamadasPanel() {
                 <div class="font-medium">${r.professor}</div>
             </td>
             <td class="p-3">
-                <div class="flex flex-wrap gap-2 mb-1">
-                    <span class="chamada-stamp ${r.adjusted ? 'chamada-stamp-adjusted' : 'chamada-stamp-original'}">
-                        ${r.adjusted ? 'Ajustada' : 'Original'}
-                    </span>
+                <div class="registro-stack">
+                    <span class="chamada-stamp ${statusClass}">${statusLabel}</span>
                 </div>
-                <div class="text-xs text-gray-500">Feita por: ${r.professor}</div>
-                <div class="text-xs text-gray-500">Ajustes: ${r.adjustments.length}</div>
-                ${r.adjustments.length ? r.adjustments.map(a => `
-                    <div class="text-[11px] text-gray-400">${a.nome} • ${formatChamadasDateTimeDisplay(a.created_at)}</div>
-                `).join('') : ''}
             </td>
             <td class="p-3 text-center">${r.presentes}</td>
             <td class="p-3 text-center">${r.faltasJustificadas}</td>
             <td class="p-3 text-center">${r.faltasInjustificadas}</td>
             <td class="p-3 text-center">${formatChamadasTimeDisplay(r.registradoEm)}</td>
         </tr>
-    `).join('');
+    `;}).join('');
 
     renderChamadasPagination(document.getElementById('chamadas-pagination-top'), chamadasCurrentPage, totalPages);
     renderChamadasPagination(document.getElementById('chamadas-pagination-bottom'), chamadasCurrentPage, totalPages);
 
     emptyState.classList.add('hidden');
     if (resumoContainer) resumoContainer.classList.remove('hidden');
+    bindChamadasSortHeaders();
 }
 
 export async function openChamadaLogModal(payload) {
     const modal = document.getElementById('chamada-log-modal');
     const subtitle = document.getElementById('chamada-log-subtitle');
+    const subtitlePrint = document.getElementById('chamada-log-subtitle-print');
     const stamps = document.getElementById('chamada-log-stamps');
     const summary = document.getElementById('chamada-log-summary');
     const tableBody = document.getElementById('chamada-log-table-body');
     if (!modal || !subtitle || !stamps || !summary || !tableBody) return;
 
     const { date, turmaId, turmaName, professorId, professorName, adjusted } = payload;
-    subtitle.textContent = `${formatChamadasFullDateDisplay(date)} • Turma ${turmaName || turmaId || '-' } • ${professorName || 'Professor'}`;
+    const subtitleText = `${formatChamadasFullDateDisplay(date)} • Turma ${turmaName || turmaId || '-' } • ${professorName || 'Professor'}`;
+    subtitle.textContent = subtitleText;
+    if (subtitlePrint) subtitlePrint.textContent = subtitleText;
     stamps.innerHTML = `
         <span class="chamada-stamp chamada-stamp-original">Feita por: ${professorName || '-'}</span>
         <span class="chamada-stamp ${adjusted ? 'chamada-stamp-adjusted' : 'chamada-stamp-original'}">${adjusted ? 'Ajustada' : 'Sem ajuste'}</span>
@@ -2707,24 +2913,31 @@ export async function handleImprimirRelatorio(reportType) {
     const reportSelectors = {
         faltas: '#relatorio-resultados .printable-area',
         apoia: '#apoia-relatorio-resultados .printable-area',
-        historico: '#aluno-historico-modal .printable-area'
+        historico: '#aluno-historico-modal .printable-area',
+        chamada: '#chamada-log-modal .printable-area'
     };
-    const reportContent = document.querySelector(reportSelectors[reportType])?.innerHTML;
-    if (!reportContent) return;
+    const reportEl = document.querySelector(reportSelectors[reportType]);
+    if (!reportEl) return;
+    const reportHtml = reportEl.outerHTML || '';
+    if (!reportHtml.trim()) return;
     const schoolInfo = await getSchoolInfo();
     const schoolInfoLine = buildSchoolInfoLine(schoolInfo);
+    const reportTitle = reportType === 'chamada' ? 'Detalhes da Chamada' : 'Relatorio';
     const baseHref = window.location.href.split('#')[0];
+    const bodyContent = reportHtml.includes('printable-area')
+        ? reportHtml
+        : `<div class="printable-area">${reportHtml}</div>`;
     const html = `
         <html>
         <head>
-            <title>Relatorio</title>
+            <title>${reportTitle}</title>
             <base href="${baseHref}">
             <script src="https://cdn.tailwindcss.com"><\/script>
             <link rel="stylesheet" href="style.css">
             <style>body { font-family: 'Inter', sans-serif; }</style>
         </head>
         <body class="bg-gray-100 p-8">
-            <div class="printable-area">${reportContent}</div>
+            ${bodyContent}
         </body>
         </html>
     `;

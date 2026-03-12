@@ -60,17 +60,26 @@ GRANT USAGE, SELECT ON SEQUENCE public.enc_encaminhamentos_id_seq TO authenticat
 -- ===============================================================
 CREATE OR REPLACE FUNCTION public.is_admin(p_uid uuid)
 RETURNS boolean
-LANGUAGE sql
-SECURITY INVOKER
+LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
+DECLARE
+    v_exists boolean;
+BEGIN
     SELECT EXISTS (
         SELECT 1
-        FROM public.usuarios u
-        WHERE u.user_uid = p_uid
-          AND u.papel = 'admin'
-          AND u.status = 'ativo'
-    );
+        FROM public.admin_uids a
+        WHERE a.user_uid = p_uid
+    ) OR EXISTS (
+        SELECT 1
+        FROM public.suporte_uids s
+        WHERE s.user_uid = p_uid
+    )
+    INTO v_exists;
+    RETURN v_exists;
+END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO authenticated;
@@ -133,10 +142,26 @@ END $$;
 CREATE OR REPLACE FUNCTION public.sync_enc_cache()
 RETURNS void
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
 BEGIN
+    IF auth.uid() IS NULL THEN
+        PERFORM set_config(
+            'request.jwt.claim.sub',
+            COALESCE(
+                (SELECT a.user_uid::text FROM public.admin_uids a LIMIT 1),
+                (SELECT s.user_uid::text FROM public.suporte_uids s LIMIT 1)
+            ),
+            true
+        );
+    END IF;
+
+    IF auth.uid() IS NOT NULL AND NOT public.is_admin(auth.uid()) THEN
+        RAISE EXCEPTION 'Acesso negado';
+    END IF;
+
     -- Inserir alunos novos
     INSERT INTO public.enc_alunos (id, nome_completo, matricula, turma_id, nome_responsavel, telefone, status)
     SELECT a.id, a.nome_completo, a.matricula, a.turma_id, a.nome_responsavel, a.telefone, a.status
