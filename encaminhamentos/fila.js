@@ -414,47 +414,7 @@ async function ensureOcrBeforeRedirect(jobId, button) {
     if (!job) return;
     const fields = job.ocr_json?.fields || {};
     if (fields.estudante && fields.professor) return;
-    if (!job.storage_path) return;
-
-    const originalText = button?.textContent || '';
-    if (button) {
-        button.disabled = true;
-        button.textContent = 'Processando OCR...';
-        button.classList.add('opacity-50', 'cursor-not-allowed');
-    }
-
-    try {
-        const visionOcr = await runVisionOcrForJob(job);
-        if (!visionOcr) return;
-        const mergedFields = {
-            ...(job.ocr_json?.fields || {}),
-            ...(visionOcr?.fields || {})
-        };
-        const mergedOcr = {
-            ...(job.ocr_json || {}),
-            ...(visionOcr?.raw_text ? { raw_text: visionOcr.raw_text } : {}),
-            fields: mergedFields
-        };
-        const updatePayload = { ocr_json: mergedOcr };
-        if (mergedFields?.matricula) {
-            updatePayload.aluno_matricula = mergedFields.matricula;
-        }
-        await safeQuery(
-            db.from('enc_scan_jobs')
-                .update(updatePayload)
-                .eq('id', jobId)
-        );
-        job.ocr_json = mergedOcr;
-        if (mergedFields?.matricula) job.aluno_matricula = mergedFields.matricula;
-    } catch (err) {
-        console.warn('OCR Vision na seleção falhou:', err?.message || err);
-    } finally {
-        if (button) {
-            button.disabled = false;
-            button.textContent = originalText || 'Selecionar para cadastro';
-            button.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-    }
+    // Não bloqueia a navegação com OCR na seleção para manter o fluxo rápido.
 }
 
 let zoomScale = 1;

@@ -738,6 +738,7 @@ function findBestNameMatch(list, getName, ocrName) {
     const norm = normalizeText(ocrName || '');
     if (!norm) return null;
     const tokens = norm.split(' ').filter(t => t.length >= 2);
+    const lastToken = tokens.length ? tokens[tokens.length - 1] : '';
     let best = null;
     let bestScore = 0;
     let bestLen = Infinity;
@@ -745,6 +746,9 @@ function findBestNameMatch(list, getName, ocrName) {
     for (const item of list) {
         const candidate = normalizeText(getName(item) || '');
         if (!candidate) continue;
+        if (lastToken && lastToken.length >= 3 && !candidate.includes(lastToken)) {
+            continue;
+        }
         let score = 0;
         for (const token of tokens) {
             if (candidate.includes(token)) score += 1;
@@ -758,7 +762,8 @@ function findBestNameMatch(list, getName, ocrName) {
     }
 
     if (!best) return null;
-    if (tokens.length >= 2 && bestScore < Math.min(2, tokens.length)) return null;
+    const ratio = tokens.length ? bestScore / tokens.length : 0;
+    if (tokens.length >= 2 && (bestScore < 2 || ratio < 0.6)) return null;
     if (tokens.length === 1 && bestScore < 1) return null;
     return best;
 }
