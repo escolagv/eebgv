@@ -342,15 +342,27 @@ async function reprocessOcr(jobId, button) {
         const blob = await response.blob();
         const ocrJson = await runOcrFromBlob(blob);
         if (!ocrJson) throw new Error('OCR não retornou dados.');
-        const updatePayload = { ocr_json: ocrJson };
-        if (ocrJson.fields?.matricula) {
-            updatePayload.aluno_matricula = ocrJson.fields.matricula;
+        const visionOcr = await runVisionOcrForJob(job);
+        const mergedFields = {
+            ...(ocrJson.fields || {}),
+            ...(visionOcr?.fields || {})
+        };
+        const mergedOcr = {
+            ...ocrJson,
+            ...(visionOcr?.raw_text ? { raw_text: visionOcr.raw_text } : {}),
+            fields: mergedFields
+        };
+        const updatePayload = { ocr_json: mergedOcr };
+        if (mergedFields?.matricula) {
+            updatePayload.aluno_matricula = mergedFields.matricula;
         }
         await safeQuery(
             db.from('enc_scan_jobs')
                 .update(updatePayload)
                 .eq('id', jobId)
         );
+        job.ocr_json = mergedOcr;
+        if (mergedFields?.matricula) job.aluno_matricula = mergedFields.matricula;
         await loadQueue();
         alert('OCR reprocessado com sucesso.');
     } catch (err) {
@@ -364,14 +376,28 @@ async function reprocessOcr(jobId, button) {
     }
 }
 
+async function runVisionOcrForJob(job) {
+    if (!job?.storage_path) return null;
+    if (job?.ocr_json?.fields?.estudante && job?.ocr_json?.fields?.professor) return null;
+    try {
+        const { data, error } = await db.functions.invoke('enc_vision_ocr', {
+            body: { storage_path: job.storage_path }
+        });
+        if (error) throw error;
+        if (!data) return null;
+        return data;
+    } catch (err) {
+        console.warn('Falha no OCR Vision:', err?.message || err);
+        return null;
+    }
+}
+
 async function ensureOcrBeforeRedirect(jobId, button) {
     const job = state.jobs.find(item => String(item.id) === String(jobId));
     if (!job) return;
     const fields = job.ocr_json?.fields || {};
     if (fields.estudante && fields.professor) return;
-    if (!window.Tesseract) return;
-    const previewUrl = state.signedUrls.get(job.id);
-    if (!previewUrl) return;
+    if (!job.storage_path) return;
 
     const originalText = button?.textContent || '';
     if (button) {
@@ -381,26 +407,30 @@ async function ensureOcrBeforeRedirect(jobId, button) {
     }
 
     try {
-        const response = await fetch(previewUrl);
-        if (!response.ok) throw new Error('Falha ao baixar a imagem.');
-        const blob = await response.blob();
-        const ocrJson = await runOcrFromBlob(blob);
-        if (!ocrJson) throw new Error('OCR não retornou dados.');
-
-        const updatePayload = { ocr_json: ocrJson };
-        if (ocrJson.fields?.matricula) {
-            updatePayload.aluno_matricula = ocrJson.fields.matricula;
+        const visionOcr = await runVisionOcrForJob(job);
+        if (!visionOcr) return;
+        const mergedFields = {
+            ...(job.ocr_json?.fields || {}),
+            ...(visionOcr?.fields || {})
+        };
+        const mergedOcr = {
+            ...(job.ocr_json || {}),
+            ...(visionOcr?.raw_text ? { raw_text: visionOcr.raw_text } : {}),
+            fields: mergedFields
+        };
+        const updatePayload = { ocr_json: mergedOcr };
+        if (mergedFields?.matricula) {
+            updatePayload.aluno_matricula = mergedFields.matricula;
         }
         await safeQuery(
             db.from('enc_scan_jobs')
                 .update(updatePayload)
                 .eq('id', jobId)
         );
-
-        job.ocr_json = ocrJson;
-        if (ocrJson.fields?.matricula) job.aluno_matricula = ocrJson.fields.matricula;
+        job.ocr_json = mergedOcr;
+        if (mergedFields?.matricula) job.aluno_matricula = mergedFields.matricula;
     } catch (err) {
-        console.warn('OCR na seleção falhou:', err?.message || err);
+        console.warn('OCR Vision na seleção falhou:', err?.message || err);
     } finally {
         if (button) {
             button.disabled = false;
