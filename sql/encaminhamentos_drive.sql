@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.enc_scan_jobs (
     status text DEFAULT 'novo',
     storage_path text NOT NULL,
     mime_type text,
+    file_size_bytes bigint,
     created_at timestamptz DEFAULT now(),
     uploaded_by uuid,
     device_id text,
@@ -39,6 +40,9 @@ CREATE TABLE IF NOT EXISTS public.enc_scan_jobs (
     drive_url text,
     encaminhamento_id bigint
 );
+
+ALTER TABLE public.enc_scan_jobs
+    ADD COLUMN IF NOT EXISTS file_size_bytes bigint;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.enc_scan_jobs TO authenticated;
 

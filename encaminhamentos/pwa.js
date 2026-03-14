@@ -137,9 +137,13 @@ function resetCapture() {
 
 async function uploadBlob(blob, fileName) {
     if (!blob) return;
-    uploadStatus.textContent = 'Lendo documento...';
+    uploadStatus.textContent = 'Preparando imagem...';
     try {
-        const ocrJson = await runOcr(blob);
+        const prepared = await compressImageBlob(blob);
+        const uploadBlob = prepared || blob;
+        uploadStatus.textContent = 'Enviando...';
+        const sizeKb = Math.round((uploadBlob.size / 1024) * 10) / 10;
+        console.log('[PWA] Imagem enviada (KB):', sizeKb);
         uploadStatus.textContent = 'Enviando...';
         const now = new Date();
         const year = now.getFullYear();
@@ -149,7 +153,7 @@ async function uploadBlob(blob, fileName) {
 
         const { error: uploadError } = await db.storage
             .from('enc_temp')
-            .upload(path, blob, { contentType: blob.type || 'image/jpeg', upsert: false });
+            .upload(path, uploadBlob, { contentType: uploadBlob.type || 'image/jpeg', upsert: false });
 
         if (uploadError) throw uploadError;
 
@@ -158,9 +162,10 @@ async function uploadBlob(blob, fileName) {
             .insert({
                 status: 'novo',
                 storage_path: path,
-                mime_type: blob.type || 'image/jpeg',
+                mime_type: uploadBlob.type || 'image/jpeg',
+                file_size_bytes: uploadBlob.size || null,
                 device_id: deviceId,
-                ocr_json: ocrJson || null
+                ocr_json: null
             });
 
         if (jobError) throw jobError;
@@ -170,6 +175,34 @@ async function uploadBlob(blob, fileName) {
         if (fileInput) fileInput.value = '';
     } catch (err) {
         uploadStatus.textContent = err?.message || 'Falha ao enviar.';
+    }
+}
+
+async function compressImageBlob(blob) {
+    try {
+        const image = await createImageBitmap(blob);
+        const maxWidth = 1600;
+        const maxHeight = 1200;
+        let targetWidth = image.width;
+        let targetHeight = image.height;
+        const ratio = Math.min(1, maxWidth / targetWidth, maxHeight / targetHeight);
+        targetWidth = Math.round(targetWidth * ratio);
+        targetHeight = Math.round(targetHeight * ratio);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+        return await new Promise(resolve => {
+            canvas.toBlob((out) => {
+                resolve(out || blob);
+            }, 'image/jpeg', 0.75);
+        });
+    } catch (err) {
+        console.warn('Falha ao comprimir imagem:', err?.message || err);
+        return blob;
     }
 }
 

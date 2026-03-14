@@ -30,7 +30,7 @@ async function loadQueue() {
     try {
         const { data } = await safeQuery(
             db.from('enc_scan_jobs')
-                .select('id, status, storage_path, mime_type, created_at, device_id, drive_url, drive_file_id, encaminhamento_id, aluno_matricula, ocr_json')
+                .select('id, status, storage_path, mime_type, file_size_bytes, created_at, device_id, drive_url, drive_file_id, encaminhamento_id, aluno_matricula, ocr_json')
                 .order('created_at', { ascending: false })
         );
         const allJobs = data || [];
@@ -216,6 +216,7 @@ function renderQueue() {
         const previewHtml = preview
             ? `<img src="${preview}" data-url="${preview}" data-aluno="${alunoNome || ''}" data-professor="${profNome || ''}" data-matricula="${matriculaValue || ''}" data-data="${created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
             : `<div class="w-full h-40 flex items-center justify-center bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-400">Sem prévia</div>`;
+        const sizeLabel = formatFileSize(job.file_size_bytes);
         return `
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
                 ${previewHtml}
@@ -223,6 +224,7 @@ function renderQueue() {
                     <span>Enviado em: ${created}</span>
                     <span>Status: <strong class="text-gray-700">${status}</strong></span>
                 </div>
+                ${sizeLabel ? `<div class="text-[11px] text-gray-500">Tamanho: <span class="font-semibold text-gray-700">${sizeLabel}</span></div>` : ''}
                 <div class="text-xs text-gray-500">Matrícula: <span class="font-semibold text-gray-700">${matriculaValue || '-'}</span></div>
                 <div class="text-xs text-gray-600">Aluno: <span class="font-semibold text-gray-800">${alunoNome || '-'}</span></div>
                 <div class="text-xs text-gray-600">Professor: <span class="font-semibold text-gray-800">${profNome || '-'}</span></div>
@@ -304,6 +306,16 @@ function renderQueueError() {
     const list = document.getElementById('queue-list');
     if (!list) return;
     list.innerHTML = '<p class="text-sm text-red-600">Erro ao carregar a fila. Tente novamente.</p>';
+}
+
+function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+    if (!size || size <= 0) return '';
+    if (size < 1024) return `${size} B`;
+    const kb = size / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    return `${mb.toFixed(2)} MB`;
 }
 
 async function reprocessOcr(jobId, button) {

@@ -595,7 +595,7 @@ async function loadScanJobFromParams() {
     try {
         const { data: job } = await safeQuery(
             db.from('enc_scan_jobs')
-                .select('id, status, storage_path, mime_type, created_at, device_id, aluno_matricula, ocr_json, drive_url, drive_file_id, encaminhamento_id')
+                .select('id, status, storage_path, mime_type, file_size_bytes, created_at, device_id, aluno_matricula, ocr_json, drive_url, drive_file_id, encaminhamento_id')
                 .eq('id', scanId)
                 .single()
         );
@@ -787,7 +787,8 @@ function showScanPreview(job, url) {
 
     const created = job?.created_at ? formatDateTimeSP(job.created_at) : '-';
     const status = job?.status || 'novo';
-    meta.textContent = `Enviado em ${created} • Status ${status}`;
+    const sizeLabel = formatFileSize(job?.file_size_bytes);
+    meta.textContent = `Enviado em ${created} • Status ${status}${sizeLabel ? ` • ${sizeLabel}` : ''}`;
     if (driveMeta) {
         driveMeta.textContent = job?.drive_url ? 'Drive: disponível' : 'Drive: não disponível';
     }
@@ -795,8 +796,7 @@ function showScanPreview(job, url) {
     if (clearBtn) {
         const isEditing = !!document.getElementById('editId')?.value;
         const isLinked = job?.status === 'vinculado' || !!job?.encaminhamento_id;
-        const cameFromQueue = !!job?.id;
-        clearBtn.classList.toggle('hidden', isEditing || isLinked || cameFromQueue);
+        clearBtn.classList.toggle('hidden', isEditing || isLinked || !job?.id);
     }
 
     if (missing) missing.classList.add('hidden');
@@ -817,7 +817,8 @@ function showScanPreview(job, url) {
 
     container.classList.remove('hidden');
     if (clearBtn) {
-        clearBtn.onclick = () => {
+        clearBtn.onclick = async () => {
+            await deleteScanJobIfPossible();
             clearScanPreview();
             const params = new URLSearchParams(window.location.search);
             params.delete('scanId');
@@ -851,6 +852,20 @@ function clearScanPreview() {
     }
 }
 
+async function deleteScanJobIfPossible() {
+    if (!state.scanJob?.id) return;
+    if (state.scanJob.status === 'vinculado' || state.scanJob.encaminhamento_id) return;
+    const storagePath = state.scanJob.storage_path;
+    try {
+        if (storagePath) {
+            await db.storage.from('enc_temp').remove([storagePath]);
+        }
+        await safeQuery(db.from('enc_scan_jobs').delete().eq('id', state.scanJob.id));
+    } catch (err) {
+        console.warn('Falha ao excluir scan pendente:', err?.message || err);
+    }
+}
+
 function showMissingScanPrompt() {
     const missing = document.getElementById('scan-missing');
     const addBtn = document.getElementById('scan-add-btn');
@@ -875,7 +890,7 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
     try {
         const { data } = await safeQuery(
             db.from('enc_scan_jobs')
-                .select('id, status, storage_path, mime_type, created_at, drive_url, drive_file_id, encaminhamento_id')
+                .select('id, status, storage_path, mime_type, file_size_bytes, created_at, drive_url, drive_file_id, encaminhamento_id')
                 .eq('encaminhamento_id', encaminhamentoId)
                 .order('created_at', { ascending: false })
                 .limit(1)
@@ -887,6 +902,19 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
         }
         state.scanJob = job;
         if (job.drive_file_id) {
+            if (job.storage_path) {
+                try {
+                    await db.storage.from('enc_temp').remove([job.storage_path]);
+                    await safeQuery(
+                        db.from('enc_scan_jobs')
+                            .update({ storage_path: null })
+                            .eq('id', job.id)
+                    );
+                    job.storage_path = null;
+                } catch (err) {
+                    console.warn('Falha ao limpar storage antigo:', err?.message || err);
+                }
+            }
             state.scanUrl = buildDriveImageUrl(job.drive_file_id);
             showScanPreview(job, state.scanUrl);
             return;
@@ -917,6 +945,7 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
             data_encaminhamento: dataEncaminhamento,
             mime_type: state.scanJob.mime_type || 'image/jpeg'
         };
+        const storagePath = state.scanJob.storage_path;
         const { data, error } = await db.functions.invoke('enc_drive_upload', { body: payload });
         if (error) throw error;
         const driveUrl = data?.webViewLink || data?.drive_url || '';
@@ -927,17 +956,21 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
                     drive_url: driveUrl || null,
                     drive_file_id: driveFileId || null,
                     status: 'vinculado',
-                    encaminhamento_id: encaminhamentoId
+                    encaminhamento_id: encaminhamentoId,
+                    storage_path: null
                 })
                 .eq('id', state.scanJob.id)
         );
-        await db.storage.from('enc_temp').remove([state.scanJob.storage_path]);
+        if (storagePath) {
+            await db.storage.from('enc_temp').remove([storagePath]);
+        }
         state.scanJob = {
             ...state.scanJob,
             drive_url: driveUrl,
             drive_file_id: driveFileId,
             status: 'vinculado',
-            encaminhamento_id: encaminhamentoId
+            encaminhamento_id: encaminhamentoId,
+            storage_path: null
         };
         if (driveFileId) {
             state.scanUrl = buildDriveImageUrl(driveFileId);
@@ -1012,6 +1045,16 @@ function printScanImage(url) {
         </html>
     `);
     printWindow.document.close();
+}
+
+function formatFileSize(bytes) {
+    const size = Number(bytes || 0);
+    if (!size || size <= 0) return '';
+    if (size < 1024) return `${size} B`;
+    const kb = size / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    return `${mb.toFixed(2)} MB`;
 }
 
 function initScanZoomControls() {
