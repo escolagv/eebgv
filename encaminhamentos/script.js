@@ -168,6 +168,7 @@ async function loadApp(user, profile) {
 
     await syncEncCache();
     await loadCaches();
+    initNameSearchInputs();
     await loadScanJobFromParams();
     checkEditMode();
     startSyncTimer();
@@ -228,6 +229,50 @@ async function loadCaches() {
 
     populateSelects();
     refreshSearchLists();
+}
+
+function initNameSearchInputs() {
+    const estudantes = (state.alunos || [])
+        .filter(a => a?.status !== 'inativo')
+        .map(a => a?.nome_completo || '')
+        .filter(Boolean);
+    const professores = (state.professores || [])
+        .filter(p => p?.status !== 'inativo')
+        .map(p => p?.nome || '')
+        .filter(Boolean);
+    const registrados = [state.profile?.nome, state.currentUser?.email].filter(Boolean);
+
+    setupNameSearchInput('search-estudante', 'search-estudante-options', 'search-estudante-clear', estudantes);
+    setupNameSearchInput('search-professor', 'search-professor-options', 'search-professor-clear', professores);
+    setupNameSearchInput('search-registrado', 'search-registrado-options', 'search-registrado-clear', registrados);
+}
+
+function setupNameSearchInput(inputId, listId, clearId, options) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    const clearBtn = document.getElementById(clearId);
+    if (!input || !list || !clearBtn) return;
+
+    list.innerHTML = '';
+    const uniqueOptions = Array.from(new Set(options)).sort((a, b) => a.localeCompare(b));
+    uniqueOptions.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        list.appendChild(option);
+    });
+
+    const toggleClear = () => {
+        clearBtn.classList.toggle('hidden', !input.value);
+    };
+
+    clearBtn.addEventListener('click', () => {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        toggleClear();
+    });
+
+    input.addEventListener('input', toggleClear);
+    toggleClear();
 }
 
 function populateSelects() {

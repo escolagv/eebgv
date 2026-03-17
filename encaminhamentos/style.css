@@ -54,6 +54,29 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     color: #111827;
 }
 
+.name-clear-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    border: 1px solid #d1d5db;
+    color: #6b7280;
+    background: #fff;
+    font-size: 0.9rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.name-clear-btn:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
 .nav-link-active {
     color: #1d4ed8;
     font-weight: 700;
