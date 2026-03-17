@@ -82,6 +82,8 @@ footer {
     margin-bottom: 12mm;
     page-break-inside: avoid;
     page-break-after: always;
+    display: flex;
+    flex-direction: column;
 }
 
 .record-card:last-child {
@@ -114,8 +116,8 @@ footer {
 
 .report-double .record-card {
     margin-bottom: 0;
-    padding: 3.5mm;
-    font-size: 8pt;
+    padding: 3mm;
+    font-size: 7.6pt;
     page-break-after: auto;
     break-after: auto;
     page-break-inside: avoid;
@@ -125,13 +127,13 @@ footer {
 }
 
 .report-double .ficha-field {
-    font-size: 8pt;
-    margin: 1.5mm 0;
+    font-size: 7.4pt;
+    margin: 1mm 0;
 }
 
 .report-double .checkbox-line {
-    font-size: 8pt;
-    margin: 1mm 0;
+    font-size: 7.2pt;
+    margin: 0.8mm 0;
 }
 
 .report-double .ficha-header {
@@ -140,17 +142,17 @@ footer {
 
 .report-double .ficha-title,
 .report-double .ficha-subtitle {
-    font-size: 10pt;
+    font-size: 9pt;
 }
 
 .report-double .section-title {
-    font-size: 8.5pt;
-    margin-bottom: 2mm;
+    font-size: 7.6pt;
+    margin-bottom: 1.5mm;
 }
 
 .report-double .line-block {
-    min-height: 3.5mm;
-    margin: 1mm 0;
+    min-height: 3mm;
+    margin: 0.8mm 0;
 }
 
 .report-double .signature-placeholder {
@@ -158,12 +160,34 @@ footer {
 }
 
 .report-double .ficha-section {
-    margin-top: 2.5mm;
+    margin-top: 2mm;
+}
+
+.report-double .print-stamp {
+    font-size: 6.6pt;
+    margin-top: 1.5mm;
+    padding-top: 0.8mm;
 }
 
 .ficha-header {
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4mm;
     margin-bottom: 6mm;
+    text-align: center;
+}
+
+.ficha-logo img {
+    width: 12mm;
+    height: 12mm;
+    object-fit: contain;
+}
+
+.ficha-header-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .ficha-title {
@@ -223,4 +247,18 @@ footer {
 .report-single .record-card {
     padding: 6mm;
     margin-bottom: 0;
+}
+
+.print-stamp {
+    margin-top: auto;
+    font-size: 7.5pt;
+    color: #333;
+    text-align: right;
+    border-top: 1px solid #000;
+    padding-top: 1mm;
+}
+
+.report-double .ficha-logo img {
+    width: 9mm;
+    height: 9mm;
 }

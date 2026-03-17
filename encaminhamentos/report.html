@@ -137,6 +137,7 @@
                 "Solicitar comparecimento do responsável na escola",
                 "Advertência"
             ];
+            const stampText = new Date().toLocaleString('pt-BR');
 
             let reportHTML = '';
             const renderCard = (item) => {
@@ -150,8 +151,13 @@
                 return `
                     <div class="record-card">
                         <div class="ficha-header">
-                            <div class="ficha-title">E.E.B GETÚLIO VARGAS</div>
-                            <div class="ficha-subtitle">FICHA DE ENCAMINHAMENTO</div>
+                            <div class="ficha-logo">
+                                <img src="../apoia/logo.png" alt="Logo EEBGV">
+                            </div>
+                            <div class="ficha-header-text">
+                                <div class="ficha-title">E.E.B GETÚLIO VARGAS</div>
+                                <div class="ficha-subtitle">FICHA DE ENCAMINHAMENTO</div>
+                            </div>
                         </div>
                         <div class="ficha-field"><strong>CÓDIGO:</strong> ${item.codigo || ''}</div>
                         <div class="ficha-field"><strong>PROFESSOR(A):</strong> ${item.professor_nome || ''}</div>
@@ -202,6 +208,8 @@
                             <div class="ficha-field"><strong>Data das diligências:</strong> ____ / ____ / ______</div>
                             <div class="signature-placeholder">Assinatura da orientadora (será adicionada)</div>
                         </div>
+
+                        <div class="print-stamp">Relatório de encaminhamento • ${stampText}</div>
                     </div>
                 `;
             };
