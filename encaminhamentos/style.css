@@ -156,6 +156,45 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     margin-bottom: 0;
 }
 
+@media (max-height: 900px) {
+    main > .p-6 {
+        padding: 1rem;
+    }
+
+    .enc-card {
+        max-height: calc(100vh - 110px);
+        padding: 1rem;
+    }
+
+    .enc-card-body {
+        padding-top: 0.5rem;
+    }
+
+    .enc-sticky-header {
+        padding-bottom: 0.5rem;
+    }
+
+    #results-table th,
+    #results-table td {
+        padding: 0.6rem;
+    }
+
+    .table-scroll {
+        max-height: calc(100vh - 280px);
+    }
+}
+
+@media (max-height: 800px) {
+    .enc-card {
+        max-height: calc(100vh - 90px);
+        padding: 0.9rem;
+    }
+
+    .table-scroll {
+        max-height: calc(100vh - 250px);
+    }
+}
+
 .pagination-btn {
     padding: 0.4rem 0.75rem;
     border-radius: 0.5rem;

@@ -180,7 +180,6 @@
                     </nav>
                     <div class="p-4 border-t border-gray-700 space-y-4">
                         <div class="text-xs text-center text-gray-400">
-                            <img src="./qr_code_altnix.png" alt="QR Code Altnix" class="h-16 mx-auto mb-2">
                             <p>Desenvolvido por:</p>
                             <p>Cristian Berão - Altnix Tecnologia</p>
                             <p>WhatsApp: (48) 99100-4780</p>
@@ -923,13 +922,21 @@
     </div>
 
     <div id="support-qr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center relative">
-            <button type="button" id="support-qr-close" class="absolute right-3 top-3 text-gray-500 hover:text-gray-700" aria-label="Fechar">✕</button>
-            <h3 class="text-lg font-bold text-gray-900 mb-2">Suporte Técnico</h3>
-            <img src="./qr_code_altnix.png" alt="QR Code Suporte" class="h-48 w-48 mx-auto mb-3">
-            <a id="support-whats-link" href="https://wa.me/5548991004780" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline">
-                https://wa.me/5548991004780
-            </a>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-700 text-white flex items-center justify-between">
+                <h3 class="text-base font-semibold">Suporte Técnico</h3>
+                <button type="button" id="support-qr-close" class="text-white/80 hover:text-white" aria-label="Fechar">✕</button>
+            </div>
+            <div class="p-6 text-center">
+                <div class="mx-auto w-48 h-48 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-center">
+                    <img src="./qr_code_altnix.png" alt="QR Code Suporte" class="h-40 w-40">
+                </div>
+                <p class="text-xs text-slate-500 mt-3">Aponte a câmera para abrir o WhatsApp</p>
+                <a id="support-whats-link" href="https://wa.me/5548991004780" target="_blank" rel="noopener" class="mt-3 inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-full hover:bg-blue-700">
+                    Abrir no WhatsApp
+                </a>
+                <div class="mt-2 text-xs text-slate-500">https://wa.me/5548991004780</div>
+            </div>
         </div>
     </div>
 
