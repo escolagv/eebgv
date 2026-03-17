@@ -131,6 +131,14 @@ footer {
     margin: 1mm 0;
 }
 
+.report-double .ficha-field.student {
+    font-size: 8.2pt;
+}
+
+.report-double .ficha-field.turma {
+    font-size: 6.6pt;
+}
+
 .report-double .checkbox-line {
     font-size: 7.2pt;
     margin: 0.8mm 0;
@@ -183,6 +191,10 @@ footer {
     font-size: 7.2pt;
 }
 
+.report-double .checkbox-value {
+    min-width: 16mm;
+}
+
 .ficha-header {
     display: flex;
     align-items: center;
@@ -233,6 +245,14 @@ footer {
     flex: 1 1 0;
 }
 
+.ficha-field.student {
+    font-size: 10.5pt;
+}
+
+.ficha-field.turma {
+    font-size: 8.5pt;
+}
+
 .ficha-section {
     margin-top: 4mm;
 }
@@ -280,6 +300,13 @@ footer {
 
 .checkbox-label {
     font-weight: 700;
+}
+
+.checkbox-value {
+    font-weight: 700;
+    min-width: 22mm;
+    border-bottom: 1px solid #000;
+    padding-bottom: 0.5mm;
 }
 
 .line-block {
