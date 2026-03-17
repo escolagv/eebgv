@@ -922,7 +922,43 @@
         </div>
     </div>
 
+    <div id="support-qr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 text-center relative">
+            <button type="button" id="support-qr-close" class="absolute right-3 top-3 text-gray-500 hover:text-gray-700" aria-label="Fechar">✕</button>
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Suporte Técnico</h3>
+            <img src="./qr_code_altnix.png" alt="QR Code Suporte" class="h-48 w-48 mx-auto mb-3">
+            <a id="support-whats-link" href="https://wa.me/5548991004780" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline">
+                https://wa.me/5548991004780
+            </a>
+        </div>
+    </div>
+
     <script type="module" src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const supportModal = document.getElementById('support-qr-modal');
+            const closeBtn = document.getElementById('support-qr-close');
+            const openLinks = [
+                document.getElementById('support-link-prof'),
+                document.getElementById('support-link-admin')
+            ].filter(Boolean);
+
+            const openModal = (event) => {
+                event?.preventDefault();
+                supportModal?.classList.remove('hidden');
+            };
+
+            const closeModal = () => {
+                supportModal?.classList.add('hidden');
+            };
+
+            openLinks.forEach(link => link.addEventListener('click', openModal));
+            closeBtn?.addEventListener('click', closeModal);
+            supportModal?.addEventListener('click', (event) => {
+                if (event.target === supportModal) closeModal();
+            });
+        });
+    </script>
 </body>
 </html>
 

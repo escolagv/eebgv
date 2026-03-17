@@ -127,6 +127,7 @@ footer {
     height: auto;
     box-sizing: border-box;
     align-self: start;
+    line-height: 1.15;
 }
 
 .report-double .ficha-field {
@@ -166,8 +167,8 @@ footer {
 }
 
 .report-double .line-block {
-    min-height: 3mm;
-    margin: 0.8mm 0;
+    min-height: 1.8mm;
+    margin: 0.4mm 0;
 }
 
 .report-double .signature-placeholder {
@@ -175,13 +176,13 @@ footer {
 }
 
 .report-double .ficha-section {
-    margin-top: 2mm;
+    margin-top: 1.2mm;
 }
 
 .report-double .print-stamp {
     font-size: 6.6pt;
-    margin-top: 1.5mm;
-    padding-top: 0.8mm;
+    margin-top: 0.6mm;
+    padding-top: 0.5mm;
 }
 
 .report-double .checkbox-group.two-cols {
