@@ -150,6 +150,10 @@ footer {
     margin-bottom: 1.5mm;
 }
 
+.report-double .section-title-compact {
+    font-size: 7.2pt;
+}
+
 .report-double .line-block {
     min-height: 3mm;
     margin: 0.8mm 0;
@@ -167,6 +171,16 @@ footer {
     font-size: 6.6pt;
     margin-top: 1.5mm;
     padding-top: 0.8mm;
+}
+
+.report-double .checkbox-group.two-cols {
+    column-gap: 4mm;
+}
+
+.report-double .checkbox-group.inline,
+.report-double .checkbox-row {
+    gap: 4mm;
+    font-size: 7.2pt;
 }
 
 .ficha-header {
@@ -210,6 +224,15 @@ footer {
     border-bottom: 1px solid #000;
 }
 
+.ficha-row {
+    display: flex;
+    gap: 4mm;
+}
+
+.ficha-field.half {
+    flex: 1 1 0;
+}
+
 .ficha-section {
     margin-top: 4mm;
 }
@@ -220,6 +243,11 @@ footer {
     margin-bottom: 2mm;
 }
 
+.section-title-compact {
+    font-size: 8.5pt;
+    line-height: 1.1;
+}
+
 .checkbox-group {
     margin: 2mm 0;
 }
@@ -227,6 +255,31 @@ footer {
 .checkbox-line {
     font-size: 9pt;
     margin: 1mm 0;
+}
+
+.checkbox-group.two-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 6mm;
+}
+
+.checkbox-group.inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6mm;
+}
+
+.checkbox-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5mm;
+    align-items: center;
+    margin: 1mm 0;
+    font-size: 9pt;
+}
+
+.checkbox-label {
+    font-weight: 700;
 }
 
 .line-block {

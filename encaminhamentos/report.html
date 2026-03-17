@@ -148,6 +148,7 @@
                 const outrosAcoes = acoes.find(m => m.startsWith('Outros:')) || '';
                 const outrosProvidencias = providencias.find(m => m.startsWith('Outros:')) || '';
 
+                const registradoPor = item.registrado_por_nome || item.registrado_por || item.registrado_por_uid || '';
                 return `
                     <div class="record-card">
                         <div class="ficha-header">
@@ -159,15 +160,19 @@
                                 <div class="ficha-subtitle">FICHA DE ENCAMINHAMENTO</div>
                             </div>
                         </div>
-                        <div class="ficha-field"><strong>CÓDIGO:</strong> ${item.codigo || ''}</div>
+                        <div class="ficha-row">
+                            <div class="ficha-field half"><strong>CÓDIGO:</strong> ${item.codigo || ''}</div>
+                            <div class="ficha-field half"><strong>DATA:</strong> ${item.data_encaminhamento || ''}</div>
+                        </div>
                         <div class="ficha-field"><strong>PROFESSOR(A):</strong> ${item.professor_nome || ''}</div>
-                        <div class="ficha-field"><strong>ESTUDANTE:</strong> ${item.aluno_nome || ''}</div>
-                        <div class="ficha-field"><strong>TURMA:</strong> ${item.turma_nome || ''}</div>
-                        <div class="ficha-field"><strong>DATA:</strong> ${item.data_encaminhamento || ''}</div>
+                        <div class="ficha-row">
+                            <div class="ficha-field half"><strong>ESTUDANTE:</strong> ${item.aluno_nome || ''}</div>
+                            <div class="ficha-field half"><strong>TURMA:</strong> ${item.turma_nome || ''}</div>
+                        </div>
 
                         <div class="ficha-section">
-                            <div class="section-title">O estudante acima citado foi direcionado à orientação educacional pelo(s) seguinte(s) motivo(s):</div>
-                            <div class="checkbox-group">
+                            <div class="section-title section-title-compact">O estudante acima citado foi direcionado à orientação educacional pelo(s) seguinte(s) motivo(s):</div>
+                            <div class="checkbox-group two-cols">
                                 ${motivosBase.map(m => checkbox(m, motivos.includes(m))).join('')}
                                 ${checkbox('Outros', !!outrosMotivo)}
                             </div>
@@ -177,7 +182,7 @@
 
                         <div class="ficha-section">
                             <div class="section-title">Encaminhamentos realizados na orientação/coordenação</div>
-                            <div class="checkbox-group">
+                            <div class="checkbox-group two-cols">
                                 ${acoesBase.map(m => checkbox(m, acoes.includes(m))).join('')}
                             ${checkbox('Outros', !!outrosAcoes)}
                             </div>
@@ -185,16 +190,17 @@
                             <div class="ficha-field"><strong>RESPONSÁVEL:</strong> ${item.responsavel_nome || ''}</div>
                             <div class="ficha-field"><strong>TELEFONE:</strong> ${item.numero_telefone || ''}</div>
                             <div class="ficha-field"><strong>HORÁRIO DO CONTATO:</strong> ${item.horario_ligacao || ''}</div>
-                            <div class="checkbox-group">
+                            <div class="checkbox-group inline">
                                 ${checkbox('Atendeu', item.status_ligacao === 'Atendeu')}
                                 ${checkbox('Não atendeu', item.status_ligacao === 'Não atendeu')}
                             </div>
-                            <div class="checkbox-group">
-                                ${checkbox('Mensagem via WhatsApp', !!item.whatsapp_enviado)}
+                            <div class="checkbox-row">
+                                <span class="checkbox-label">Mensagem via WhatsApp:</span>
+                                ${checkbox('Enviada', !!item.whatsapp_enviado)}
                                 ${checkbox('Respondeu', item.whatsapp_status === 'Respondeu')}
                                 ${checkbox('Não respondeu', item.whatsapp_status === 'Não respondeu')}
                             </div>
-                            <div class="checkbox-group">
+                            <div class="checkbox-group two-cols">
                                 ${providenciasBase.map(m => checkbox(m, providencias.includes(m))).join('')}
                                 ${checkbox('Outros', !!outrosProvidencias)}
                             </div>
@@ -204,12 +210,10 @@
 
                         <div class="ficha-section">
                             <div class="ficha-field"><strong>Orientação / Coordenação:</strong> ____________________________________________</div>
-                            <div class="ficha-field"><strong>Assinatura do responsável:</strong> ____________________________________________</div>
                             <div class="ficha-field"><strong>Data das diligências:</strong> ____ / ____ / ______</div>
-                            <div class="signature-placeholder">Assinatura da orientadora (será adicionada)</div>
                         </div>
 
-                        <div class="print-stamp">Relatório de encaminhamento • ${stampText}</div>
+                        <div class="print-stamp">Relatório de encaminhamento • ${stampText}${registradoPor ? ` • Registrado por: ${registradoPor}` : ''}</div>
                     </div>
                 `;
             };
