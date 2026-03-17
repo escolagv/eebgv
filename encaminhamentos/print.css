@@ -95,11 +95,33 @@ footer {
     page-break-after: always;
 }
 
+.report-double header,
+.report-double footer {
+    display: none;
+}
+
+.report-double .report-container {
+    padding: 0;
+}
+
+.report-double .two-up-page {
+    page-break-after: always;
+    page-break-inside: avoid;
+    break-after: page;
+    break-inside: avoid;
+    min-height: 186mm;
+}
+
 .report-double .record-card {
     margin-bottom: 0;
-    padding: 4mm;
+    padding: 3.5mm;
     font-size: 8pt;
     page-break-after: auto;
+    break-after: auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .report-double .ficha-field {
@@ -113,7 +135,7 @@ footer {
 }
 
 .report-double .ficha-header {
-    margin-bottom: 3mm;
+    margin-bottom: 2mm;
 }
 
 .report-double .ficha-title,
@@ -127,12 +149,16 @@ footer {
 }
 
 .report-double .line-block {
-    min-height: 4mm;
-    margin: 1.5mm 0;
+    min-height: 3.5mm;
+    margin: 1mm 0;
 }
 
 .report-double .signature-placeholder {
-    margin-top: 3mm;
+    margin-top: 2mm;
+}
+
+.report-double .ficha-section {
+    margin-top: 2.5mm;
 }
 
 .ficha-header {
