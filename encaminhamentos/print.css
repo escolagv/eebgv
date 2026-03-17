@@ -111,13 +111,13 @@ footer {
     page-break-inside: avoid;
     break-after: page;
     break-inside: avoid;
-    min-height: 186mm;
+    min-height: 194mm;
 }
 
 .report-double .record-card {
     margin-bottom: 0;
-    padding: 3mm;
-    font-size: 7.6pt;
+    padding: 2.5mm;
+    font-size: 7.2pt;
     page-break-after: auto;
     break-after: auto;
     page-break-inside: avoid;
@@ -127,8 +127,8 @@ footer {
 }
 
 .report-double .ficha-field {
-    font-size: 7.4pt;
-    margin: 1mm 0;
+    font-size: 7.1pt;
+    margin: 0.8mm 0;
 }
 
 .report-double .ficha-field.student {
@@ -140,12 +140,12 @@ footer {
 }
 
 .report-double .checkbox-line {
-    font-size: 7.2pt;
-    margin: 0.8mm 0;
+    font-size: 7pt;
+    margin: 0.6mm 0;
 }
 
 .report-double .ficha-header {
-    margin-bottom: 2mm;
+    margin-bottom: 1.5mm;
 }
 
 .report-double .ficha-title,
@@ -154,17 +154,17 @@ footer {
 }
 
 .report-double .section-title {
-    font-size: 7.6pt;
-    margin-bottom: 1.5mm;
+    font-size: 7.2pt;
+    margin-bottom: 1.2mm;
 }
 
 .report-double .section-title-compact {
-    font-size: 7.2pt;
+    font-size: 6.9pt;
 }
 
 .report-double .line-block {
-    min-height: 3mm;
-    margin: 0.8mm 0;
+    min-height: 2.5mm;
+    margin: 0.6mm 0;
 }
 
 .report-double .signature-placeholder {
@@ -172,13 +172,13 @@ footer {
 }
 
 .report-double .ficha-section {
-    margin-top: 2mm;
+    margin-top: 1.6mm;
 }
 
 .report-double .print-stamp {
-    font-size: 6.6pt;
-    margin-top: 1.5mm;
-    padding-top: 0.8mm;
+    font-size: 6.4pt;
+    margin-top: 1mm;
+    padding-top: 0.6mm;
 }
 
 .report-double .checkbox-group.two-cols {
@@ -187,12 +187,12 @@ footer {
 
 .report-double .checkbox-group.inline,
 .report-double .checkbox-row {
-    gap: 4mm;
-    font-size: 7.2pt;
+    gap: 3mm;
+    font-size: 7pt;
 }
 
 .report-double .checkbox-value {
-    min-width: 16mm;
+    min-width: 14mm;
 }
 
 .ficha-header {
