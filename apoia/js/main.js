@@ -38,6 +38,8 @@ import {
     openDeleteConfirmModal,
     handleConfirmDelete,
     handleResetPassword,
+    handleResendProfessorConfirmation,
+    handlePrintProfessorConsultaActiveTab,
     openAssiduidadeModal,
     handleChamadasCalendarSelect,
     handleChamadasCalendarNav,
@@ -489,7 +491,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('.historico-aluno-btn')) openAlunoHistoricoModal(closest('.historico-aluno-btn').dataset.id);
         if (closest('#add-professor-btn')) openProfessorModal();
         if (closest('#professor-consulta-btn')) openProfessorConsultaModal();
+        if (closest('#professor-consulta-print-btn')) handlePrintProfessorConsultaActiveTab();
         if (closest('.edit-professor-btn')) openProfessorModal(closest('.edit-professor-btn').dataset.id);
+        if (closest('.resend-confirmation-btn')) {
+            const btn = closest('.resend-confirmation-btn');
+            handleResendProfessorConfirmation(
+                btn.dataset.email,
+                btn.dataset.phone || '',
+                btn.dataset.name || ''
+            );
+        }
         if (closest('#open-appprof-modal-btn')) {
             const modal = document.getElementById('appprof-modal');
             const iframe = document.getElementById('appprof-iframe');

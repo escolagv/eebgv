@@ -617,16 +617,20 @@
         <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 modal-scroll">
             <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
                 <h3 class="text-xl font-bold">Consulta de Cadastros</h3>
-                <button type="button" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 cancel-modal-btn">Fechar</button>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="professor-consulta-print-btn" class="px-3 py-1.5 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700">Imprimir</button>
+                    <button type="button" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 cancel-modal-btn">Fechar</button>
+                </div>
             </div>
             <div class="flex flex-wrap gap-2 mb-4">
                 <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-blue-600 text-white" data-consulta-tab="criados">Criados</button>
                 <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" data-consulta-tab="confirmados">Confirmados</button>
+                <button type="button" class="professor-consulta-tab px-3 py-1.5 text-sm font-semibold rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200" data-consulta-tab="nao-confirmados">Não confirmados</button>
             </div>
             <div class="consulta-scroll">
                 <div id="consulta-criados-panel" class="space-y-3">
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="w-full professor-consulta-table">
                             <thead class="bg-gray-50 consulta-sticky-head">
                                 <tr>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
@@ -640,7 +644,7 @@
                 </div>
                 <div id="consulta-confirmados-panel" class="space-y-3 hidden">
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="w-full professor-consulta-table">
                             <thead class="bg-gray-50 consulta-sticky-head">
                                 <tr>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
@@ -649,6 +653,20 @@
                                 </tr>
                             </thead>
                             <tbody id="consulta-confirmados-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="consulta-nao-confirmados-panel" class="space-y-3 hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full professor-consulta-table">
+                            <thead class="bg-gray-50 consulta-sticky-head">
+                                <tr>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Nome</th>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="p-3 text-left text-sm font-semibold text-gray-600">Criado em</th>
+                                </tr>
+                            </thead>
+                            <tbody id="consulta-nao-confirmados-body"></tbody>
                         </table>
                     </div>
                 </div>

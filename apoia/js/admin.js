@@ -43,6 +43,46 @@ async function fetchAuthUserUidByEmail(email) {
     }
 }
 
+async function generateProfessorAccessLink(email) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return { actionLink: null, error: 'Email inválido.' };
+
+    try {
+        const { data: sessionData, error: sessionError } = await db.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) {
+            return { actionLink: null, error: 'Sessão expirada. Faça login novamente.' };
+        }
+
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-professor-access-link`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${sessionData.session.access_token}`,
+                apikey: SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({
+                email: normalizedEmail,
+                redirect_to: getPasswordRedirectUrl()
+            })
+        });
+
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (err) {
+            payload = null;
+        }
+
+        if (!response.ok) {
+            return { actionLink: null, error: payload?.error || `Falha ao gerar link (HTTP ${response.status}).` };
+        }
+
+        return { actionLink: payload?.short_link || payload?.action_link || null, error: null };
+    } catch (err) {
+        return { actionLink: null, error: `Falha de rede ao gerar link: ${err?.message || err}` };
+    }
+}
+
 async function upsertProfessorProfile(userUid, payload) {
     return await safeQuery(
         db.from('usuarios')
@@ -848,6 +888,11 @@ export async function renderProfessoresPanel(options = {}) {
             ? 'bg-green-100 text-green-700'
             : 'bg-red-100 text-red-700';
         const confirmDot = p.email_confirmado ? 'bg-green-500' : 'bg-red-500';
+        const confirmHtml = p.email_confirmado
+            ? `<span class="inline-block w-3 h-3 rounded-full ${confirmDot}" title="Conta confirmada"></span>`
+            : `<button type="button" class="resend-confirmation-btn inline-flex items-center justify-center" data-email="${p.email}" data-phone="${p.telefone || ''}" data-name="${(p.nome || '').replace(/"/g, '&quot;')}" title="Reenviar confirmação de conta">
+                   <span class="inline-block w-3 h-3 rounded-full ${confirmDot}"></span>
+               </button>`;
         const vinculoLabel = p.vinculo === 'act' ? 'ACT' : 'Efetivo';
         const vinculoClass = p.vinculo === 'act'
             ? 'bg-amber-100 text-amber-700'
@@ -861,7 +906,7 @@ export async function renderProfessoresPanel(options = {}) {
             <td class="p-3">${p.email}</td>
             <td class="p-3">${telefoneDisplay || '-'}</td>
             <td class="p-3"><span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">${p.status}</span></td>
-            <td class="p-3 text-center"><span class="inline-block w-3 h-3 rounded-full ${confirmDot}"></span></td>
+            <td class="p-3 text-center">${confirmHtml}</td>
             <td class="p-3 space-x-4">
                 <button class="text-blue-600 hover:underline edit-professor-btn" data-id="${p.id}">Editar</button>
                 <button class="text-orange-600 hover:underline reset-password-btn" data-email="${p.email}">Resetar Senha</button>
@@ -964,6 +1009,8 @@ async function fetchAuthStatusByEmails(emails) {
 function setConsultaTab(activeTab) {
     const criadosPanel = document.getElementById('consulta-criados-panel');
     const confirmadosPanel = document.getElementById('consulta-confirmados-panel');
+    const naoConfirmadosPanel = document.getElementById('consulta-nao-confirmados-panel');
+    const modal = document.getElementById('professor-consulta-modal');
     const tabButtons = document.querySelectorAll('.professor-consulta-tab');
     tabButtons.forEach(btn => {
         const isActive = btn.dataset.consultaTab === activeTab;
@@ -975,6 +1022,8 @@ function setConsultaTab(activeTab) {
     });
     if (criadosPanel) criadosPanel.classList.toggle('hidden', activeTab !== 'criados');
     if (confirmadosPanel) confirmadosPanel.classList.toggle('hidden', activeTab !== 'confirmados');
+    if (naoConfirmadosPanel) naoConfirmadosPanel.classList.toggle('hidden', activeTab !== 'nao-confirmados');
+    if (modal) modal.dataset.activeTab = activeTab;
 }
 
 function bindProfessorConsultaModal() {
@@ -996,8 +1045,10 @@ export async function openProfessorConsultaModal() {
 
     const createdBody = document.getElementById('consulta-criados-body');
     const confirmedBody = document.getElementById('consulta-confirmados-body');
+    const notConfirmedBody = document.getElementById('consulta-nao-confirmados-body');
     if (createdBody) createdBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
     if (confirmedBody) confirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
+    if (notConfirmedBody) notConfirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
 
     const { data: professores, error } = await safeQuery(
         db.from('usuarios')
@@ -1008,6 +1059,7 @@ export async function openProfessorConsultaModal() {
     if (error || !professores) {
         if (createdBody) createdBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
         if (confirmedBody) confirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
+        if (notConfirmedBody) notConfirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
         return;
     }
 
@@ -1044,25 +1096,121 @@ export async function openProfessorConsultaModal() {
         .filter(Boolean)
         .join('');
 
+    const notConfirmedRows = professores
+        .map(p => {
+            const auth = statusMap.get(p.email);
+            const confirmedAt = auth?.confirmed_at || auth?.email_confirmed_at;
+            if (confirmedAt) return null;
+            const createdAt = auth?.created_at ? formatDateTimeSP(auth.created_at) : '-';
+            return `
+                <tr>
+                    <td class="p-3">${p.nome || '-'}</td>
+                    <td class="p-3">${p.email || '-'}</td>
+                    <td class="p-3">${createdAt}</td>
+                </tr>
+            `;
+        })
+        .filter(Boolean)
+        .join('');
+
     if (createdBody) createdBody.innerHTML = createdRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum registro encontrado.</td></tr>';
     if (confirmedBody) confirmedBody.innerHTML = confirmedRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum confirmado ainda.</td></tr>';
+    if (notConfirmedBody) notConfirmedBody.innerHTML = notConfirmedRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum não confirmado.</td></tr>';
+}
+
+export function handlePrintProfessorConsultaActiveTab() {
+    const modal = document.getElementById('professor-consulta-modal');
+    if (!modal) return;
+    const activeTab = modal.dataset.activeTab || 'criados';
+
+    const tabConfig = {
+        criados: {
+            panelId: 'consulta-criados-panel',
+            title: 'Consulta de Professores - Criados'
+        },
+        confirmados: {
+            panelId: 'consulta-confirmados-panel',
+            title: 'Consulta de Professores - Confirmados'
+        },
+        'nao-confirmados': {
+            panelId: 'consulta-nao-confirmados-panel',
+            title: 'Consulta de Professores - Não confirmados'
+        }
+    };
+
+    const config = tabConfig[activeTab] || tabConfig.criados;
+    const panel = document.getElementById(config.panelId);
+    const table = panel?.querySelector('table');
+    if (!table) {
+        showToast('Nenhum dado disponível para impressão.', true);
+        return;
+    }
+
+    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const logoUrl = new URL('./logo.png', window.location.href).href;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>${config.title}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 16px; color: #111827; }
+                .header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+                .logo { width: 34px; height: 34px; object-fit: contain; }
+                h1 { font-size: 16px; margin: 0; }
+                .meta { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
+                table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                th, td { border: 1px solid #d1d5db; padding: 4px 6px; text-align: left; line-height: 1.15; }
+                th { background: #f3f4f6; font-weight: 700; }
+                tbody tr:nth-child(even) td { background: #f8fafc; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <img class="logo" src="${logoUrl}" alt="Logo">
+                <h1>${config.title}</h1>
+            </div>
+            <div class="meta">Impresso em: ${now}</div>
+            ${table.outerHTML}
+            <script>window.onload = () => window.print();</script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
 }
 
 async function syncEmailConfirmations(professores) {
+    const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
     const emails = (professores || [])
-        .map(p => p.email)
+        .map(p => normalizeEmail(p.email))
         .filter(Boolean);
     if (emails.length === 0) return professores;
-    const { data, error } = await safeQuery(
+
+    let data = null;
+    let error = null;
+    ({ data, error } = await safeQuery(
         db.rpc('auth_confirmed_by_email', { p_emails: emails })
-    );
-    if (error || !data) return professores;
+    ));
+    if (error || !Array.isArray(data)) {
+        // Fallback para manter a bolinha coerente mesmo se a RPC principal falhar.
+        const fallback = await fetchAuthStatusByEmails(emails);
+        data = (fallback || []).map(item => ({
+            email: normalizeEmail(item.email),
+            confirmed: !!(item.confirmed_at || item.email_confirmed_at)
+        }));
+    }
+    if (!Array.isArray(data) || data.length === 0) return professores;
+
     const confirmedByEmail = new Map();
-    data.forEach(item => confirmedByEmail.set(item.email, !!item.confirmed));
+    data.forEach(item => confirmedByEmail.set(normalizeEmail(item.email), !!item.confirmed));
     const toUpdateTrue = [];
     const toUpdateFalse = [];
     for (const professor of professores) {
-        const confirmed = confirmedByEmail.get(professor.email) === true;
+        const emailKey = normalizeEmail(professor.email);
+        if (!confirmedByEmail.has(emailKey)) continue;
+        const confirmed = confirmedByEmail.get(emailKey) === true;
         if (confirmed && !professor.email_confirmado) {
             toUpdateTrue.push(professor.email);
         }
@@ -1086,7 +1234,9 @@ async function syncEmailConfirmations(professores) {
     }
     return professores.map(p => ({
         ...p,
-        email_confirmado: confirmedByEmail.get(p.email) === true
+        email_confirmado: confirmedByEmail.has(normalizeEmail(p.email))
+            ? confirmedByEmail.get(normalizeEmail(p.email)) === true
+            : !!p.email_confirmado
     }));
 }
 
@@ -1253,6 +1403,66 @@ export async function handleResetPassword(email) {
     else showToast('Email de redefinicao enviado!');
 }
 
+export async function handleResendProfessorConfirmation(email, phone = '', name = '') {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+        showToast('Email inválido para reenvio de confirmação.', true);
+        return;
+    }
+
+    const { error } = await db.auth.resend({
+        type: 'signup',
+        email: normalizedEmail,
+        options: { emailRedirectTo: getPasswordRedirectUrl() }
+    });
+
+    if (error) {
+        showToast('Erro ao reenviar confirmação: ' + error.message, true);
+        return;
+    }
+
+    const { actionLink, error: linkError } = await generateProfessorAccessLink(normalizedEmail);
+
+    const digits = normalizePhoneDigits(phone || '');
+    if (digits.length < 10) {
+        showToast('Email reenviado. Telefone ausente/inválido para abrir WhatsApp.');
+        return;
+    }
+
+    const nomeParte = (name || '').trim() ? `${String(name).trim()}, ` : '';
+    const linkParte = actionLink
+        ? `\n\nLink de ativacao: ${actionLink}`
+        : '\n\nNão consegui anexar o link automaticamente. Use o link recebido por email.';
+    const msg = `${nomeParte}segue seu link de ativacao da conta no Sistema de chamadas da EEB Getulio Vargas.${linkParte}\n\nUse seu email cadastrado (${normalizedEmail}) para concluir o acesso.\n\nSe voce ja concluiu a ativacao, ignore esta mensagem.`;
+    const encodedMsg = encodeURIComponent(msg);
+    const appUrl = `whatsapp://send?phone=55${digits}&text=${encodedMsg}`;
+    const webUrl = `https://wa.me/55${digits}?text=${encodedMsg}`;
+
+    let openedViaApp = false;
+    const onVisibilityChange = () => {
+        if (document.visibilityState === 'hidden') {
+            openedViaApp = true;
+            document.removeEventListener('visibilitychange', onVisibilityChange);
+        }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Tenta abrir o app instalado; se não abrir, cai para o WhatsApp Web.
+    window.location.href = appUrl;
+    setTimeout(() => {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        if (!openedViaApp) {
+            window.open(webUrl, '_blank', 'noopener');
+        }
+    }, 900);
+
+    if (linkError) {
+        showToast(`Email reenviado. WhatsApp aberto, mas o link não foi anexado automaticamente: ${linkError}`);
+    } else {
+        showToast('Email reenviado e mensagem preparada no WhatsApp com link de ativação.');
+    }
+}
+
 function getPasswordRedirectUrl() {
     const url = new URL(window.location.href);
     url.hash = '';
@@ -1314,14 +1524,17 @@ export async function renderTurmasPanel(options = {}) {
         return (a.nome_turma || '').localeCompare(b.nome_turma || '', undefined, { numeric: true });
     });
     turmasTableBody.innerHTML = sortedTurmas.map(t => {
-        const profs = (t.professores_turmas || []).map(p => p.usuarios?.nome).filter(Boolean).join(', ') || '-';
+        const profs = (t.professores_turmas || [])
+            .map(p => p.usuarios?.nome)
+            .filter(Boolean)
+            .sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { sensitivity: 'base' }))
+            .join(', ') || '-';
         return `
             <tr>
                 <td class="p-3">${t.nome_turma}</td>
                 <td class="p-3">${profs}</td>
                 <td class="p-3">
                     <button class="text-blue-600 hover:underline edit-turma-btn" data-id="${t.id}">Editar</button>
-                    <button class="text-red-600 hover:underline delete-turma-btn" data-id="${t.id}">Excluir</button>
                 </td>
             </tr>
         `;
@@ -1395,6 +1608,8 @@ export async function handleTurmaFormSubmit(e) {
     const ano_letivo = (id && form?.dataset.originalAno) ? form.dataset.originalAno : anoInput.value;
     const professoresSelecionados = Array.from(document.querySelectorAll('.turma-professor-checkbox:checked')).map(cb => cb.value);
     const rels = professoresSelecionados.map(profId => ({ turma_id: id ? parseInt(id) : null, professor_id: profId }));
+    const turmasScrollWrap = document.querySelector('#admin-turmas-panel .admin-card-scroll');
+    const savedScrollTop = id && turmasScrollWrap ? turmasScrollWrap.scrollTop : 0;
 
     if (id) {
         const { error } = await safeQuery(db.from('turmas').update({ nome_turma: nome, ano_letivo: ano_letivo }).eq('id', id));
@@ -1420,6 +1635,9 @@ export async function handleTurmaFormSubmit(e) {
     }
     closeAllModals();
     await renderTurmasPanel();
+    if (id && turmasScrollWrap) {
+        turmasScrollWrap.scrollTop = savedScrollTop;
+    }
 }
 
 // ===============================================================

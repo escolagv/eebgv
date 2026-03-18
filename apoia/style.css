@@ -81,10 +81,56 @@ body { font-family: 'Inter', sans-serif; }
 #admin-turmas-panel .admin-card-scroll tbody tr td {
     border-bottom: 1px solid #e5e7eb;
     transition: background-color 0.15s ease;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
 }
 
 #admin-turmas-panel .admin-card-scroll tbody tr:hover td {
     background: #eaf2ff;
+}
+
+/* Diferenciação visual das linhas em Gerenciar Alunos */
+#admin-alunos-panel .admin-card-scroll tbody tr:nth-child(odd) td {
+    background: #ffffff;
+}
+
+#admin-alunos-panel .admin-card-scroll tbody tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+#admin-alunos-panel .admin-card-scroll tbody tr td {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.15s ease;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+}
+
+#admin-alunos-panel .admin-card-scroll tbody tr:hover td {
+    background: #eaf2ff;
+}
+
+/* Diferenciação visual das linhas em Gerenciar Professores */
+#admin-professores-panel .table-scroll tbody tr:nth-child(odd) td {
+    background: #ffffff;
+}
+
+#admin-professores-panel .table-scroll tbody tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+#admin-professores-panel .table-scroll tbody tr td {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.15s ease;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+}
+
+#admin-professores-panel .table-scroll tbody tr:hover td {
+    background: #eaf2ff;
+}
+
+#admin-professores-panel .resend-confirmation-btn {
+    cursor: pointer;
 }
 
 .sortable-th {
@@ -201,6 +247,31 @@ body { font-family: 'Inter', sans-serif; }
     top: 0;
     background: #f9fafb;
     z-index: 1;
+}
+
+#professor-consulta-modal .professor-consulta-table {
+    font-size: 0.75rem;
+    line-height: 1.15;
+}
+
+#professor-consulta-modal .professor-consulta-table thead th {
+    font-size: 0.7rem;
+    padding: 0.4rem 0.5rem;
+    white-space: nowrap;
+}
+
+#professor-consulta-modal .professor-consulta-table tbody td {
+    padding: 0.35rem 0.5rem;
+    white-space: nowrap;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+#professor-consulta-modal .professor-consulta-table tbody tr:nth-child(odd) td {
+    background: #ffffff;
+}
+
+#professor-consulta-modal .professor-consulta-table tbody tr:nth-child(even) td {
+    background: #f8fafc;
 }
 
 .appprof-frame-wrap {
