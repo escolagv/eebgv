@@ -57,7 +57,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     createCheckboxes('motivos-container', motivosOptions, 'motivo');
     createCheckboxes('acoes-container', acoesOptions, 'acao');
     createCheckboxes('providencias-container', providenciasOptions, 'providencia');
-    initSearchPanels();
     initScanZoomControls();
 
     encaminhamentoForm.addEventListener('submit', saveRecord);
@@ -228,14 +227,10 @@ async function loadCaches() {
     state.turmasById = new Map(state.turmas.map(t => [Number(t.id), t]));
 
     populateSelects();
-    refreshSearchLists();
 }
 
 function initNameSearchInputs() {
-    const estudantes = (state.alunos || [])
-        .filter(a => a?.status !== 'inativo')
-        .map(a => a?.nome_completo || '')
-        .filter(Boolean);
+    const estudantes = getSelectableAlunos().map(a => a?.nome_completo || '').filter(Boolean);
     const professores = (state.professores || [])
         .filter(p => p?.status !== 'inativo')
         .map(p => p?.nome || '')
@@ -245,6 +240,9 @@ function initNameSearchInputs() {
     setupNameSearchInput('search-estudante', 'search-estudante-options', 'search-estudante-clear', estudantes);
     setupNameSearchInput('search-professor', 'search-professor-options', 'search-professor-clear', professores);
     setupNameSearchInput('search-registrado', 'search-registrado-options', 'search-registrado-clear', registrados);
+    setupSelectFilterBinding('estudante-filter', 'estudante-options', 'estudante-filter-clear', getSelectableAlunos(), a => a?.nome_completo || '', 'estudante', a => String(a?.id ?? ''));
+    setupSelectFilterBinding('professor-filter', 'professor-options', 'professor-filter-clear', state.professores, p => p?.nome || '', 'professor', p => p?.user_uid || '');
+    syncSelectFilterInputs();
 }
 
 function setupNameSearchInput(inputId, listId, clearId, options) {
@@ -275,6 +273,69 @@ function setupNameSearchInput(inputId, listId, clearId, options) {
     toggleClear();
 }
 
+function setupSelectFilterBinding(inputId, listId, clearId, items, labelFn, selectId, valueFn) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    const clearBtn = document.getElementById(clearId);
+    const select = document.getElementById(selectId);
+    if (!input || !list || !clearBtn || !select) return;
+
+    list.innerHTML = '';
+    const options = (items || [])
+        .filter(item => item?.status !== 'inativo')
+        .map(item => labelFn(item))
+        .filter(Boolean);
+    const uniqueOptions = Array.from(new Set(options)).sort((a, b) => a.localeCompare(b));
+    uniqueOptions.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        list.appendChild(option);
+    });
+
+    const normalize = (value) => normalizeText(value || '');
+    const getItemByValue = (value) => (items || []).find(item => String(valueFn(item)) === String(value));
+    const getItemByLabel = (label) => (items || []).find(item => normalize(labelFn(item)) === normalize(label));
+
+    const syncFromInput = () => {
+        const raw = input.value.trim();
+        if (!raw) {
+            select.value = '';
+            return;
+        }
+        const match = getItemByLabel(raw);
+        if (match) {
+            select.value = valueFn(match);
+            if (selectId === 'estudante') handleAlunoChange();
+        } else {
+            select.value = '';
+        }
+    };
+
+    const toggleClear = () => {
+        clearBtn.classList.toggle('hidden', !input.value);
+    };
+
+    clearBtn.addEventListener('click', () => {
+        input.value = '';
+        select.value = '';
+        if (selectId === 'estudante') handleAlunoChange();
+        toggleClear();
+    });
+
+    input.addEventListener('input', () => {
+        toggleClear();
+        syncFromInput();
+    });
+
+    select.addEventListener('change', () => {
+        const match = getItemByValue(select.value);
+        input.value = match ? labelFn(match) : '';
+        toggleClear();
+    });
+
+    toggleClear();
+}
+
 function populateSelects() {
     const professorSelect = document.getElementById('professor');
     const alunoSelect = document.getElementById('estudante');
@@ -288,14 +349,7 @@ function populateSelects() {
     });
 
     alunoSelect.innerHTML = '<option value="">Selecione...</option>';
-    const alunosOrdenados = sortAlunos(
-        state.alunos
-            .filter(a => a.status !== 'inativo')
-            .filter(a => {
-                if (!state.anoLetivoAtual) return true;
-                return state.turmasAnoAtual.has(Number(a.turma_id));
-            })
-    );
+    const alunosOrdenados = sortAlunos(getSelectableAlunos());
 
     alunosOrdenados.forEach(a => {
         const option = document.createElement('option');
@@ -306,137 +360,22 @@ function populateSelects() {
         option.textContent = `${matricula}${a.nome_completo || `Aluno ${a.id}`}${turmaLabel}`;
         alunoSelect.appendChild(option);
     });
+    syncSelectFilterInputs();
 }
 
-// ===================================================================
-// BUSCA RÁPIDA (ALUNOS / PROFESSORES)
-// ===================================================================
-const searchPanels = {
-    aluno: {
-        panelId: 'aluno-search-panel',
-        inputId: 'aluno-search-input',
-        listId: 'aluno-search-list',
-        selectId: 'estudante'
-    },
-    professor: {
-        panelId: 'professor-search-panel',
-        inputId: 'professor-search-input',
-        listId: 'professor-search-list',
-        selectId: 'professor'
-    }
-};
-
-function initSearchPanels() {
-    Object.entries(searchPanels).forEach(([type, cfg]) => {
-        const panel = document.getElementById(cfg.panelId);
-        const input = document.getElementById(cfg.inputId);
-        const list = document.getElementById(cfg.listId);
-        const select = document.getElementById(cfg.selectId);
-        if (!panel || !input || !list || !select) return;
-
-        const openPanel = () => {
-            if (panel.classList.contains('hidden')) {
-                panel.classList.remove('hidden');
-                input.value = '';
-                renderSearchList(type, '');
-            }
-            input.focus();
-        };
-
-        const blockNativeSelect = (event) => {
-            event.preventDefault();
-            select.blur();
-            openPanel();
-        };
-
-        select.addEventListener('mousedown', blockNativeSelect);
-        select.addEventListener('touchstart', blockNativeSelect, { passive: false });
-        select.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
-                event.preventDefault();
-                openPanel();
-            }
-        });
-        select.addEventListener('focus', () => {
-            openPanel();
-        });
-
-        input.addEventListener('input', () => {
-            renderSearchList(type, input.value);
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!panel.contains(event.target) && event.target !== select) {
-                panel.classList.add('hidden');
-            }
-        });
-    });
+function syncSelectFilterInputs() {
+    syncSelectFilterInputValue('estudante-filter', 'estudante', getSelectableAlunos(), a => a?.nome_completo || '', a => String(a?.id ?? ''));
+    syncSelectFilterInputValue('professor-filter', 'professor', state.professores, p => p?.nome || '', p => p?.user_uid || '');
 }
 
-function refreshSearchLists() {
-    renderSearchList('aluno', document.getElementById(searchPanels.aluno.inputId)?.value || '');
-    renderSearchList('professor', document.getElementById(searchPanels.professor.inputId)?.value || '');
-}
-
-function renderSearchList(type, query) {
-    const cfg = searchPanels[type];
-    if (!cfg) return;
-    const list = document.getElementById(cfg.listId);
-    if (!list) return;
-
-    const q = (query || '').trim().toLowerCase();
-    const items = type === 'aluno'
-        ? sortAlunos(
-            state.alunos
-                .filter(a => a.status !== 'inativo')
-                .filter(a => {
-                    if (!state.anoLetivoAtual) return true;
-                    return state.turmasAnoAtual.has(Number(a.turma_id));
-                })
-        )
-        : state.professores.filter(p => p.status !== 'inativo');
-
-    const filtered = !q ? items : items.filter(item => {
-        if (type === 'aluno') {
-            const nome = (item.nome_completo || '').toLowerCase();
-            const matricula = (item.matricula || '').toLowerCase();
-            return nome.includes(q) || matricula.includes(q);
-        }
-        const nome = (item.nome || '').toLowerCase();
-        return nome.includes(q);
-    });
-
-    list.innerHTML = '';
-    if (filtered.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'py-2 text-gray-500 text-sm';
-        empty.textContent = 'Nenhum resultado.';
-        list.appendChild(empty);
-        return;
-    }
-
-    filtered.forEach(item => {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'w-full text-left px-2 py-1 hover:bg-gray-100';
-        row.dataset.value = type === 'aluno' ? item.id : item.user_uid;
-        if (type === 'aluno') {
-            const matricula = item.matricula ? `${item.matricula} • ` : '';
-            const turma = item.turma_id ? state.turmasById.get(Number(item.turma_id)) : null;
-            const turmaLabel = turma?.nome_turma ? ` • ${turma.nome_turma}` : '';
-            row.textContent = `${matricula}${item.nome_completo || ''}${turmaLabel}`;
-        } else {
-            row.textContent = item.nome || item.user_uid;
-        }
-        row.addEventListener('click', () => {
-            const select = document.getElementById(cfg.selectId);
-            if (select) select.value = row.dataset.value || '';
-            if (type === 'aluno') handleAlunoChange();
-            const panel = document.getElementById(cfg.panelId);
-            if (panel) panel.classList.add('hidden');
-        });
-        list.appendChild(row);
-    });
+function syncSelectFilterInputValue(inputId, selectId, items, labelFn, valueFn) {
+    const input = document.getElementById(inputId);
+    const select = document.getElementById(selectId);
+    if (!input || !select) return;
+    const match = (items || []).find(item => String(valueFn(item)) === String(select.value));
+    input.value = match ? labelFn(match) : '';
+    const clearBtn = document.getElementById(`${inputId}-clear`) || document.getElementById(`${inputId.replace('-filter', '')}-filter-clear`);
+    if (clearBtn) clearBtn.classList.toggle('hidden', !input.value);
 }
 
 function getAnoLetivoAtual(turmas) {
@@ -464,6 +403,15 @@ function sortAlunos(alunos) {
         const matB = (b.matricula || '').trim();
         return collator.compare(matA, matB);
     });
+}
+
+function getSelectableAlunos() {
+    return (state.alunos || [])
+        .filter(a => a.status !== 'inativo')
+        .filter(a => {
+            if (!state.anoLetivoAtual) return true;
+            return state.turmasAnoAtual.has(Number(a.turma_id));
+        });
 }
 
 function handleAlunoChange() {
@@ -1214,6 +1162,7 @@ async function populateForm(data) {
     ensureSelectOption('estudante', data.aluno_id, data.aluno_nome || `Aluno ${data.aluno_id}`);
     document.getElementById('professor').value = data.professor_uid || '';
     document.getElementById('estudante').value = data.aluno_id || '';
+    syncSelectFilterInputs();
     setCheckboxValues('motivo', data.motivos);
     document.getElementById('detalhesMotivo').value = data.detalhes_motivo || '';
     setCheckboxValues('acao', data.acoes_tomadas);
@@ -1314,6 +1263,7 @@ function resetForm() {
     state.currentCodigo = '';
     clearScanPreview();
     loadCodigoPreview(true);
+    syncSelectFilterInputs();
     switchToEditMode(false);
     window.history.pushState({}, document.title, window.location.pathname);
 }

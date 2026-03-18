@@ -69,6 +69,24 @@ body { font-family: 'Inter', sans-serif; }
     background: #fff;
 }
 
+/* Diferenciação visual das linhas em Gerenciar Turmas */
+#admin-turmas-panel .admin-card-scroll tbody tr:nth-child(odd) td {
+    background: #ffffff;
+}
+
+#admin-turmas-panel .admin-card-scroll tbody tr:nth-child(even) td {
+    background: #f8fafc;
+}
+
+#admin-turmas-panel .admin-card-scroll tbody tr td {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.15s ease;
+}
+
+#admin-turmas-panel .admin-card-scroll tbody tr:hover td {
+    background: #eaf2ff;
+}
+
 .sortable-th {
     cursor: pointer;
     user-select: none;

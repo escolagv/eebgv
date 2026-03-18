@@ -126,23 +126,25 @@
                             <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="relative">
                                     <label for="estudante" class="text-sm font-medium text-gray-700">Estudante</label>
-                                    <select id="estudante" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                    <div class="relative">
+                                        <input type="text" id="estudante-filter" list="estudante-options" placeholder="Digite nome do estudante" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
+                                        <button type="button" id="estudante-filter-clear" class="hidden name-clear-btn" aria-label="Limpar estudante">&times;</button>
+                                    </div>
+                                    <datalist id="estudante-options"></datalist>
+                                    <select id="estudante" required class="hidden">
                                         <option value="">Carregando...</option>
                                     </select>
-                                    <div id="aluno-search-panel" class="hidden absolute left-0 right-0 mt-2 border border-gray-200 rounded-md bg-white p-2 shadow-lg z-30">
-                                        <input type="text" id="aluno-search-input" placeholder="Digite para filtrar..." class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md">
-                                        <div id="aluno-search-list" class="mt-2 max-h-56 overflow-y-auto text-sm divide-y divide-gray-100"></div>
-                                    </div>
                                 </div>
                                 <div class="relative">
                                     <label for="professor" class="text-sm font-medium text-gray-700">Professor(a) que encaminhou</label>
-                                    <select id="professor" required class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                    <div class="relative">
+                                        <input type="text" id="professor-filter" list="professor-options" placeholder="Digite nome do professor" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
+                                        <button type="button" id="professor-filter-clear" class="hidden name-clear-btn" aria-label="Limpar professor">&times;</button>
+                                    </div>
+                                    <datalist id="professor-options"></datalist>
+                                    <select id="professor" required class="hidden">
                                         <option value="">Carregando...</option>
                                     </select>
-                                    <div id="professor-search-panel" class="hidden absolute left-0 right-0 mt-2 border border-gray-200 rounded-md bg-white p-2 shadow-lg z-30">
-                                        <input type="text" id="professor-search-input" placeholder="Digite para filtrar..." class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md">
-                                        <div id="professor-search-list" class="mt-2 max-h-56 overflow-y-auto text-sm divide-y divide-gray-100"></div>
-                                    </div>
                                 </div>
                             </div>
                             <div class="mt-4">
