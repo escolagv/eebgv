@@ -777,64 +777,91 @@ export async function loadCorrecaoChamada() {
         correcaoListaAlunos.innerHTML = '<p class="text-center text-gray-500">Selecione uma turma e uma data.</p>';
         return;
     }
-    const eventoCalendario = await getCalendarEventForDate(data, turmaId);
-    if (eventoCalendario && avisoCalendario) {
-        const inicio = formatDateBr(eventoCalendario.data);
-        const fim = formatDateBr(eventoCalendario.data_fim || eventoCalendario.data);
-        const periodoTexto = eventoCalendario.data_fim && eventoCalendario.data_fim !== eventoCalendario.data
-            ? ` (de ${inicio} a ${fim})`
-            : '';
-        avisoCalendario.textContent = `Aviso: Esta data está marcada no calendário como "${eventoCalendario.descricao}"${periodoTexto}.`;
-        avisoCalendario.classList.remove('hidden');
-    }
-    correcaoListaAlunos.innerHTML = '<p class="text-center text-gray-500">Carregando alunos...</p>';
-    const { data: alunos } = await safeQuery(
-        db.from('alunos')
-            .select('id, nome_completo')
-            .eq('turma_id', turmaId)
-            .eq('status', 'ativo')
-            .order('nome_completo')
-    );
-    if (!alunos || alunos.length === 0) {
-        correcaoListaAlunos.innerHTML = '<p class="text-center text-gray-500">Nenhum aluno ativo nesta turma.</p>';
-        return;
-    }
-    const { data: presencas } = await safeQuery(
-        db.from('presencas')
-            .select('aluno_id, status, justificativa')
-            .eq('turma_id', turmaId)
-            .eq('data', data)
-    );
-    const presencasMap = new Map((presencas || []).map(p => [
-        p.aluno_id,
-        { status: (p.status || '').toLowerCase(), justificativa: p.justificativa }
-    ]));
-    alunos.forEach(aluno => {
-        const presenca = presencasMap.get(aluno.id) || { status: 'presente', justificativa: null };
-        const statusValue = presenca.status || 'presente';
-        const isJustificada = presenca.justificativa === 'Falta justificada';
-        const isInjustificada = presenca.justificativa === 'Falta injustificada' || (!presenca.justificativa && statusValue === 'falta');
-        const isOutros = !isJustificada && !isInjustificada && presenca.justificativa;
-        const alunoDiv = document.createElement('div');
-        alunoDiv.className = 'p-3 bg-gray-50 rounded-lg';
-        alunoDiv.dataset.alunoId = aluno.id;
-        alunoDiv.innerHTML = `
-            <div class="flex items-center justify-between">
-                <span class="font-medium">${aluno.nome_completo}</span>
-                <div class="flex items-center gap-4">
-                    <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="presente" class="form-radio h-5 w-5 text-green-600 status-radio" ${statusValue === 'presente' ? 'checked' : ''}><span class="ml-2 text-sm">Presente</span></label>
-                    <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="falta" class="form-radio h-5 w-5 text-red-600 status-radio" ${statusValue === 'falta' ? 'checked' : ''}><span class="ml-2 text-sm">Falta</span></label>
+    try {
+        const eventoCalendario = await getCalendarEventForDate(data, turmaId);
+        if (eventoCalendario && avisoCalendario) {
+            const inicio = formatDateBr(eventoCalendario.data);
+            const fim = formatDateBr(eventoCalendario.data_fim || eventoCalendario.data);
+            const periodoTexto = eventoCalendario.data_fim && eventoCalendario.data_fim !== eventoCalendario.data
+                ? ` (de ${inicio} a ${fim})`
+                : '';
+            avisoCalendario.textContent = `Aviso: Esta data está marcada no calendário como "${eventoCalendario.descricao}"${periodoTexto}.`;
+            avisoCalendario.classList.remove('hidden');
+        }
+
+        correcaoListaAlunos.innerHTML = '<p class="text-center text-gray-500">Carregando alunos...</p>';
+        const { data: alunos } = await safeQuery(
+            db.from('alunos')
+                .select('id, nome_completo')
+                .eq('turma_id', turmaId)
+                .eq('status', 'ativo')
+                .order('nome_completo')
+        );
+        if (!alunos || alunos.length === 0) {
+            correcaoListaAlunos.innerHTML = '<p class="text-center text-gray-500">Nenhum aluno ativo nesta turma.</p>';
+            return;
+        }
+
+        const { data: presencas } = await safeQuery(
+            db.from('presencas')
+                .select('aluno_id, status, justificativa')
+                .eq('turma_id', turmaId)
+                .eq('data', data)
+        );
+        const presencasMap = new Map((presencas || []).map(p => [
+            p.aluno_id,
+            { status: (p.status || '').toLowerCase(), justificativa: p.justificativa }
+        ]));
+
+        correcaoListaAlunos.innerHTML = '';
+        alunos.forEach(aluno => {
+            const presenca = presencasMap.get(aluno.id) || { status: 'presente', justificativa: null };
+            const statusValue = presenca.status || 'presente';
+            const isJustificada = presenca.justificativa === 'Falta justificada';
+            const isInjustificada = presenca.justificativa === 'Falta injustificada' || (!presenca.justificativa && statusValue === 'falta');
+            const isOutros = !isJustificada && !isInjustificada && presenca.justificativa;
+            const alunoDiv = document.createElement('div');
+            alunoDiv.className = 'p-3 bg-gray-50 rounded-lg';
+            alunoDiv.dataset.alunoId = aluno.id;
+            alunoDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-medium">${aluno.nome_completo}</span>
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="presente" class="form-radio h-5 w-5 text-green-600 status-radio" ${statusValue === 'presente' ? 'checked' : ''}><span class="ml-2 text-sm">Presente</span></label>
+                        <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="falta" class="form-radio h-5 w-5 text-red-600 status-radio" ${statusValue === 'falta' ? 'checked' : ''}><span class="ml-2 text-sm">Falta</span></label>
+                    </div>
                 </div>
-            </div>
-            <div class="justificativa-container mt-3 pt-3 border-t border-gray-200 ${statusValue === 'falta' ? '' : 'hidden'}">
-                <div class="text-sm font-medium mb-2">Justificativa:</div>
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pl-2">
-                    <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="Falta justificada" class="form-radio h-4 w-4" ${isJustificada ? 'checked' : ''}><span class="ml-2 text-sm">Justificada</span></label>
-                    <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="Falta injustificada" class="form-radio h-4 w-4" ${isInjustificada ? 'checked' : ''}><span class="ml-2 text-sm">Injustificada</span></label>
-                    <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="outros" class="form-radio h-4 w-4" ${isOutros ? 'checked' : ''}><span class="ml-2 text-sm">Outros</span></label>
-                    <input type="text" class="justificativa-outros-input p-1 border rounded-md text-sm flex-grow min-w-0" placeholder="Motivo..." value="${isOutros ? (presenca.justificativa || '') : ''}">
-                </div>
-            </div>`;
-        correcaoListaAlunos.appendChild(alunoDiv);
-    });
+                <div class="justificativa-container mt-3 pt-3 border-t border-gray-200 ${statusValue === 'falta' ? '' : 'hidden'}">
+                    <div class="text-sm font-medium mb-2">Justificativa:</div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pl-2">
+                        <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="Falta justificada" class="form-radio h-4 w-4" ${isJustificada ? 'checked' : ''}><span class="ml-2 text-sm">Justificada</span></label>
+                        <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="Falta injustificada" class="form-radio h-4 w-4" ${isInjustificada ? 'checked' : ''}><span class="ml-2 text-sm">Injustificada</span></label>
+                        <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="outros" class="form-radio h-4 w-4" ${isOutros ? 'checked' : ''}><span class="ml-2 text-sm">Outros</span></label>
+                        <input type="text" class="justificativa-outros-input p-1 border rounded-md text-sm flex-grow min-w-0" placeholder="Motivo..." value="${isOutros ? (presenca.justificativa || '') : ''}">
+                    </div>
+                </div>`;
+
+            const statusRadios = alunoDiv.querySelectorAll(`input[name="corr-status-${aluno.id}"]`);
+            statusRadios.forEach((radio) => {
+                radio.addEventListener('change', () => {
+                    const justDiv = alunoDiv.querySelector('.justificativa-container');
+                    const isFalta = radio.value === 'falta';
+                    if (justDiv) justDiv.classList.toggle('hidden', !isFalta);
+                    if (isFalta) {
+                        const hasChecked = Array.from(alunoDiv.querySelectorAll(`input[name="corr-just-${aluno.id}"]`)).some(r => r.checked);
+                        if (!hasChecked) {
+                            const injustificadaRadio = alunoDiv.querySelector(`input[name="corr-just-${aluno.id}"][value="Falta injustificada"]`);
+                            if (injustificadaRadio) injustificadaRadio.checked = true;
+                        }
+                    }
+                });
+            });
+
+            correcaoListaAlunos.appendChild(alunoDiv);
+        });
+    } catch (err) {
+        console.error('Erro ao carregar correção da chamada:', err);
+        correcaoListaAlunos.innerHTML = '<p class="text-center text-red-600">Erro ao carregar alunos. Tente novamente.</p>';
+        showToast('Erro ao carregar correção da chamada.', true);
+    }
 }
