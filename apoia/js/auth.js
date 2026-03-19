@@ -37,6 +37,26 @@ export async function handleAuthChange(event, session) {
     const isRecoveryModalOpen = !!resetModal && !resetModal.classList.contains('hidden');
     const isRecovery = event === 'PASSWORD_RECOVERY' || isRecoveryFlowInUrl() || isRecoveryModalOpen;
     if (isRecovery) {
+        const errorEl = document.getElementById('reset-password-error');
+        const newPassword = document.getElementById('new-password');
+        const confirmPassword = document.getElementById('confirm-password');
+        const newPasswordEyeIcon = document.getElementById('new-password-eye-icon');
+        const newPasswordEyeOffIcon = document.getElementById('new-password-eye-off-icon');
+        const confirmPasswordEyeIcon = document.getElementById('confirm-password-eye-icon');
+        const confirmPasswordEyeOffIcon = document.getElementById('confirm-password-eye-off-icon');
+        if (errorEl) errorEl.textContent = '';
+        if (newPassword) {
+            newPassword.value = '';
+            newPassword.type = 'password';
+        }
+        if (confirmPassword) {
+            confirmPassword.value = '';
+            confirmPassword.type = 'password';
+        }
+        newPasswordEyeIcon?.classList.remove('hidden');
+        newPasswordEyeOffIcon?.classList.add('hidden');
+        confirmPasswordEyeIcon?.classList.remove('hidden');
+        confirmPasswordEyeOffIcon?.classList.add('hidden');
         showView('login-view');
         resetModal?.classList.remove('hidden');
         clearRecoveryParamsFromUrl();

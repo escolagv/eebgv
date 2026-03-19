@@ -106,6 +106,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const togglePasswordBtn = document.getElementById('toggle-password-btn');
     const eyeIcon = document.getElementById('eye-icon');
     const eyeOffIcon = document.getElementById('eye-off-icon');
+    const newPasswordInput = document.getElementById('new-password');
+    const confirmPasswordInput = document.getElementById('confirm-password');
+    const toggleNewPasswordBtn = document.getElementById('toggle-new-password-btn');
+    const toggleConfirmPasswordBtn = document.getElementById('toggle-confirm-password-btn');
+    const newPasswordEyeIcon = document.getElementById('new-password-eye-icon');
+    const newPasswordEyeOffIcon = document.getElementById('new-password-eye-off-icon');
+    const confirmPasswordEyeIcon = document.getElementById('confirm-password-eye-icon');
+    const confirmPasswordEyeOffIcon = document.getElementById('confirm-password-eye-off-icon');
     const professorPasswordInput = document.getElementById('professor-password');
     const professorPasswordToggle = document.getElementById('professor-password-show');
     const professorPhoneInput = document.getElementById('professor-telefone');
@@ -121,6 +129,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const assiduidadeAlunoLookup = new Map();
     const assiduidadeTurmaLookup = new Map();
     const assiduidadeProfessorLookup = new Map();
+    const resetPasswordVisibility = () => {
+        if (newPasswordInput) newPasswordInput.type = 'password';
+        if (confirmPasswordInput) confirmPasswordInput.type = 'password';
+        newPasswordEyeIcon?.classList.remove('hidden');
+        newPasswordEyeOffIcon?.classList.add('hidden');
+        confirmPasswordEyeIcon?.classList.remove('hidden');
+        confirmPasswordEyeOffIcon?.classList.add('hidden');
+    };
 
     const normalizeSearchText = (value) => (value || '').trim().toLowerCase();
     const setAssiduidadeClearVisibility = (inputId, clearId) => {
@@ -287,6 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errorEl) errorEl.textContent = '';
             if (newPassword) newPassword.value = '';
             if (confirmPassword) confirmPassword.value = '';
+            resetPasswordVisibility();
             if (resetModal) resetModal.classList.remove('hidden');
         });
     }
@@ -378,6 +395,22 @@ document.addEventListener('DOMContentLoaded', () => {
             passwordInput.type = isPassword ? 'text' : 'password';
             eyeIcon.classList.toggle('hidden', isPassword);
             eyeOffIcon.classList.toggle('hidden', !isPassword);
+        });
+    }
+    if (toggleNewPasswordBtn && newPasswordInput) {
+        toggleNewPasswordBtn.addEventListener('click', () => {
+            const isPassword = newPasswordInput.type === 'password';
+            newPasswordInput.type = isPassword ? 'text' : 'password';
+            newPasswordEyeIcon?.classList.toggle('hidden', isPassword);
+            newPasswordEyeOffIcon?.classList.toggle('hidden', !isPassword);
+        });
+    }
+    if (toggleConfirmPasswordBtn && confirmPasswordInput) {
+        toggleConfirmPasswordBtn.addEventListener('click', () => {
+            const isPassword = confirmPasswordInput.type === 'password';
+            confirmPasswordInput.type = isPassword ? 'text' : 'password';
+            confirmPasswordEyeIcon?.classList.toggle('hidden', isPassword);
+            confirmPasswordEyeOffIcon?.classList.toggle('hidden', !isPassword);
         });
     }
     if (professorPasswordToggle && professorPasswordInput) {

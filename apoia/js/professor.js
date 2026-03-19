@@ -439,11 +439,25 @@ export function initProfessorAccount() {
             const errorEl = document.getElementById('reset-password-error');
             const newPassword = document.getElementById('new-password');
             const confirmPassword = document.getElementById('confirm-password');
+            const newPasswordEyeIcon = document.getElementById('new-password-eye-icon');
+            const newPasswordEyeOffIcon = document.getElementById('new-password-eye-off-icon');
+            const confirmPasswordEyeIcon = document.getElementById('confirm-password-eye-icon');
+            const confirmPasswordEyeOffIcon = document.getElementById('confirm-password-eye-off-icon');
             if (!resetModal) return;
 
             if (errorEl) errorEl.textContent = '';
-            if (newPassword) newPassword.value = '';
-            if (confirmPassword) confirmPassword.value = '';
+            if (newPassword) {
+                newPassword.value = '';
+                newPassword.type = 'password';
+            }
+            if (confirmPassword) {
+                confirmPassword.value = '';
+                confirmPassword.type = 'password';
+            }
+            newPasswordEyeIcon?.classList.remove('hidden');
+            newPasswordEyeOffIcon?.classList.add('hidden');
+            confirmPasswordEyeIcon?.classList.remove('hidden');
+            confirmPasswordEyeOffIcon?.classList.add('hidden');
 
             accountModal.classList.add('hidden');
             resetModal.classList.remove('hidden');
