@@ -184,14 +184,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const previousValue = String(alunoSel.value || '');
         alunoSel.innerHTML = '<option value="">Todos os Alunos</option>';
         if (anoLetivo) {
-            const turmasDoAnoIds = state.turmasCache.filter(t => String(t.ano_letivo) === String(anoLetivo)).map(t => t.id);
+            const turmasDoAno = state.turmasCache.filter(t => String(t.ano_letivo) === String(anoLetivo));
+            const turmasDoAnoIds = turmasDoAno.map(t => t.id);
+            const turmaNomePorId = new Map(turmasDoAno.map(t => [String(t.id), String(t.nome_turma || '')]));
             state.alunosCache
                 .filter(a => turmasDoAnoIds.includes(a.turma_id))
-                .sort((a, b) => String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR', { sensitivity: 'base' }))
+                .sort((a, b) => {
+                    const turmaA = turmaNomePorId.get(String(a.turma_id)) || '';
+                    const turmaB = turmaNomePorId.get(String(b.turma_id)) || '';
+                    const byTurma = sortTurmaNome(turmaA, turmaB);
+                    if (byTurma !== 0) return byTurma;
+                    return String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR', { sensitivity: 'base' });
+                })
                 .forEach((a) => {
                     const option = document.createElement('option');
                     option.value = a.id;
-                    option.textContent = a.nome_completo || '';
+                    const turmaNome = turmaNomePorId.get(String(a.turma_id)) || 'Sem turma';
+                    option.textContent = `${turmaNome} • ${a.nome_completo || ''}`;
                     alunoSel.appendChild(option);
                 });
         }
