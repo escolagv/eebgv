@@ -35,6 +35,19 @@ export function getLocalDateString() {
     return `${year}-${month}-${day}`;
 }
 
+export function getAuthRedirectUrl() {
+    const url = new URL(window.location.href);
+    url.hash = '';
+    url.search = '';
+    if (!url.pathname.endsWith('/')) {
+        const lastSegment = url.pathname.slice(url.pathname.lastIndexOf('/') + 1);
+        if (lastSegment.includes('.')) {
+            url.pathname = url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1);
+        }
+    }
+    return url.toString();
+}
+
 export function showView(viewId) {
     document.getElementById('loading-view').classList.add('hidden');
     document.getElementById('app-container').classList.remove('hidden');

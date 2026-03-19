@@ -3,6 +3,23 @@ import { safeQuery, setAuthErrorHandler } from './core.js';
 import { loadAdminData, renderDashboardPanel, loadNotifications, startNotificationsRealtime, stopNotificationsRealtime, stopNotificationsPolling } from './admin.js';
 import { loadProfessorData, initProfessorAccount, refreshProfessorAvatar, checkProfessorAppUpdate, applyProfessorPasswordGate } from './professor.js';
 
+function isRecoveryFlowInUrl() {
+    const query = new URLSearchParams(window.location.search);
+    const hashRaw = String(window.location.hash || '').replace(/^#/, '');
+    const hash = new URLSearchParams(hashRaw);
+
+    const type = query.get('type') || hash.get('type');
+    return String(type || '').toLowerCase() === 'recovery';
+}
+
+function clearRecoveryParamsFromUrl() {
+    const url = new URL(window.location.href);
+    const keysToRemove = ['type', 'code', 'token_hash', 'access_token', 'refresh_token', 'expires_in', 'expires_at'];
+    keysToRemove.forEach((k) => url.searchParams.delete(k));
+    url.hash = '';
+    window.history.replaceState({}, '', url.toString());
+}
+
 export function initAuthHandlers() {
     setAuthErrorHandler(signOutUser);
 }
@@ -16,9 +33,11 @@ export async function signOutUser(message) {
 }
 
 export async function handleAuthChange(event, session) {
-    if (event === 'PASSWORD_RECOVERY') {
+    const isRecovery = event === 'PASSWORD_RECOVERY' || isRecoveryFlowInUrl();
+    if (isRecovery) {
         showView('login-view');
-        document.getElementById('reset-password-modal').classList.remove('hidden');
+        document.getElementById('reset-password-modal')?.classList.remove('hidden');
+        clearRecoveryParamsFromUrl();
         return;
     }
 

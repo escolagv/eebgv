@@ -1,4 +1,4 @@
-import { db, state, getLocalDateString, safeQuery, showToast, logAudit } from './core.js';
+import { db, state, getLocalDateString, getAuthRedirectUrl, safeQuery, showToast, logAudit } from './core.js';
 
 function normalizePhoneDigits(value) {
     return (value || '').toString().replace(/\D/g, '');
@@ -437,7 +437,7 @@ export function initProfessorAccount() {
         resetBtn.addEventListener('click', async () => {
             const email = state.currentUser?.email;
             if (!email) return;
-            const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href.split('#')[0] });
+            const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
             if (error) showToast('Erro ao enviar email de redefinição: ' + error.message, true);
             else showToast('Enviamos um link para redefinir sua senha.');
         });

@@ -2,6 +2,7 @@ import {
     db,
     state,
     getLocalDateString,
+    getAuthRedirectUrl,
     resetInactivityTimer,
     resetLoginFormState,
     showToast,
@@ -403,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formId === 'forgot-password-form') {
             const email = document.getElementById('recovery-email').value;
             const { error } = await db.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.href.split('#')[0]
+                redirectTo: getAuthRedirectUrl()
             });
             if (error) {
                 showToast(`Erro: ${error.message}`, true);

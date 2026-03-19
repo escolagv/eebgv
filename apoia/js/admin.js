@@ -1,4 +1,4 @@
-import { db, state, getLocalDateString, safeQuery, showToast, closeModal, closeAllModals, logAudit, SUPABASE_URL, SUPABASE_ANON_KEY } from './core.js';
+import { db, state, getLocalDateString, getAuthRedirectUrl, safeQuery, showToast, closeModal, closeAllModals, logAudit, SUPABASE_URL, SUPABASE_ANON_KEY } from './core.js';
 
 const APOIA_ITEMS_PER_PAGE = 10;
 const CHAMADAS_ITEMS_PER_PAGE = 100;
@@ -74,7 +74,7 @@ async function generateProfessorAccessLink(email) {
             },
             body: JSON.stringify({
                 email: normalizedEmail,
-                redirect_to: getPasswordRedirectUrl()
+                redirect_to: getAuthRedirectUrl()
             })
         });
 
@@ -1595,7 +1595,7 @@ export async function handleProfessorFormSubmit(e) {
                 return;
             }
             await logAudit('reactivate', 'professor', existingProfessor.id, { nome, email, vinculo, telefone });
-            const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getPasswordRedirectUrl() });
+            const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
             if (resetError) {
                 showToast('Professor reativado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
             } else {
@@ -1624,7 +1624,7 @@ export async function handleProfessorFormSubmit(e) {
             if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
             else {
                 await logAudit('create', 'professor', profileData?.id || authData.user.id, { nome, email, status: 'ativo', vinculo, telefone });
-                const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getPasswordRedirectUrl() });
+                const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
                 if (resetError) {
                     showToast('Professor criado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
                 } else {
@@ -1649,7 +1649,7 @@ export async function handleProfessorFormSubmit(e) {
 }
 
 export async function handleResetPassword(email) {
-    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: getPasswordRedirectUrl() });
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
     if (error) showToast('Erro ao enviar email de recuperação: ' + error.message, true);
     else showToast('Email de redefinicao enviado!');
 }
@@ -1664,7 +1664,7 @@ export async function handleResendProfessorConfirmation(email, phone = '', name 
     const { error } = await db.auth.resend({
         type: 'signup',
         email: normalizedEmail,
-        options: { emailRedirectTo: getPasswordRedirectUrl() }
+        options: { emailRedirectTo: getAuthRedirectUrl() }
     });
 
     if (error) {
@@ -1712,16 +1712,6 @@ export async function handleResendProfessorConfirmation(email, phone = '', name 
     } else {
         showToast('Email reenviado e mensagem preparada no WhatsApp com link de ativação.');
     }
-}
-
-function getPasswordRedirectUrl() {
-    const url = new URL(window.location.href);
-    url.hash = '';
-    url.search = '';
-    if (!url.pathname.endsWith('/')) {
-        url.pathname = url.pathname.slice(0, url.pathname.lastIndexOf('/') + 1);
-    }
-    return url.toString();
 }
 
 // ===============================================================
