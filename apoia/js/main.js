@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (adminInfo && adminInfo.dataset.bound !== 'true') {
         adminInfo.dataset.bound = 'true';
-        adminInfo.classList.add('cursor-pointer', 'hover:text-white', 'underline', 'decoration-dotted', 'underline-offset-2');
+        adminInfo.classList.add('cursor-pointer', 'hover:text-white');
         adminInfo.title = 'Clique para alterar sua senha';
         adminInfo.addEventListener('click', () => {
             if (!state.currentUser || !['admin', 'suporte'].includes(document.body.dataset.userRole || '')) return;
