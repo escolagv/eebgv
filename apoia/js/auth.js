@@ -33,10 +33,12 @@ export async function signOutUser(message) {
 }
 
 export async function handleAuthChange(event, session) {
-    const isRecovery = event === 'PASSWORD_RECOVERY' || isRecoveryFlowInUrl();
+    const resetModal = document.getElementById('reset-password-modal');
+    const isRecoveryModalOpen = !!resetModal && !resetModal.classList.contains('hidden');
+    const isRecovery = event === 'PASSWORD_RECOVERY' || isRecoveryFlowInUrl() || isRecoveryModalOpen;
     if (isRecovery) {
         showView('login-view');
-        document.getElementById('reset-password-modal')?.classList.remove('hidden');
+        resetModal?.classList.remove('hidden');
         clearRecoveryParamsFromUrl();
         return;
     }
