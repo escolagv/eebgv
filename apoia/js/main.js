@@ -403,6 +403,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (formId === 'forgot-password-form') {
             const email = document.getElementById('recovery-email').value;
+            // Garante fluxo limpo de recuperação (sem sessão antiga ativa no mesmo navegador).
+            try {
+                const { data: sessionData } = await db.auth.getSession();
+                if (sessionData?.session) {
+                    await db.auth.signOut();
+                }
+            } catch (err) {
+                console.warn('Falha ao limpar sessão antes da recuperação:', err?.message || err);
+            }
             const { error } = await db.auth.resetPasswordForEmail(email, {
                 redirectTo: getAuthRedirectUrl()
             });
@@ -411,6 +420,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showToast('Se o e-mail estiver correto, um link de recuperação foi enviado.');
                 closeAllModals();
+                const resetModal = document.getElementById('reset-password-modal');
+                if (resetModal) resetModal.classList.add('hidden');
             }
         }
         if (formId === 'aluno-form') await handleAlunoFormSubmit(e);
