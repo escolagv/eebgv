@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const existentesMap = new Map((existentes || []).map(p => [p.aluno_id, p.registrado_em]));
             const registroAgora = new Date().toISOString();
             const registros = Array.from(alunoRows).map(row => {
-                const status = row.querySelector('.status-radio:checked').value;
+                const status = row.dataset.status || (row.querySelector('.status-radio:checked')?.value) || 'presente';
                 let justificativa = null;
                 if (status === 'falta') {
                     const justRadio = row.querySelector(`input[name="corr-just-${row.dataset.alunoId}"]:checked`);

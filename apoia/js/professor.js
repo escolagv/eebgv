@@ -741,11 +741,11 @@ export function setChamadaRowStatus(row, status) {
         justContainer.classList.toggle('hidden', newStatus !== 'falta');
         justContainer.classList.toggle('flex', newStatus === 'falta');
     }
-    const radios = row.querySelectorAll(`input[name="just-${row.dataset.alunoId}"]`);
+    const radios = row.querySelectorAll(`input[name="just-${row.dataset.alunoId}"], input[name="corr-just-${row.dataset.alunoId}"]`);
     if (newStatus === 'falta') {
         const alreadyChecked = Array.from(radios).some(r => r.checked);
         if (!alreadyChecked) {
-            const injustificada = row.querySelector(`input[name="just-${row.dataset.alunoId}"][value="Falta injustificada"]`);
+            const injustificada = row.querySelector(`input[name="just-${row.dataset.alunoId}"][value="Falta injustificada"], input[name="corr-just-${row.dataset.alunoId}"][value="Falta injustificada"]`);
             if (injustificada) injustificada.checked = true;
         }
     } else {
@@ -823,15 +823,23 @@ export async function loadCorrecaoChamada() {
             const alunoDiv = document.createElement('div');
             alunoDiv.className = 'p-3 bg-gray-50 rounded-lg';
             alunoDiv.dataset.alunoId = aluno.id;
+            alunoDiv.dataset.status = statusValue === 'falta' ? 'falta' : 'presente';
+            const statusLabel = statusValue === 'falta' ? 'Falta' : 'Presente';
+            const statusClass = statusValue === 'falta'
+                ? 'bg-red-100 text-red-700 border-red-200'
+                : 'bg-green-100 text-green-700 border-green-200';
             alunoDiv.innerHTML = `
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <span class="font-medium">${aluno.nome_completo}</span>
-                    <div class="flex items-center gap-4">
-                        <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="presente" class="form-radio h-5 w-5 text-green-600 status-radio" ${statusValue === 'presente' ? 'checked' : ''}><span class="ml-2 text-sm">Presente</span></label>
-                        <label class="flex items-center cursor-pointer"><input type="radio" name="corr-status-${aluno.id}" value="falta" class="form-radio h-5 w-5 text-red-600 status-radio" ${statusValue === 'falta' ? 'checked' : ''}><span class="ml-2 text-sm">Falta</span></label>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-gray-700">
+                            <input type="checkbox" class="falta-checkbox form-checkbox h-4 w-4 text-red-600" ${statusValue === 'falta' ? 'checked' : ''}>
+                            <span>Faltou</span>
+                        </label>
+                        <button type="button" class="status-toggle px-3 py-1 text-sm font-semibold rounded-full border ${statusClass} cursor-pointer hover:opacity-80">${statusLabel}</button>
                     </div>
                 </div>
-                <div class="justificativa-container mt-3 pt-3 border-t border-gray-200 ${statusValue === 'falta' ? '' : 'hidden'}">
+                <div class="justificativa-container mt-3 pt-3 border-t border-gray-200 ${statusValue === 'falta' ? 'flex' : 'hidden'} items-center gap-x-3">
                     <div class="text-sm font-medium mb-2">Justificativa:</div>
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pl-2">
                         <label class="flex items-center"><input type="radio" name="corr-just-${aluno.id}" value="Falta justificada" class="form-radio h-4 w-4" ${isJustificada ? 'checked' : ''}><span class="ml-2 text-sm">Justificada</span></label>
@@ -840,22 +848,6 @@ export async function loadCorrecaoChamada() {
                         <input type="text" class="justificativa-outros-input p-1 border rounded-md text-sm flex-grow min-w-0" placeholder="Motivo..." value="${isOutros ? (presenca.justificativa || '') : ''}">
                     </div>
                 </div>`;
-
-            const statusRadios = alunoDiv.querySelectorAll(`input[name="corr-status-${aluno.id}"]`);
-            statusRadios.forEach((radio) => {
-                radio.addEventListener('change', () => {
-                    const justDiv = alunoDiv.querySelector('.justificativa-container');
-                    const isFalta = radio.value === 'falta';
-                    if (justDiv) justDiv.classList.toggle('hidden', !isFalta);
-                    if (isFalta) {
-                        const hasChecked = Array.from(alunoDiv.querySelectorAll(`input[name="corr-just-${aluno.id}"]`)).some(r => r.checked);
-                        if (!hasChecked) {
-                            const injustificadaRadio = alunoDiv.querySelector(`input[name="corr-just-${aluno.id}"][value="Falta injustificada"]`);
-                            if (injustificadaRadio) injustificadaRadio.checked = true;
-                        }
-                    }
-                });
-            });
 
             correcaoListaAlunos.appendChild(alunoDiv);
         });
