@@ -24,6 +24,7 @@ import {
     renderRelatoriosPanel,
     renderConfigPanel,
     renderConsistenciaPanel,
+    handleConsistenciaAnoFilterChange,
     openChamadaLogModal,
     handleGerarRelatorio,
     handleImprimirRelatorio,
@@ -59,6 +60,7 @@ import {
     handlePromoverTurmas,
     handleConfirmPromocaoTurmas,
     renderDashboardCalendar,
+    setDashboardSelectedDate,
     loadDailySummary,
     renderPromocaoTurmasLista,
     handleLimparRelatorio,
@@ -114,6 +116,155 @@ document.addEventListener('DOMContentLoaded', () => {
     const correcaoTurmaSelect = document.getElementById('correcao-turma-select');
     const correcaoDataSelect = document.getElementById('correcao-data-select');
     const professorDataText = document.getElementById('professor-data-text');
+    const assiduidadeAlunoLookup = new Map();
+    const assiduidadeTurmaLookup = new Map();
+    const assiduidadeProfessorLookup = new Map();
+
+    const normalizeSearchText = (value) => (value || '').trim().toLowerCase();
+    const setAssiduidadeClearVisibility = (inputId, clearId) => {
+        const input = document.getElementById(inputId);
+        const clearBtn = document.getElementById(clearId);
+        if (!input || !clearBtn) return;
+        clearBtn.classList.toggle('hidden', !input.value.trim());
+    };
+    const rebuildAssiduidadeDatalist = ({ selectId, inputId, datalistId, lookup, clearId }) => {
+        const select = document.getElementById(selectId);
+        const input = document.getElementById(inputId);
+        const datalist = document.getElementById(datalistId);
+        if (!select || !input || !datalist) return;
+
+        const selectedValue = select.value || '';
+        lookup.clear();
+        datalist.innerHTML = '';
+        Array.from(select.options).forEach((opt) => {
+            const label = String(opt.textContent || '').trim();
+            const value = String(opt.value || '').trim();
+            if (!label || !value) return;
+            const optionEl = document.createElement('option');
+            optionEl.value = label;
+            datalist.appendChild(optionEl);
+            lookup.set(normalizeSearchText(label), value);
+        });
+
+        const selectedOption = Array.from(select.options).find(opt => String(opt.value) === selectedValue);
+        input.value = selectedOption && selectedOption.value ? String(selectedOption.textContent || '').trim() : '';
+        setAssiduidadeClearVisibility(inputId, clearId);
+    };
+    const applyAssiduidadeSearchToSelect = ({ rawValue, selectId, inputId, lookup, clearId }) => {
+        const select = document.getElementById(selectId);
+        const input = document.getElementById(inputId);
+        if (!select || !input) return;
+        const normalized = normalizeSearchText(rawValue);
+        const selected = lookup.get(normalized) || '';
+        select.value = selected;
+        setAssiduidadeClearVisibility(inputId, clearId);
+    };
+    const sortTurmaNome = (a, b) => String(a || '').localeCompare(String(b || ''), 'pt-BR', { numeric: true, sensitivity: 'base' });
+    const renderAssiduidadeAlunoOptions = (anoLetivo) => {
+        const alunoSel = document.getElementById('assiduidade-aluno-aluno');
+        if (!alunoSel) return;
+        const previousValue = String(alunoSel.value || '');
+        alunoSel.innerHTML = '<option value="">Todos os Alunos</option>';
+        if (anoLetivo) {
+            const turmasDoAnoIds = state.turmasCache.filter(t => String(t.ano_letivo) === String(anoLetivo)).map(t => t.id);
+            state.alunosCache
+                .filter(a => turmasDoAnoIds.includes(a.turma_id))
+                .sort((a, b) => String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR', { sensitivity: 'base' }))
+                .forEach((a) => {
+                    const option = document.createElement('option');
+                    option.value = a.id;
+                    option.textContent = a.nome_completo || '';
+                    alunoSel.appendChild(option);
+                });
+        }
+        if (previousValue && Array.from(alunoSel.options).some(opt => String(opt.value) === previousValue)) {
+            alunoSel.value = previousValue;
+        }
+        rebuildAssiduidadeDatalist({
+            selectId: 'assiduidade-aluno-aluno',
+            inputId: 'assiduidade-aluno-aluno-search',
+            datalistId: 'assiduidade-aluno-aluno-options',
+            lookup: assiduidadeAlunoLookup,
+            clearId: 'assiduidade-aluno-aluno-clear'
+        });
+    };
+    const renderAssiduidadeTurmaOptions = (anoLetivo) => {
+        const turmaSel = document.getElementById('assiduidade-turma-turma');
+        if (!turmaSel) return;
+        const previousValue = String(turmaSel.value || '');
+        turmaSel.innerHTML = '<option value="">Todas as Turmas</option>';
+        if (anoLetivo) {
+            state.turmasCache
+                .filter(t => String(t.ano_letivo) === String(anoLetivo))
+                .sort((a, b) => sortTurmaNome(a.nome_turma, b.nome_turma))
+                .forEach((t) => {
+                    const option = document.createElement('option');
+                    option.value = t.id;
+                    option.textContent = t.nome_turma || '';
+                    turmaSel.appendChild(option);
+                });
+        }
+        if (previousValue && Array.from(turmaSel.options).some(opt => String(opt.value) === previousValue)) {
+            turmaSel.value = previousValue;
+        }
+        rebuildAssiduidadeDatalist({
+            selectId: 'assiduidade-turma-turma',
+            inputId: 'assiduidade-turma-turma-search',
+            datalistId: 'assiduidade-turma-turma-options',
+            lookup: assiduidadeTurmaLookup,
+            clearId: 'assiduidade-turma-turma-clear'
+        });
+    };
+    const renderAssiduidadeProfessorOptions = async (anoLetivo) => {
+        const profSel = document.getElementById('assiduidade-prof-professor');
+        if (!profSel) return;
+        const previousValue = String(profSel.value || '');
+        profSel.innerHTML = '<option value="">Todos os Professores</option>';
+
+        if (anoLetivo) {
+            const turmasIds = state.turmasCache.filter(t => String(t.ano_letivo) === String(anoLetivo)).map(t => t.id);
+            if (turmasIds.length > 0) {
+                const { data } = await db.from('professores_turmas').select('professor_id, usuarios(nome)').in('turma_id', turmasIds);
+                const uniqueProfs = [];
+                const seen = new Set();
+                data?.forEach((d) => {
+                    if (d.usuarios && !seen.has(d.professor_id)) {
+                        seen.add(d.professor_id);
+                        uniqueProfs.push({ id: d.professor_id, nome: d.usuarios.nome });
+                    }
+                });
+                uniqueProfs
+                    .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' }))
+                    .forEach((p) => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.nome || '';
+                        profSel.appendChild(option);
+                    });
+            }
+        } else {
+            state.usuariosCache
+                .filter(u => u.papel === 'professor')
+                .sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR', { sensitivity: 'base' }))
+                .forEach((p) => {
+                    const option = document.createElement('option');
+                    option.value = p.user_uid;
+                    option.textContent = p.nome || '';
+                    profSel.appendChild(option);
+                });
+        }
+
+        if (previousValue && Array.from(profSel.options).some(opt => String(opt.value) === previousValue)) {
+            profSel.value = previousValue;
+        }
+        rebuildAssiduidadeDatalist({
+            selectId: 'assiduidade-prof-professor',
+            inputId: 'assiduidade-prof-professor-search',
+            datalistId: 'assiduidade-prof-professor-options',
+            lookup: assiduidadeProfessorLookup,
+            clearId: 'assiduidade-prof-professor-clear'
+        });
+    };
 
     state.dashboardSelectedDate = getLocalDateString();
     if (professorDataText) {
@@ -399,6 +550,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.focus();
             }
         }
+        if (closest('#assiduidade-aluno-aluno-clear')) {
+            const input = document.getElementById('assiduidade-aluno-aluno-search');
+            const select = document.getElementById('assiduidade-aluno-aluno');
+            if (input && select) {
+                input.value = '';
+                select.value = '';
+                setAssiduidadeClearVisibility('assiduidade-aluno-aluno-search', 'assiduidade-aluno-aluno-clear');
+                input.focus();
+            }
+        }
+        if (closest('#assiduidade-turma-turma-clear')) {
+            const input = document.getElementById('assiduidade-turma-turma-search');
+            const select = document.getElementById('assiduidade-turma-turma');
+            if (input && select) {
+                input.value = '';
+                select.value = '';
+                setAssiduidadeClearVisibility('assiduidade-turma-turma-search', 'assiduidade-turma-turma-clear');
+                input.focus();
+            }
+        }
+        if (closest('#assiduidade-prof-professor-clear')) {
+            const input = document.getElementById('assiduidade-prof-professor-search');
+            const select = document.getElementById('assiduidade-prof-professor');
+            if (input && select) {
+                input.value = '';
+                select.value = '';
+                setAssiduidadeClearVisibility('assiduidade-prof-professor-search', 'assiduidade-prof-professor-clear');
+                input.focus();
+            }
+        }
         if (closest('#chamadas-prev-month')) {
             e.stopPropagation();
             handleChamadasCalendarNav(-1);
@@ -458,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('relatorio-data-inicio').value = '';
                     document.getElementById('relatorio-data-fim').value = '';
                 }
-                else if (targetPanelId === 'admin-chamadas-panel') renderChamadasPanel();
+                else if (targetPanelId === 'admin-chamadas-panel') renderChamadasPanel({ defaultToLatestYear: true });
                 else if (targetPanelId === 'admin-consistencia-panel') renderConsistenciaPanel();
                 else if (targetPanelId === 'admin-config-panel') renderConfigPanel();
             }
@@ -597,8 +778,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('[data-date]')) {
             const newDate = closest('[data-date]').dataset.date;
             if (newDate) {
-                state.dashboardSelectedDate = newDate;
-                renderDashboardCalendar();
+                setDashboardSelectedDate(newDate);
                 loadDailySummary(state.dashboardSelectedDate);
             }
         }
@@ -740,6 +920,8 @@ document.addEventListener('DOMContentLoaded', () => {
             handleChamadasRegistroFilterChange(e.target.value);
         } else if (e.target.matches('#chamadas-ano-filter')) {
             handleChamadasAnoFilterChange(e.target.value);
+        } else if (e.target.matches('#consistencia-ano-filter')) {
+            handleConsistenciaAnoFilterChange(e.target.value);
         } else if (e.target.matches('#evento-data-inicio-filter') || e.target.matches('#evento-data-fim-filter')) {
             renderCalendarioPanel();
         } else if (e.target.matches('#promover-turmas-ano-origem')) {
@@ -747,50 +929,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (e.target.matches('#promover-turmas-confirm-checkbox')) {
             document.getElementById('confirm-promocao-turmas-btn').disabled = !e.target.checked;
         } else if (e.target.matches('#assiduidade-aluno-ano')) {
-            const anoLetivo = e.target.value;
-            const alunoSel = document.getElementById('assiduidade-aluno-aluno');
-            alunoSel.innerHTML = '<option value="">Todos os Alunos</option>';
-            const turmasDoAnoIds = state.turmasCache.filter(t => t.ano_letivo == anoLetivo).map(t => t.id);
-            if (anoLetivo) {
-                state.alunosCache.filter(a => turmasDoAnoIds.includes(a.turma_id)).forEach(a => alunoSel.innerHTML += `<option value="${a.id}">${a.nome_completo}</option>`);
-            }
+            await renderAssiduidadeAlunoOptions(e.target.value);
         } else if (e.target.matches('#assiduidade-turma-ano')) {
-            const ano = e.target.value;
-            const turmaSel = document.getElementById('assiduidade-turma-turma');
-            turmaSel.innerHTML = '<option value="">Todas as Turmas</option>';
-            if (ano) {
-                state.turmasCache.filter(t => t.ano_letivo == ano)
-                    .forEach(t => turmaSel.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
-            }
+            await renderAssiduidadeTurmaOptions(e.target.value);
         }
         else if (e.target.matches('#assiduidade-prof-ano')) {
-            const ano = e.target.value;
-            const profSel = document.getElementById('assiduidade-prof-professor');
-            if (profSel) profSel.innerHTML = '<option value="">Carregando...</option>';
-
-            if (ano) {
-                const turmasIds = state.turmasCache.filter(t => String(t.ano_letivo) === String(ano)).map(t => t.id);
-                if (turmasIds.length > 0) {
-                    const { data } = await db.from('professores_turmas').select('professor_id, usuarios(nome)').in('turma_id', turmasIds);
-                    const uniqueProfs = [];
-                    const seen = new Set();
-                    data?.forEach(d => {
-                        if (d.usuarios && !seen.has(d.professor_id)) {
-                            seen.add(d.professor_id);
-                            uniqueProfs.push({ id: d.professor_id, nome: d.usuarios.nome });
-                        }
-                    });
-                    if (profSel) {
-                        profSel.innerHTML = '<option value="">Todos os Professores</option>';
-                        uniqueProfs.sort((a, b) => a.nome.localeCompare(b.nome)).forEach(p => profSel.innerHTML += `<option value="${p.id}">${p.nome}</option>`);
-                    }
-                } else { if (profSel) profSel.innerHTML = '<option value="">Nenhum professor vinculado</option>'; }
-            } else {
-                if (profSel) {
-                    profSel.innerHTML = '<option value="">Todos os Professores</option>';
-                    state.usuariosCache.filter(u => u.papel === 'professor').forEach(p => profSel.innerHTML += `<option value="${p.user_uid}">${p.nome}</option>`);
-                }
-            }
+            await renderAssiduidadeProfessorOptions(e.target.value);
         }
     });
 
@@ -818,6 +962,30 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAlunosPanel();
         } else if (e.target.matches('#professor-search-input')) {
             renderProfessoresPanel();
+        } else if (e.target.matches('#assiduidade-aluno-aluno-search')) {
+            applyAssiduidadeSearchToSelect({
+                rawValue: e.target.value,
+                selectId: 'assiduidade-aluno-aluno',
+                inputId: 'assiduidade-aluno-aluno-search',
+                lookup: assiduidadeAlunoLookup,
+                clearId: 'assiduidade-aluno-aluno-clear'
+            });
+        } else if (e.target.matches('#assiduidade-turma-turma-search')) {
+            applyAssiduidadeSearchToSelect({
+                rawValue: e.target.value,
+                selectId: 'assiduidade-turma-turma',
+                inputId: 'assiduidade-turma-turma-search',
+                lookup: assiduidadeTurmaLookup,
+                clearId: 'assiduidade-turma-turma-clear'
+            });
+        } else if (e.target.matches('#assiduidade-prof-professor-search')) {
+            applyAssiduidadeSearchToSelect({
+                rawValue: e.target.value,
+                selectId: 'assiduidade-prof-professor',
+                inputId: 'assiduidade-prof-professor-search',
+                lookup: assiduidadeProfessorLookup,
+                clearId: 'assiduidade-prof-professor-clear'
+            });
         } else if (e.target.matches('#chamadas-professor-filter')) {
             handleChamadasProfessorFilterChange(e.target.value);
         } else if (e.target.matches('#chamadas-turma-filter')) {

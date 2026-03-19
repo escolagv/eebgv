@@ -30,6 +30,18 @@ let notificationsReloadTimer = null;
 let notificationsRealtimeStopping = false;
 let notificationsChannelToken = 0;
 const professoresSort = { key: 'nome', dir: 'asc' };
+let consistenciaAnoLetivo = '';
+const professorConsultaSort = { key: 'nome', dir: 'asc' };
+const professorConsultaRows = {
+    criados: [],
+    confirmados: [],
+    'nao-confirmados': []
+};
+const professorConsultaTabLabels = {
+    criados: 'Criados',
+    confirmados: 'Confirmados',
+    'nao-confirmados': 'Não confirmados'
+};
 
 async function fetchAuthUserUidByEmail(email) {
     try {
@@ -336,26 +348,14 @@ export async function loadDailySummary(selectedDate) {
 export async function renderDashboardCalendar() {
     const calendarGrid = document.getElementById('calendar-grid');
     const monthYearEl = document.getElementById('calendar-month-year');
-    const monthNames = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const today = getLocalDateString();
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const escapeAttr = (value) => String(value)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/'/g, '&#39;');
-    const eventPalette = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ef4444', '#14b8a6', '#eab308', '#0ea5e9'];
-    const hashString = (value) => {
-        let hash = 0;
-        for (let i = 0; i < value.length; i++) {
-            hash = ((hash << 5) - hash) + value.charCodeAt(i);
-            hash |= 0;
-        }
-        return Math.abs(hash);
-    };
-    const getEventColor = (evento) => {
-        const seed = String(evento.id || evento.descricao || 'evento');
-        return eventPalette[hashString(seed) % eventPalette.length];
-    };
 
     const { month, year } = state.dashboardCalendar;
     monthYearEl.textContent = `${monthNames[month]} ${year}`;
@@ -374,20 +374,29 @@ export async function renderDashboardCalendar() {
             .or(`data.lte.${monthEnd},data_fim.lte.${monthEnd}`)
     );
 
+    const classifyEventType = (descricao) => {
+        const text = String(descricao || '').toLowerCase();
+        if (text.includes('feriado')) return { key: 'feriado', label: 'FERIADO', color: '#dc2626', priority: 1 };
+        if (text.includes('recesso')) return { key: 'recesso', label: 'RECESSO', color: '#059669', priority: 2 };
+        if (text.includes('implant') || text.includes('sistema')) return { key: 'sistema', label: 'SISTEMA', color: '#7c3aed', priority: 4 };
+        if (text.includes('pedag') || text.includes('formação') || text.includes('formacao')) return { key: 'pedagogico', label: 'PEDAGÓGICO', color: '#2563eb', priority: 3 };
+        return { key: 'outros', label: 'EVENTO', color: '#eab308', priority: 5 };
+    };
+
     const eventosByDate = new Map();
     (eventos || []).forEach(ev => {
         const inicio = new Date(ev.data + 'T00:00:00');
         const fim = new Date((ev.data_fim || ev.data) + 'T00:00:00');
-        const labelParts = [ev.descricao || 'Evento'];
+        const tipo = classifyEventType(ev.descricao);
+        const labelParts = [`[${tipo.label}]`, ev.descricao || 'Evento'];
         if (ev.abrangencia && ev.abrangencia !== 'global') {
             labelParts.push('Turmas específicas');
         }
         const label = labelParts.join(' - ');
-        const color = getEventColor(ev);
         for (let d = new Date(inicio); d <= fim; d.setDate(d.getDate() + 1)) {
             const key = d.toISOString().split('T')[0];
             const current = eventosByDate.get(key) || [];
-            if (!current.some(item => item.label === label)) current.push({ label, color });
+            if (!current.some(item => item.label === label)) current.push({ label, color: tipo.color, priority: tipo.priority });
             eventosByDate.set(key, current);
         }
     });
@@ -399,22 +408,39 @@ export async function renderDashboardCalendar() {
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const isSelected = dateStr === state.dashboardSelectedDate;
+        const isToday = dateStr === today;
         const isWeekend = [0, 6].includes(new Date(dateStr + 'T00:00:00').getDay());
         const eventItems = eventosByDate.get(dateStr) || [];
         const hasEvent = eventItems.length > 0;
         const eventTitle = hasEvent ? escapeAttr(eventItems.map(item => item.label).join(' | ')) : '';
-        const primaryColor = hasEvent ? eventItems[0].color : '';
-        const bgColor = primaryColor || '';
-        const bgStyle = bgColor ? `style="background:${bgColor};"` : '';
+        const accent = hasEvent ? [...eventItems].sort((a, b) => a.priority - b.priority)[0].color : '';
+        const markersHtml = hasEvent
+            ? `<span class="calendar-day-markers">${eventItems.slice(0, 3).map(item => `<i class="calendar-day-marker" style="background:${item.color};"></i>`).join('')}${eventItems.length > 3 ? '<i class="calendar-day-marker-more">+</i>' : ''}</span>`
+            : '';
         html += `
-            <div class="calendar-day-container ${isSelected ? 'calendar-day-selected' : ''}" data-date="${dateStr}">
-                <div class="calendar-day-content ${hasEvent ? 'calendar-day-event' : ''} ${isWeekend ? 'calendar-day-weekend' : ''}" ${bgStyle} ${eventTitle ? `title="${eventTitle}"` : ''}>
+            <div class="calendar-day-container ${isSelected ? 'calendar-day-selected' : ''} ${isToday ? 'calendar-day-today' : ''}" data-date="${dateStr}">
+                <div class="calendar-day-content ${hasEvent ? 'calendar-day-event' : ''} ${isWeekend ? 'calendar-day-weekend' : ''}" ${accent ? `style="--event-accent:${accent};"` : ''} ${eventTitle ? `title="${eventTitle}"` : ''}>
                     <span class="calendar-day-number">${day}</span>
+                    ${markersHtml}
                 </div>
             </div>
         `;
     }
     calendarGrid.innerHTML = html;
+}
+
+export function setDashboardSelectedDate(dateStr) {
+    if (!dateStr) return;
+    const calendarGrid = document.getElementById('calendar-grid');
+    if (!calendarGrid) return;
+
+    state.dashboardSelectedDate = dateStr;
+
+    const prevSelected = calendarGrid.querySelector('.calendar-day-container.calendar-day-selected');
+    if (prevSelected) prevSelected.classList.remove('calendar-day-selected');
+
+    const nextSelected = calendarGrid.querySelector(`.calendar-day-container[data-date="${dateStr}"]`);
+    if (nextSelected) nextSelected.classList.add('calendar-day-selected');
 }
 
 // ===============================================================
@@ -584,8 +610,9 @@ export async function openAlunoModal(editId = null) {
 
 export async function handleAlunoFormSubmit(e) {
     const id = document.getElementById('aluno-id').value;
+    const nomeValue = String(document.getElementById('aluno-nome').value || '').trim();
     const alunoData = {
-        nome_completo: document.getElementById('aluno-nome').value,
+        nome_completo: nomeValue,
         matricula: document.getElementById('aluno-matricula').value,
         turma_id: document.getElementById('aluno-turma').value || null,
         nome_responsavel: document.getElementById('aluno-responsavel').value,
@@ -603,6 +630,22 @@ export async function handleAlunoFormSubmit(e) {
         }
         if (existing && existing.length > 0 && String(existing[0].id) !== String(id)) {
             showToast('Já existe um aluno com essa matrícula.', true);
+            return;
+        }
+
+        const { data: duplicatePair, error: duplicatePairError } = await safeQuery(
+            db.from('alunos')
+                .select('id')
+                .eq('matricula', matriculaValue)
+                .eq('nome_completo', nomeValue)
+                .limit(1)
+        );
+        if (duplicatePairError) {
+            showToast('Erro ao validar duplicidade de aluno: ' + duplicatePairError.message, true);
+            return;
+        }
+        if (duplicatePair && duplicatePair.length > 0 && String(duplicatePair[0].id) !== String(id)) {
+            showToast('Já existe um aluno com o mesmo nome e matrícula.', true);
             return;
         }
     }
@@ -637,28 +680,78 @@ function bindApoiaRelatorioModal() {
     const modal = document.getElementById('apoia-relatorio-modal');
     const alunoSelect = document.getElementById('apoia-relatorio-aluno-select');
     const alunoSearch = document.getElementById('apoia-relatorio-aluno-search');
+    const alunoDatalist = document.getElementById('apoia-relatorio-aluno-options');
+    const alunoClear = document.getElementById('apoia-relatorio-aluno-clear');
     if (!openBtn || !closeBtn || !modal) return;
     if (modal.dataset.bound === '1') return;
     modal.dataset.bound = '1';
 
-    const renderAlunoOptions = (query = '') => {
-        if (!alunoSelect) return;
-        const normalized = query.trim().toLowerCase();
-        const list = state.alunosCache || [];
-        const filtered = normalized
-            ? list.filter(a => (a.nome_completo || '').toLowerCase().includes(normalized))
-            : list;
-        alunoSelect.innerHTML = '<option value="">Todos os alunos</option>';
-        filtered.forEach(a => {
-            alunoSelect.innerHTML += `<option value="${a.id}">${a.nome_completo}</option>`;
+    const alunoLookup = new Map();
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+    const updateAlunoClear = () => {
+        if (!alunoSearch || !alunoClear) return;
+        alunoClear.classList.toggle('hidden', !alunoSearch.value.trim());
+    };
+
+    const renderAlunoOptions = () => {
+        if (!alunoSelect || !alunoDatalist) return;
+        const previouslySelected = String(alunoSelect.value || '');
+        const turmasMap = new Map((state.turmasCache || []).map(t => [String(t.id), String(t.nome_turma || '').trim()]));
+        const list = [...(state.alunosCache || [])]
+            .map((a) => {
+                const turmaNome = turmasMap.get(String(a.turma_id || '')) || 'Sem turma';
+                return {
+                    ...a,
+                    _turma_nome: turmaNome
+                };
+            })
+            .sort((a, b) => {
+                const turmaCmp = String(a._turma_nome || '').localeCompare(String(b._turma_nome || ''), 'pt-BR', {
+                    numeric: true,
+                    sensitivity: 'base'
+                });
+                if (turmaCmp !== 0) return turmaCmp;
+                return String(a.nome_completo || '').localeCompare(String(b.nome_completo || ''), 'pt-BR', {
+                    sensitivity: 'base'
+                });
+            });
+        const selectOptions = ['<option value="">Todos os alunos</option>'];
+        const datalistOptions = [];
+        alunoLookup.clear();
+        list.forEach((a) => {
+            const nome = String(a.nome_completo || '').trim();
+            const turmaNome = String(a._turma_nome || '').trim();
+            const id = String(a.id || '');
+            if (!nome || !id) return;
+            const label = `${turmaNome} • ${nome}`;
+            selectOptions.push(`<option value="${id}">${label}</option>`);
+            datalistOptions.push(`<option value="${label}"></option>`);
+            if (!alunoLookup.has(normalize(label))) {
+                alunoLookup.set(normalize(label), id);
+            }
+            if (!alunoLookup.has(normalize(nome))) {
+                alunoLookup.set(normalize(nome), id);
+            }
         });
+        alunoSelect.innerHTML = selectOptions.join('');
+        alunoDatalist.innerHTML = datalistOptions.join('');
+
+        if (previouslySelected && Array.from(alunoSelect.options).some(opt => String(opt.value) === previouslySelected)) {
+            alunoSelect.value = previouslySelected;
+            const selectedLabel = alunoSelect.options[alunoSelect.selectedIndex]?.text || '';
+            if (alunoSearch) alunoSearch.value = selectedLabel;
+        } else {
+            alunoSelect.value = '';
+            if (alunoSearch) alunoSearch.value = '';
+        }
+        updateAlunoClear();
     };
 
     const ensureAlunosCache = async () => {
-        if (state.alunosCache && state.alunosCache.length) return;
+        if (state.alunosCache && state.alunosCache.length && Object.prototype.hasOwnProperty.call(state.alunosCache[0], 'turma_id')) return;
         const { data } = await safeQuery(
             db.from('alunos')
-                .select('id, nome_completo')
+                .select('id, nome_completo, turma_id')
                 .order('nome_completo', { ascending: true })
         );
         state.alunosCache = data || [];
@@ -670,7 +763,7 @@ function bindApoiaRelatorioModal() {
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Selecione o período e clique em Gerar Relatório.</td></tr>';
         }
-        ensureAlunosCache().then(() => renderAlunoOptions(alunoSearch?.value || ''));
+        ensureAlunosCache().then(() => renderAlunoOptions());
     });
 
     closeBtn.addEventListener('click', () => {
@@ -683,7 +776,19 @@ function bindApoiaRelatorioModal() {
 
     if (alunoSearch) {
         alunoSearch.addEventListener('input', (e) => {
-            renderAlunoOptions(e.target.value || '');
+            const raw = String(e.target.value || '');
+            const selectedId = alunoLookup.get(normalize(raw)) || '';
+            if (alunoSelect) alunoSelect.value = selectedId;
+            updateAlunoClear();
+        });
+    }
+
+    if (alunoClear && alunoSearch) {
+        alunoClear.addEventListener('click', () => {
+            alunoSearch.value = '';
+            if (alunoSelect) alunoSelect.value = '';
+            updateAlunoClear();
+            alunoSearch.focus();
         });
     }
 }
@@ -799,15 +904,23 @@ export async function handleGerarApoiaRelatorio() {
     const dataFim = document.getElementById('apoia-relatorio-data-fim')?.value;
     const status = document.getElementById('apoia-relatorio-status')?.value;
     const alunoId = document.getElementById('apoia-relatorio-aluno-select')?.value;
-    let queryBuilder = db.from('apoia_encaminhamentos').select(`*, alunos(nome_completo)`).order('data_encaminhamento');
+    const tableBody = document.getElementById('apoia-relatorio-table-body');
+    const printBtn = document.getElementById('imprimir-apoia-relatorio-btn');
+    const periodoEl = document.getElementById('apoia-relatorio-periodo-impressao');
+    if (tableBody) {
+        tableBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center">Gerando relatório...</td></tr>';
+    }
+    if (printBtn) printBtn.classList.add('hidden');
+
+    let queryBuilder = db
+        .from('apoia_encaminhamentos')
+        .select('aluno_id, data_encaminhamento, motivo, status, observacoes, alunos(nome_completo)')
+        .order('data_encaminhamento');
     if (dataInicio) queryBuilder = queryBuilder.gte('data_encaminhamento', dataInicio);
     if (dataFim) queryBuilder = queryBuilder.lte('data_encaminhamento', dataFim);
     if (status) queryBuilder = queryBuilder.eq('status', status);
     if (alunoId) queryBuilder = queryBuilder.eq('aluno_id', alunoId);
     const { data, error } = await safeQuery(queryBuilder);
-    const tableBody = document.getElementById('apoia-relatorio-table-body');
-    const printBtn = document.getElementById('imprimir-apoia-relatorio-btn');
-    const periodoEl = document.getElementById('apoia-relatorio-periodo-impressao');
     if (periodoEl) {
         periodoEl.textContent = dataInicio || dataFim
             ? `Período: ${dataInicio || '...'} até ${dataFim || '...'}`
@@ -909,7 +1022,6 @@ export async function renderProfessoresPanel(options = {}) {
             <td class="p-3 text-center">${confirmHtml}</td>
             <td class="p-3 space-x-4">
                 <button class="text-blue-600 hover:underline edit-professor-btn" data-id="${p.id}">Editar</button>
-                <button class="text-orange-600 hover:underline reset-password-btn" data-email="${p.email}">Resetar Senha</button>
             </td>
         </tr>
     `;
@@ -997,6 +1109,104 @@ function formatDateTimeSP(value) {
     }).format(date);
 }
 
+function sortProfessorConsultaRows(rows) {
+    const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+    const dir = professorConsultaSort.dir === 'desc' ? -1 : 1;
+    return [...(rows || [])].sort((a, b) => {
+        let cmp = 0;
+        if (professorConsultaSort.key === 'email') {
+            cmp = collator.compare(String(a.email || ''), String(b.email || ''));
+        } else if (professorConsultaSort.key === 'evento') {
+            cmp = (Number(a.eventoTs) || 0) - (Number(b.eventoTs) || 0);
+        } else {
+            cmp = collator.compare(String(a.nome || ''), String(b.nome || ''));
+        }
+        if (cmp !== 0) return cmp * dir;
+        cmp = collator.compare(String(a.nome || ''), String(b.nome || ''));
+        if (cmp !== 0) return cmp * dir;
+        return collator.compare(String(a.email || ''), String(b.email || '')) * dir;
+    });
+}
+
+function renderProfessorConsultaTable(tabKey) {
+    const bodyIdMap = {
+        criados: 'consulta-criados-body',
+        confirmados: 'consulta-confirmados-body',
+        'nao-confirmados': 'consulta-nao-confirmados-body'
+    };
+    const emptyMessageMap = {
+        criados: 'Nenhum registro encontrado.',
+        confirmados: 'Nenhum confirmado ainda.',
+        'nao-confirmados': 'Nenhum não confirmado.'
+    };
+    const columnsMap = {
+        criados: 3,
+        confirmados: 3,
+        'nao-confirmados': 4
+    };
+    const tbody = document.getElementById(bodyIdMap[tabKey]);
+    if (!tbody) return;
+    const rows = sortProfessorConsultaRows(professorConsultaRows[tabKey] || []);
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="${columnsMap[tabKey] || 3}" class="p-4 text-center">${emptyMessageMap[tabKey]}</td></tr>`;
+        return;
+    }
+    if (tabKey === 'nao-confirmados') {
+        tbody.innerHTML = rows.map(item => {
+            const emailAttr = String(item.email || '').replace(/"/g, '&quot;');
+            const phoneAttr = String(item.telefone || '').replace(/"/g, '&quot;');
+            const nameAttr = String(item.nome || '').replace(/"/g, '&quot;');
+            return `
+                <tr>
+                    <td class="p-3">${item.nome || '-'}</td>
+                    <td class="p-3">${item.email || '-'}</td>
+                    <td class="p-3">${item.evento || '-'}</td>
+                    <td class="p-3 text-center" data-print-hide="1">
+                        <button type="button" class="resend-confirmation-btn inline-flex items-center justify-center" data-email="${emailAttr}" data-phone="${phoneAttr}" data-name="${nameAttr}" title="Reenviar confirmação de conta">
+                            <span class="inline-block w-3 h-3 rounded-full bg-red-500"></span>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        return;
+    }
+    tbody.innerHTML = rows.map(item => `
+            <tr>
+                <td class="p-3">${item.nome || '-'}</td>
+                <td class="p-3">${item.email || '-'}</td>
+                <td class="p-3">${item.evento || '-'}</td>
+            </tr>
+        `).join('');
+}
+
+function renderAllProfessorConsultaTables() {
+    renderProfessorConsultaTable('criados');
+    renderProfessorConsultaTable('confirmados');
+    renderProfessorConsultaTable('nao-confirmados');
+    updateProfessorConsultaTabCounts();
+}
+
+function updateProfessorConsultaTabCounts() {
+    const tabButtons = document.querySelectorAll('#professor-consulta-modal .professor-consulta-tab');
+    tabButtons.forEach(btn => {
+        const tabKey = btn.dataset.consultaTab || '';
+        const label = professorConsultaTabLabels[tabKey] || btn.textContent || '';
+        const count = Array.isArray(professorConsultaRows[tabKey]) ? professorConsultaRows[tabKey].length : 0;
+        btn.textContent = `${label} (${count})`;
+    });
+}
+
+function updateProfessorConsultaSortIndicators() {
+    const headers = document.querySelectorAll('#professor-consulta-modal .consulta-sortable-th');
+    headers.forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.consultaSort === professorConsultaSort.key) {
+            th.classList.add(professorConsultaSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+}
+
 async function fetchAuthStatusByEmails(emails) {
     if (!emails || emails.length === 0) return [];
     const { data, error } = await safeQuery(
@@ -1032,6 +1242,18 @@ function bindProfessorConsultaModal() {
     modal.addEventListener('click', (e) => {
         const tabBtn = e.target.closest('.professor-consulta-tab');
         if (tabBtn) setConsultaTab(tabBtn.dataset.consultaTab);
+        const sortBtn = e.target.closest('.consulta-sortable-th');
+        if (sortBtn) {
+            const key = sortBtn.dataset.consultaSort || 'nome';
+            if (professorConsultaSort.key === key) {
+                professorConsultaSort.dir = professorConsultaSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                professorConsultaSort.key = key;
+                professorConsultaSort.dir = 'asc';
+            }
+            updateProfessorConsultaSortIndicators();
+            renderAllProfessorConsultaTables();
+        }
     });
     modal.dataset.bound = '1';
 }
@@ -1040,6 +1262,13 @@ export async function openProfessorConsultaModal() {
     const modal = document.getElementById('professor-consulta-modal');
     if (!modal) return;
     bindProfessorConsultaModal();
+    professorConsultaSort.key = 'nome';
+    professorConsultaSort.dir = 'asc';
+    professorConsultaRows.criados = [];
+    professorConsultaRows.confirmados = [];
+    professorConsultaRows['nao-confirmados'] = [];
+    updateProfessorConsultaTabCounts();
+    updateProfessorConsultaSortIndicators();
     setConsultaTab('criados');
     modal.classList.remove('hidden');
 
@@ -1048,74 +1277,72 @@ export async function openProfessorConsultaModal() {
     const notConfirmedBody = document.getElementById('consulta-nao-confirmados-body');
     if (createdBody) createdBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
     if (confirmedBody) confirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
-    if (notConfirmedBody) notConfirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center">Carregando...</td></tr>';
+    if (notConfirmedBody) notConfirmedBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center">Carregando...</td></tr>';
 
     const { data: professores, error } = await safeQuery(
         db.from('usuarios')
-            .select('nome, email')
+            .select('nome, email, telefone, email_confirmado, status')
             .eq('papel', 'professor')
+            .eq('status', 'ativo')
             .order('nome', { ascending: true })
     );
     if (error || !professores) {
         if (createdBody) createdBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
         if (confirmedBody) confirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
-        if (notConfirmedBody) notConfirmedBody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
+        if (notConfirmedBody) notConfirmedBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-red-500">Erro ao carregar dados.</td></tr>';
         return;
     }
 
-    const emails = professores.map(p => p.email).filter(Boolean);
+    const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
+    const syncedProfessores = await syncEmailConfirmations(professores || []);
+    const emails = syncedProfessores.map(p => p.email).filter(Boolean);
     const statusData = await fetchAuthStatusByEmails(emails);
     const statusMap = new Map();
-    statusData.forEach(item => statusMap.set(item.email, item));
+    statusData.forEach(item => statusMap.set(normalizeEmail(item.email), item));
 
-    const createdRows = professores.map(p => {
-        const auth = statusMap.get(p.email);
+    professorConsultaRows.criados = syncedProfessores.map(p => {
+        const auth = statusMap.get(normalizeEmail(p.email));
         const createdAt = auth?.created_at ? formatDateTimeSP(auth.created_at) : '-';
-        return `
-            <tr>
-                <td class="p-3">${p.nome || '-'}</td>
-                <td class="p-3">${p.email || '-'}</td>
-                <td class="p-3">${createdAt}</td>
-            </tr>
-        `;
-    }).join('');
+        return {
+            nome: p.nome || '-',
+            email: p.email || '-',
+            evento: createdAt,
+            eventoTs: auth?.created_at ? new Date(auth.created_at).getTime() : 0,
+            telefone: p.telefone || ''
+        };
+    });
 
-    const confirmedRows = professores
+    professorConsultaRows.confirmados = syncedProfessores
         .map(p => {
-            const auth = statusMap.get(p.email);
+            const auth = statusMap.get(normalizeEmail(p.email));
             const confirmedAt = auth?.confirmed_at || auth?.email_confirmed_at;
-            if (!confirmedAt) return null;
-            return `
-                <tr>
-                    <td class="p-3">${p.nome || '-'}</td>
-                    <td class="p-3">${p.email || '-'}</td>
-                    <td class="p-3">${formatDateTimeSP(confirmedAt)}</td>
-                </tr>
-            `;
+            if (!p.email_confirmado) return null;
+            return {
+                nome: p.nome || '-',
+                email: p.email || '-',
+                evento: confirmedAt ? formatDateTimeSP(confirmedAt) : '-',
+                eventoTs: confirmedAt ? new Date(confirmedAt).getTime() : 0,
+                telefone: p.telefone || ''
+            };
         })
-        .filter(Boolean)
-        .join('');
+        .filter(Boolean);
 
-    const notConfirmedRows = professores
+    professorConsultaRows['nao-confirmados'] = syncedProfessores
         .map(p => {
-            const auth = statusMap.get(p.email);
-            const confirmedAt = auth?.confirmed_at || auth?.email_confirmed_at;
-            if (confirmedAt) return null;
+            const auth = statusMap.get(normalizeEmail(p.email));
+            if (p.email_confirmado) return null;
             const createdAt = auth?.created_at ? formatDateTimeSP(auth.created_at) : '-';
-            return `
-                <tr>
-                    <td class="p-3">${p.nome || '-'}</td>
-                    <td class="p-3">${p.email || '-'}</td>
-                    <td class="p-3">${createdAt}</td>
-                </tr>
-            `;
+            return {
+                nome: p.nome || '-',
+                email: p.email || '-',
+                evento: createdAt,
+                eventoTs: auth?.created_at ? new Date(auth.created_at).getTime() : 0,
+                telefone: p.telefone || ''
+            };
         })
-        .filter(Boolean)
-        .join('');
+        .filter(Boolean);
 
-    if (createdBody) createdBody.innerHTML = createdRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum registro encontrado.</td></tr>';
-    if (confirmedBody) confirmedBody.innerHTML = confirmedRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum confirmado ainda.</td></tr>';
-    if (notConfirmedBody) notConfirmedBody.innerHTML = notConfirmedRows || '<tr><td colspan="3" class="p-4 text-center">Nenhum não confirmado.</td></tr>';
+    renderAllProfessorConsultaTables();
 }
 
 export function handlePrintProfessorConsultaActiveTab() {
@@ -1150,6 +1377,8 @@ export function handlePrintProfessorConsultaActiveTab() {
     const logoUrl = new URL('./logo.png', window.location.href).href;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+    const printTable = table.cloneNode(true);
+    printTable.querySelectorAll('[data-print-hide="1"]').forEach(el => el.remove());
 
     printWindow.document.write(`
         <html>
@@ -1173,7 +1402,7 @@ export function handlePrintProfessorConsultaActiveTab() {
                 <h1>${config.title}</h1>
             </div>
             <div class="meta">Impresso em: ${now}</div>
-            ${table.outerHTML}
+            ${printTable.outerHTML}
             <script>window.onload = () => window.print();</script>
         </body>
         </html>
@@ -1249,12 +1478,16 @@ export async function openProfessorModal(editId = null) {
     const passwordInput = document.getElementById('professor-password');
     const passwordToggle = document.getElementById('professor-password-show');
     const telefoneInput = document.getElementById('professor-telefone');
+    const resetContainer = document.getElementById('professor-reset-container');
+    const resetBtn = document.getElementById('professor-reset-password-btn');
     form.reset();
     form.dataset.originalEmail = '';
     form.dataset.userUid = '';
     document.getElementById('professor-id').value = '';
     document.getElementById('professor-modal-title').textContent = editId ? 'Editar Professor' : 'Adicionar Professor';
     document.getElementById('professor-delete-container').classList.toggle('hidden', !editId);
+    if (resetContainer) resetContainer.classList.toggle('hidden', !editId);
+    if (resetBtn) resetBtn.dataset.email = '';
     if (statusContainer) statusContainer.classList.toggle('hidden', !editId);
     if (passwordContainer) passwordContainer.classList.toggle('hidden', !!editId);
     if (passwordInput) passwordInput.type = 'password';
@@ -1272,6 +1505,7 @@ export async function openProfessorModal(editId = null) {
             if (vinculoSelect) vinculoSelect.value = data.vinculo || 'efetivo';
             form.dataset.originalEmail = data.email || '';
             form.dataset.userUid = data.user_uid || '';
+            if (resetBtn) resetBtn.dataset.email = data.email || '';
         }
     }
     modal.classList.remove('hidden');
@@ -1279,14 +1513,31 @@ export async function openProfessorModal(editId = null) {
 
 export async function handleProfessorFormSubmit(e) {
     const id = document.getElementById('professor-id').value;
-    const nome = document.getElementById('professor-nome').value;
-    const email = document.getElementById('professor-email').value;
+    const nome = String(document.getElementById('professor-nome').value || '').trim();
+    const email = String(document.getElementById('professor-email').value || '').trim().toLowerCase();
     const status = document.getElementById('professor-status').value || 'ativo';
     const vinculo = document.getElementById('professor-vinculo')?.value || 'efetivo';
     const telefoneRaw = document.getElementById('professor-telefone')?.value || '';
     const telefone = normalizePhoneDigits(telefoneRaw);
     const form = document.getElementById('professor-form');
     if (id) {
+        const { data: duplicateEmail, error: duplicateEmailError } = await safeQuery(
+            db.from('usuarios')
+                .select('id')
+                .eq('papel', 'professor')
+                .eq('email', email)
+                .neq('id', id)
+                .limit(1)
+        );
+        if (duplicateEmailError) {
+            showToast('Erro ao validar e-mail de professor: ' + duplicateEmailError.message, true);
+            return;
+        }
+        if (duplicateEmail && duplicateEmail.length > 0) {
+            showToast('Já existe professor com esse e-mail.', true);
+            return;
+        }
+
         const originalEmail = (form?.dataset?.originalEmail || '').trim().toLowerCase();
         const nextEmail = (email || '').trim().toLowerCase();
         let authUserUid = form?.dataset?.userUid || '';
@@ -1390,7 +1641,7 @@ export async function handleProfessorFormSubmit(e) {
             return;
         }
         await logAudit('reactivate', 'professor', profileData?.id || null, { nome, email, vinculo, telefone });
-        showToast('Professor reativado. Clique em “Resetar Senha” para enviar o link manualmente.', false);
+        showToast('Professor reativado. Abra o cadastro do professor e use “Resetar Senha” para enviar o link manualmente.', false);
         closeAllModals();
         await renderProfessoresPanel();
         return;
@@ -1611,6 +1862,22 @@ export async function handleTurmaFormSubmit(e) {
     const turmasScrollWrap = document.querySelector('#admin-turmas-panel .admin-card-scroll');
     const savedScrollTop = id && turmasScrollWrap ? turmasScrollWrap.scrollTop : 0;
 
+    let duplicateTurmaQuery = db.from('turmas')
+        .select('id')
+        .eq('nome_turma', nome)
+        .eq('ano_letivo', ano_letivo)
+        .limit(1);
+    if (id) duplicateTurmaQuery = duplicateTurmaQuery.neq('id', id);
+    const { data: duplicateTurma, error: duplicateTurmaError } = await safeQuery(duplicateTurmaQuery);
+    if (duplicateTurmaError) {
+        showToast('Erro ao validar duplicidade de turma: ' + duplicateTurmaError.message, true);
+        return;
+    }
+    if (duplicateTurma && duplicateTurma.length > 0) {
+        showToast('Já existe turma com esse nome no mesmo ano letivo.', true);
+        return;
+    }
+
     if (id) {
         const { error } = await safeQuery(db.from('turmas').update({ nome_turma: nome, ano_letivo: ano_letivo }).eq('id', id));
         if (error) {
@@ -1688,10 +1955,18 @@ function syncChamadasCalendarToSelection() {
     chamadasCalendar = { month: base.getMonth(), year: base.getFullYear() };
 }
 
-function ensureChamadasDefaults() {
+function ensureChamadasDefaults(options = {}) {
+    const { defaultToLatestYear = false } = options;
     if (!chamadasDateCleared && !chamadasStartDate) {
         chamadasStartDate = getLocalDateString();
         chamadasEndDate = null;
+    }
+    if (defaultToLatestYear && Array.isArray(state.anosLetivosCache) && state.anosLetivosCache.length > 0) {
+        const defaultAno = String(state.anosLetivosCache[0]);
+        chamadasAnoLetivo = defaultAno;
+        chamadasAnoSearch = defaultAno;
+        chamadasCurrentPage = 1;
+        chamadasCacheKey = '';
     }
     syncChamadasCalendarToSelection();
 }
@@ -1716,7 +1991,7 @@ function renderChamadasCalendar() {
     const grid = document.getElementById('chamadas-calendar-grid');
     const monthYearEl = document.getElementById('chamadas-month-year');
     if (!grid || !monthYearEl) return;
-    const monthNames = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     const { month, year } = chamadasCalendar;
     monthYearEl.textContent = `${monthNames[month]} ${year}`;
 
@@ -2214,8 +2489,9 @@ export function handleChamadasAnoFilterChange(value) {
     chamadasCacheKey = '';
     renderChamadasPanel();
 }
-export async function renderChamadasPanel() {
-    ensureChamadasDefaults();
+export async function renderChamadasPanel(options = {}) {
+    const { defaultToLatestYear = false } = options;
+    ensureChamadasDefaults({ defaultToLatestYear });
     fillChamadasProfessorFilter();
     fillChamadasExtraFilters();
     updateChamadasPeriodoLabel();
@@ -2581,7 +2857,24 @@ export async function handleConfigFormSubmit(e) {
 // ADMIN - CONSISTENCIA
 // ===============================================================
 
+function bindConsistenciaCollapsibles() {
+    const panel = document.getElementById('admin-consistencia-panel');
+    if (!panel || panel.dataset.collapsibleBound === '1') return;
+    panel.addEventListener('click', (e) => {
+        const summary = e.target.closest('[data-consistencia-summary="1"]');
+        if (!summary) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const container = summary.closest('details.consistencia-collapsible');
+        if (!container) return;
+        container.open = !container.open;
+    });
+    panel.dataset.collapsibleBound = '1';
+}
+
 export async function renderConsistenciaPanel() {
+    bindConsistenciaCollapsibles();
+    const anoFilterEl = document.getElementById('consistencia-ano-filter');
     const alunosSemTurmaCountEl = document.getElementById('consistencia-alunos-sem-turma-count');
     const profSemTurmaCountEl = document.getElementById('consistencia-prof-sem-turma-count');
     const turmasDuplicadasCountEl = document.getElementById('consistencia-turmas-duplicadas-count');
@@ -2595,6 +2888,14 @@ export async function renderConsistenciaPanel() {
     const alunosOrfaosTable = document.getElementById('consistencia-alunos-orfaos-table');
 
     const setLoading = () => {
+        if (anoFilterEl && state.anosLetivosCache?.length) {
+            const anos = [...state.anosLetivosCache].map(a => String(a));
+            if (!consistenciaAnoLetivo || !anos.includes(String(consistenciaAnoLetivo))) {
+                consistenciaAnoLetivo = String(anos[0]);
+            }
+            anoFilterEl.innerHTML = anos.map(ano => `<option value="${ano}">${ano}</option>`).join('');
+            anoFilterEl.value = String(consistenciaAnoLetivo);
+        }
         alunosSemTurmaCountEl.textContent = '...';
         profSemTurmaCountEl.textContent = '...';
         turmasDuplicadasCountEl.textContent = '...';
@@ -2609,37 +2910,60 @@ export async function renderConsistenciaPanel() {
 
     setLoading();
 
+    const fetchAllAlunosAtivos = async () => {
+        const pageSize = 1000;
+        let from = 0;
+        const rows = [];
+        while (true) {
+            const { data, error } = await safeQuery(
+                db.from('alunos')
+                    .select('id, nome_completo, matricula, turma_id')
+                    .eq('status', 'ativo')
+                    .order('id', { ascending: true })
+                    .range(from, from + pageSize - 1)
+            );
+            if (error) throw error;
+            const batch = data || [];
+            rows.push(...batch);
+            if (batch.length < pageSize) break;
+            from += pageSize;
+        }
+        return rows;
+    };
+
     try {
         const [
-            alunosSemTurmaCountRes,
-            alunosSemTurmaListRes,
+            alunosAtivos,
             profsRes,
             profsTurmasRes,
-            turmasRes,
-            totalComTurmaRes,
-            totalComJoinRes,
-            alunosComTurmaListRes,
-            totalAlunosRes,
-            totalProfessoresRes
+            turmasRes
         ] = await Promise.all([
-            safeQuery(db.from('alunos').select('*', { count: 'exact', head: true }).eq('status', 'ativo').is('turma_id', null)),
-            safeQuery(db.from('alunos').select('id, nome_completo, matricula').eq('status', 'ativo').is('turma_id', null).order('nome_completo').limit(50)),
+            fetchAllAlunosAtivos(),
             safeQuery(db.from('usuarios').select('id, user_uid, nome, email').eq('papel', 'professor').order('nome')),
-            safeQuery(db.from('professores_turmas').select('professor_id')),
-            safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo')),
-            safeQuery(db.from('alunos').select('*', { count: 'exact', head: true }).not('turma_id', 'is', null)),
-            safeQuery(db.from('alunos').select('id, turmas!inner(id)', { count: 'exact', head: true }).not('turma_id', 'is', null)),
-            safeQuery(db.from('alunos').select('id, nome_completo, matricula, turma_id, turmas ( id )').not('turma_id', 'is', null).limit(500)),
-            safeQuery(db.from('alunos').select('*', { count: 'exact', head: true })),
-            safeQuery(db.from('usuarios').select('*', { count: 'exact', head: true }).eq('papel', 'professor'))
+            safeQuery(db.from('professores_turmas').select('professor_id, turma_id')),
+            safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo'))
         ]);
 
-        // Alunos ativos sem turma
-        const alunosSemTurmaCount = alunosSemTurmaCountRes.count || 0;
-        alunosSemTurmaCountEl.textContent = alunosSemTurmaCount;
-        const alunosSemTurma = alunosSemTurmaListRes.data || [];
-        alunosSemTurmaTable.innerHTML = alunosSemTurma.length
-            ? alunosSemTurma.map(a => `
+        const profs = profsRes.data || [];
+        const profsTurmas = profsTurmasRes.data || [];
+        const turmas = turmasRes.data || [];
+
+        const turmasAno = consistenciaAnoLetivo
+            ? turmas.filter(t => String(t.ano_letivo) === String(consistenciaAnoLetivo))
+            : turmas;
+        const turmasAnoIds = new Set(turmasAno.map(t => t.id));
+        const turmasIdsValidos = new Set(turmas.map(t => t.id));
+
+        // Alunos sem turma no ano: sem vínculo ou vínculo fora do ano selecionado.
+        const alunosSemTurmaNoAno = alunosAtivos.filter(a => {
+            const turmaId = a.turma_id;
+            if (!turmaId) return true;
+            if (!turmasIdsValidos.has(turmaId)) return false; // turma inválida entra no card próprio
+            return !turmasAnoIds.has(turmaId);
+        });
+        alunosSemTurmaCountEl.textContent = alunosSemTurmaNoAno.length;
+        alunosSemTurmaTable.innerHTML = alunosSemTurmaNoAno.length
+            ? alunosSemTurmaNoAno.slice(0, 50).map(a => `
                 <tr>
                     <td class="p-3">${a.nome_completo}</td>
                     <td class="p-3">${a.matricula || '-'}</td>
@@ -2647,11 +2971,13 @@ export async function renderConsistenciaPanel() {
             `).join('')
             : '<tr><td colspan="2" class="p-4 text-center">Nenhum encontrado.</td></tr>';
 
-        // Professores sem turma
-        const profs = profsRes.data || [];
-        const profsTurmas = profsTurmasRes.data || [];
-        const profsComTurma = new Set(profsTurmas.map(p => p.professor_id));
-        const profsSemTurma = profs.filter(p => !profsComTurma.has(p.user_uid));
+        // Professores sem turma no ano
+        const profsComTurmaNoAno = new Set(
+            profsTurmas
+                .filter(p => turmasAnoIds.has(p.turma_id))
+                .map(p => p.professor_id)
+        );
+        const profsSemTurma = profs.filter(p => !profsComTurmaNoAno.has(p.user_uid));
         profSemTurmaCountEl.textContent = profsSemTurma.length;
         profSemTurmaTable.innerHTML = profsSemTurma.length
             ? profsSemTurma.slice(0, 50).map(p => `
@@ -2662,10 +2988,9 @@ export async function renderConsistenciaPanel() {
             `).join('')
             : '<tr><td colspan="2" class="p-4 text-center">Nenhum encontrado.</td></tr>';
 
-        // Turmas duplicadas no mesmo ano
-        const turmas = turmasRes.data || [];
+        // Turmas duplicadas no ano selecionado
         const dupMap = new Map();
-        turmas.forEach(t => {
+        turmasAno.forEach(t => {
             const key = `${t.nome_turma}__${t.ano_letivo}`;
             const current = dupMap.get(key) || { nome_turma: t.nome_turma, ano_letivo: t.ano_letivo, count: 0 };
             current.count += 1;
@@ -2683,47 +3008,43 @@ export async function renderConsistenciaPanel() {
             `).join('')
             : '<tr><td colspan="3" class="p-4 text-center">Nenhuma duplicidade encontrada.</td></tr>';
 
-        // Alunos com turma inexistente (orfaos)
-        const totalComTurma = totalComTurmaRes.count || 0;
-        const totalComJoin = totalComJoinRes.count || 0;
-        const orfaosCount = Math.max(0, totalComTurma - totalComJoin);
-        alunosOrfaosCountEl.textContent = alunosSemTurmaCount + orfaosCount;
-        const alunosComTurma = alunosComTurmaListRes.data || [];
-        const orfaos = alunosComTurma
-            .filter(a => !a.turmas)
-            .map(a => ({
+        // Alunos duplicados por nome + matrícula (no recorte do ano).
+        const alunosBaseDuplicidade = alunosAtivos.filter(a => a.turma_id && turmasAnoIds.has(a.turma_id));
+        const duplicidadeMap = new Map();
+        alunosBaseDuplicidade.forEach(a => {
+            const nome = String(a.nome_completo || '').trim().toLowerCase();
+            const matricula = String(a.matricula || '').trim();
+            if (!nome || !matricula) return;
+            const key = `${nome}__${matricula}`;
+            const current = duplicidadeMap.get(key) || {
                 id: a.id,
                 nome_completo: a.nome_completo,
                 matricula: a.matricula,
-                turmaInfo: `${a.turma_id} (inexistente)`
-            }));
-        const semTurmaDetalhe = alunosSemTurma.map(a => ({
-            id: a.id,
-            nome_completo: a.nome_completo,
-            matricula: a.matricula,
-            turmaInfo: 'Sem turma'
-        }));
-        const combined = [...semTurmaDetalhe, ...orfaos];
-        const unique = [];
-        const seen = new Set();
-        combined.forEach(item => {
-            if (!seen.has(item.id)) {
-                seen.add(item.id);
-                unique.push(item);
-            }
+                qtd: 0
+            };
+            current.qtd += 1;
+            duplicidadeMap.set(key, current);
         });
-        alunosOrfaosTable.innerHTML = unique.length
-            ? unique.slice(0, 50).map(a => `
+        const duplicados = Array.from(duplicidadeMap.values())
+            .filter(item => item.qtd > 1)
+            .sort((a, b) => b.qtd - a.qtd || String(a.nome_completo).localeCompare(String(b.nome_completo), 'pt-BR', { sensitivity: 'base' }));
+        alunosOrfaosCountEl.textContent = duplicados.length;
+        alunosOrfaosTable.innerHTML = duplicados.length
+            ? duplicados.slice(0, 50).map(a => `
                 <tr>
                     <td class="p-3">${a.nome_completo}</td>
                     <td class="p-3">${a.matricula || '-'}</td>
-                    <td class="p-3">${a.turmaInfo}</td>
+                    <td class="p-3">${a.qtd}</td>
                 </tr>
             `).join('')
             : '<tr><td colspan="3" class="p-4 text-center">Nenhum encontrado.</td></tr>';
 
-        if (totalAlunosCountEl) totalAlunosCountEl.textContent = totalAlunosRes.count ?? 0;
-        if (totalProfessoresCountEl) totalProfessoresCountEl.textContent = totalProfessoresRes.count ?? 0;
+        // Totais do ano selecionado
+        const alunosNoAno = alunosAtivos.filter(a => a.turma_id && turmasAnoIds.has(a.turma_id));
+        const alunosComTurmaInvalida = alunosAtivos.filter(a => !!a.turma_id && !turmasIdsValidos.has(a.turma_id));
+        const totalAlunosNoAno = alunosNoAno.length + alunosSemTurmaNoAno.length + alunosComTurmaInvalida.length;
+        if (totalAlunosCountEl) totalAlunosCountEl.textContent = totalAlunosNoAno;
+        if (totalProfessoresCountEl) totalProfessoresCountEl.textContent = profs.length;
     } catch (err) {
         console.error('Erro ao carregar consistencia:', err);
         alunosSemTurmaCountEl.textContent = 'Erro';
@@ -2737,6 +3058,11 @@ export async function renderConsistenciaPanel() {
         turmasDuplicadasTable.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
         alunosOrfaosTable.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Erro ao carregar.</td></tr>';
     }
+}
+
+export function handleConsistenciaAnoFilterChange(value) {
+    consistenciaAnoLetivo = String(value || '').trim();
+    renderConsistenciaPanel();
 }
 
 // ===============================================================
@@ -2771,8 +3097,146 @@ function resolveTurmasNomes(ids) {
 function applyEventoAbrangenciaUI(value) {
     const turmasContainer = document.getElementById('evento-turmas-container');
     if (!turmasContainer) return;
-    turmasContainer.classList.toggle('hidden', value !== 'turmas');
+    const isTurmas = value === 'turmas';
+    turmasContainer.classList.toggle('opacity-60', !isTurmas);
+    turmasContainer.classList.toggle('pointer-events-none', !isTurmas);
+    const selectAllBtn = document.getElementById('evento-turmas-select-all');
+    const clearBtn = document.getElementById('evento-turmas-clear');
+    if (selectAllBtn) selectAllBtn.disabled = !isTurmas;
+    if (clearBtn) clearBtn.disabled = !isTurmas;
+    document.querySelectorAll('.evento-turma-btn').forEach(btn => { btn.disabled = !isTurmas; });
 }
+
+let eventoTurmasDisponiveis = [];
+let eventoTurmasSelecionadas = new Set();
+
+function updateEventoTurmasResumo() {
+    const resumoEl = document.getElementById('evento-turmas-resumo');
+    if (!resumoEl) return;
+    const selecionadas = eventoTurmasSelecionadas.size;
+    resumoEl.textContent = selecionadas > 0
+        ? `${selecionadas} turma(s) selecionada(s)`
+        : 'Nenhuma turma selecionada';
+}
+
+function renderEventoTurmasUI(selectedIds = []) {
+    const gridEl = document.getElementById('evento-turmas-grid');
+    if (!gridEl) return;
+    eventoTurmasSelecionadas = new Set((selectedIds || []).map(Number));
+
+    const filtered = eventoTurmasDisponiveis
+        .sort((a, b) => (a.nome_turma || '').localeCompare((b.nome_turma || ''), undefined, { numeric: true }));
+
+    if (!eventoTurmasDisponiveis.length) {
+        gridEl.innerHTML = '<p class="text-xs text-gray-500 p-2">Nenhuma turma encontrada no ano letivo atual.</p>';
+        updateEventoTurmasResumo();
+        return;
+    }
+    gridEl.innerHTML = filtered.map(t => {
+        const selected = eventoTurmasSelecionadas.has(Number(t.id));
+        const nome = String(t.nome_turma || '');
+        const isMultisseriada = nome.toLowerCase().includes('multisseriada');
+        const sizeClass = isMultisseriada ? 'evento-turma-btn-multi' : 'evento-turma-btn-fixed';
+        return `<button type="button" class="evento-turma-btn ${sizeClass} px-2 py-1 rounded border text-xs ${selected ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}" data-id="${t.id}">${nome}</button>`;
+    }).join('');
+    updateEventoTurmasResumo();
+}
+
+function setEventoTurmasDisponiveis(turmas = []) {
+    eventoTurmasDisponiveis = (turmas || []).map(t => ({
+        id: Number(t.id),
+        nome_turma: t.nome_turma || ''
+    }));
+}
+
+function addEventoTurma(id) {
+    const numId = Number(id);
+    if (!Number.isFinite(numId)) return;
+    eventoTurmasSelecionadas.add(numId);
+    renderEventoTurmasUI(Array.from(eventoTurmasSelecionadas));
+}
+
+function removeEventoTurma(id) {
+    eventoTurmasSelecionadas.delete(Number(id));
+    renderEventoTurmasUI(Array.from(eventoTurmasSelecionadas));
+}
+
+function addAllEventoTurmasFiltered() {
+    eventoTurmasDisponiveis.forEach(t => eventoTurmasSelecionadas.add(Number(t.id)));
+    renderEventoTurmasUI(Array.from(eventoTurmasSelecionadas));
+}
+
+function clearEventoTurmasSelecionadas() {
+    eventoTurmasSelecionadas.clear();
+    renderEventoTurmasUI([]);
+}
+
+function bindEventoTurmasSelectBehavior() {
+    const turmasContainer = document.getElementById('evento-turmas-container');
+    const selectAllBtn = document.getElementById('evento-turmas-select-all');
+    const clearBtn = document.getElementById('evento-turmas-clear');
+    const gridEl = document.getElementById('evento-turmas-grid');
+    if (!turmasContainer || turmasContainer.dataset.multiBound === '1') return;
+
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', () => {
+            addAllEventoTurmasFiltered();
+        });
+    }
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            clearEventoTurmasSelecionadas();
+        });
+    }
+    if (gridEl) {
+        gridEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.evento-turma-btn');
+            if (!btn) return;
+            const id = Number(btn.dataset.id);
+            if (eventoTurmasSelecionadas.has(id)) eventoTurmasSelecionadas.delete(id);
+            else eventoTurmasSelecionadas.add(id);
+            renderEventoTurmasUI(Array.from(eventoTurmasSelecionadas));
+        });
+    }
+
+    turmasContainer.dataset.multiBound = '1';
+}
+
+function renderEventoTurmasChecklist(turmas = [], selectedIds = []) {
+    // Mantido apenas para compatibilidade de chamadas antigas.
+    setEventoTurmasDisponiveis(turmas);
+    renderEventoTurmasUI(selectedIds);
+}
+
+async function ensureEventoTurmasCache() {
+    if (Array.isArray(state.turmasCache) && state.turmasCache.length > 0) return;
+    const { data, error } = await safeQuery(
+        db.from('turmas')
+            .select('id, nome_turma, ano_letivo')
+            .order('ano_letivo', { ascending: false })
+            .order('nome_turma', { ascending: true })
+    );
+    if (error) {
+        console.error('Erro ao carregar turmas para evento:', error.message || error);
+    }
+    state.turmasCache = data || [];
+}
+
+async function fetchEventoTurmasDoAnoAtual() {
+    const anoLetivoAtual = String(state.anosLetivosCache?.[0] || new Date().getFullYear());
+    const { data, error } = await safeQuery(
+        db.from('turmas')
+            .select('id, nome_turma, ano_letivo')
+            .eq('ano_letivo', anoLetivoAtual)
+            .order('nome_turma', { ascending: true })
+    );
+    if (error) {
+        console.error('Erro ao carregar turmas do calendário:', error.message || error);
+        return [];
+    }
+    return data || [];
+}
+
 
 export async function renderCalendarioPanel() {
     const eventosTableBody = document.getElementById('eventos-table-body');
@@ -2815,30 +3279,43 @@ export async function renderCalendarioPanel() {
 export async function openEventoModal(editId = null) {
     const eventoForm = document.getElementById('evento-form');
     const eventoModal = document.getElementById('evento-modal');
-    const turmasSelect = document.getElementById('evento-turmas-ids');
-    const abrangenciaContainer = document.getElementById('evento-abrangencia-container');
-    const abrangenciaRadios = document.querySelectorAll('input[name="evento-abrangencia"]');
+    const gridEl = document.getElementById('evento-turmas-grid');
+    const abrangenciaSelect = document.getElementById('evento-abrangencia-select');
+
+    if (abrangenciaSelect && !abrangenciaSelect.dataset.bound) {
+        abrangenciaSelect.addEventListener('change', (ev) => {
+            applyEventoAbrangenciaUI(ev.target.value);
+        });
+        abrangenciaSelect.dataset.bound = 'true';
+    }
+
     eventoForm.reset();
     document.getElementById('evento-delete-container').classList.add('hidden');
-    if (turmasSelect) {
-        turmasSelect.innerHTML = '';
-        state.turmasCache.forEach(t => {
-            const opt = document.createElement('option');
-            opt.value = t.id;
-            opt.textContent = t.nome_turma;
-            turmasSelect.appendChild(opt);
-        });
+    // Define estado inicial imediatamente para evitar "duplo clique"
+    if (!editId) {
+        document.getElementById('evento-modal-title').textContent = 'Adicionar Evento';
+        document.getElementById('evento-id').value = '';
+        if (abrangenciaSelect) abrangenciaSelect.value = 'global';
+        applyEventoAbrangenciaUI('global');
     }
-    if (abrangenciaContainer && !abrangenciaContainer.dataset.bound) {
-        abrangenciaRadios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                applyEventoAbrangenciaUI(e.target.value);
-            });
-        });
-        abrangenciaContainer.dataset.bound = 'true';
+
+    // Abre imediatamente e mostra loading da lista.
+    eventoModal.classList.remove('hidden');
+    if (gridEl) {
+        gridEl.innerHTML = '<p class="text-xs text-gray-500 p-2">Carregando turmas...</p>';
     }
+
+    bindEventoTurmasSelectBehavior();
+    const [turmasDoAno, eventoEditData] = await Promise.all([
+        fetchEventoTurmasDoAnoAtual(),
+        editId ? safeQuery(db.from('eventos').select('*').eq('id', editId).single()).then(r => r.data || null) : Promise.resolve(null)
+    ]);
+    renderEventoTurmasChecklist(turmasDoAno, []);
+
+    // Mantém cache em sincronia para demais usos.
+    await ensureEventoTurmasCache();
     if (editId) {
-        const { data } = await safeQuery(db.from('eventos').select('*').eq('id', editId).single());
+        const data = eventoEditData;
         if (!data) { showToast('Evento não encontrado.', true); return; }
         document.getElementById('evento-modal-title').textContent = 'Editar Evento';
         document.getElementById('evento-id').value = data.id;
@@ -2847,37 +3324,22 @@ export async function openEventoModal(editId = null) {
         document.getElementById('evento-data-fim').value = data.data_fim;
         const turmasIds = normalizeTurmasIds(data.turmas_ids);
         const abrangencia = turmasIds.length > 0 || data.abrangencia === 'turmas' ? 'turmas' : 'global';
-        abrangenciaRadios.forEach(radio => {
-            radio.checked = radio.value === abrangencia;
-        });
-        if (turmasSelect && turmasIds.length > 0) {
-            Array.from(turmasSelect.options).forEach(opt => {
-                opt.selected = turmasIds.includes(parseInt(opt.value, 10));
-            });
-        }
+        if (abrangenciaSelect) abrangenciaSelect.value = abrangencia;
+        renderEventoTurmasChecklist(turmasDoAno, turmasIds);
         applyEventoAbrangenciaUI(abrangencia);
+        updateEventoTurmasResumo();
         document.getElementById('evento-delete-container').classList.remove('hidden');
     } else {
-        document.getElementById('evento-modal-title').textContent = 'Adicionar Evento';
-        document.getElementById('evento-id').value = '';
-        abrangenciaRadios.forEach(radio => {
-            radio.checked = radio.value === 'global';
-        });
-        if (turmasSelect) {
-            Array.from(turmasSelect.options).forEach(opt => { opt.selected = false; });
-        }
+        renderEventoTurmasChecklist(turmasDoAno, []);
         applyEventoAbrangenciaUI('global');
+        updateEventoTurmasResumo();
     }
-    eventoModal.classList.remove('hidden');
 }
 
 export async function handleEventoFormSubmit(e) {
     const id = document.getElementById('evento-id').value;
-    const abrangencia = document.querySelector('input[name="evento-abrangencia"]:checked')?.value || 'global';
-    const turmasSelect = document.getElementById('evento-turmas-ids');
-    const turmasIds = turmasSelect
-        ? Array.from(turmasSelect.selectedOptions).map(opt => parseInt(opt.value, 10)).filter(Number.isFinite)
-        : [];
+    const abrangencia = document.getElementById('evento-abrangencia-select')?.value || 'global';
+    const turmasIds = Array.from(eventoTurmasSelecionadas).filter(Number.isFinite);
     if (abrangencia === 'turmas' && turmasIds.length === 0) {
         showToast('Selecione ao menos uma turma para a exceção.', true);
         return;
@@ -3242,10 +3704,13 @@ export async function openAlunoHistoricoModal(alunoId) {
 
 export function openAssiduidadeModal() {
     const assiduidadeModal = document.getElementById('assiduidade-modal');
+    if (!assiduidadeModal) return;
     const anoSelAluno = document.getElementById('assiduidade-aluno-ano');
     const anoSelTurma = document.getElementById('assiduidade-turma-ano');
     const anoSelProf = document.getElementById('assiduidade-prof-ano');
     const defaultAno = state.anosLetivosCache.length > 0 ? String(state.anosLetivosCache[0]) : '';
+
+    assiduidadeModal.classList.remove('hidden');
 
     if (anoSelAluno) {
         anoSelAluno.innerHTML = '<option value="">Todos os Anos</option>';
@@ -3259,22 +3724,22 @@ export function openAssiduidadeModal() {
         anoSelProf.innerHTML = '<option value="">Todos os Anos</option>';
         state.anosLetivosCache.forEach(ano => anoSelProf.innerHTML += `<option value="${ano}">${ano}</option>`);
     }
-    if (defaultAno) {
-        if (anoSelAluno) {
-            anoSelAluno.value = defaultAno;
-            anoSelAluno.dispatchEvent(new Event('change', { bubbles: true }));
+    window.setTimeout(() => {
+        if (defaultAno) {
+            if (anoSelAluno) {
+                anoSelAluno.value = defaultAno;
+                anoSelAluno.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (anoSelTurma) {
+                anoSelTurma.value = defaultAno;
+                anoSelTurma.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            if (anoSelProf) {
+                anoSelProf.value = defaultAno;
+                anoSelProf.dispatchEvent(new Event('change', { bubbles: true }));
+            }
         }
-        if (anoSelTurma) {
-            anoSelTurma.value = defaultAno;
-            anoSelTurma.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        if (anoSelProf) {
-            anoSelProf.value = defaultAno;
-            anoSelProf.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-    }
-
-    assiduidadeModal.classList.remove('hidden');
+    }, 0);
 }
 
 export async function generateAssiduidadeReport() {
