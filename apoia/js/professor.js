@@ -1,4 +1,4 @@
-import { db, state, getLocalDateString, getAuthRedirectUrl, safeQuery, showToast, logAudit } from './core.js';
+import { db, state, getLocalDateString, safeQuery, showToast, logAudit } from './core.js';
 
 function normalizePhoneDigits(value) {
     return (value || '').toString().replace(/\D/g, '');
@@ -435,11 +435,18 @@ export function initProfessorAccount() {
 
     if (resetBtn) {
         resetBtn.addEventListener('click', async () => {
-            const email = state.currentUser?.email;
-            if (!email) return;
-            const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
-            if (error) showToast('Erro ao enviar email de redefinição: ' + error.message, true);
-            else showToast('Enviamos um link para redefinir sua senha.');
+            const resetModal = document.getElementById('reset-password-modal');
+            const errorEl = document.getElementById('reset-password-error');
+            const newPassword = document.getElementById('new-password');
+            const confirmPassword = document.getElementById('confirm-password');
+            if (!resetModal) return;
+
+            if (errorEl) errorEl.textContent = '';
+            if (newPassword) newPassword.value = '';
+            if (confirmPassword) confirmPassword.value = '';
+
+            accountModal.classList.add('hidden');
+            resetModal.classList.remove('hidden');
         });
     }
 }

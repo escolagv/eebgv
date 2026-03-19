@@ -104,6 +104,14 @@ async function upsertProfessorProfile(userUid, payload) {
     );
 }
 
+async function sendProfessorSignupConfirmation(email) {
+    return await db.auth.resend({
+        type: 'signup',
+        email: String(email || '').trim().toLowerCase(),
+        options: { emailRedirectTo: getAuthRedirectUrl() }
+    });
+}
+
 async function updateAuthEmail(userUid, newEmail) {
     const { data: sessionData, error: sessionError } = await db.auth.getSession();
     if (sessionError || !sessionData?.session?.access_token) {
@@ -1595,11 +1603,16 @@ export async function handleProfessorFormSubmit(e) {
                 return;
             }
             await logAudit('reactivate', 'professor', existingProfessor.id, { nome, email, vinculo, telefone });
+            const { error: confirmError } = await sendProfessorSignupConfirmation(email);
             const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
-            if (resetError) {
-                showToast('Professor reativado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
+            if (confirmError && resetError) {
+                showToast('Professor reativado, mas falhou envio de confirmação e redefinição: ' + confirmError.message, true);
+            } else if (confirmError) {
+                showToast('Professor reativado. Link de senha enviado, mas falhou confirmação de conta: ' + confirmError.message, true);
+            } else if (resetError) {
+                showToast('Professor reativado. Confirmação enviada, mas falhou link de senha: ' + resetError.message, true);
             } else {
-                showToast('Professor reativado com sucesso! Enviamos um link para criar senha.');
+                showToast('Professor reativado com sucesso! Confirmação de conta e link para criar senha enviados.');
             }
             closeAllModals();
             await renderProfessoresPanel();
@@ -1624,11 +1637,16 @@ export async function handleProfessorFormSubmit(e) {
             if (profileError) showToast('Erro ao salvar professor: ' + profileError.message, true);
             else {
                 await logAudit('create', 'professor', profileData?.id || authData.user.id, { nome, email, status: 'ativo', vinculo, telefone });
+                const { error: confirmError } = await sendProfessorSignupConfirmation(email);
                 const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
-                if (resetError) {
-                    showToast('Professor criado. Falha ao enviar link de criação de senha: ' + resetError.message, true);
+                if (confirmError && resetError) {
+                    showToast('Professor criado, mas falhou envio de confirmação e redefinição: ' + confirmError.message, true);
+                } else if (confirmError) {
+                    showToast('Professor criado. Link de senha enviado, mas falhou confirmação de conta: ' + confirmError.message, true);
+                } else if (resetError) {
+                    showToast('Professor criado. Confirmação enviada, mas falhou link de senha: ' + resetError.message, true);
                 } else {
-                    showToast('Professor criado com sucesso! Email de confirmação e link para criar senha enviados.');
+                    showToast('Professor criado com sucesso! Confirmação de conta e link para criar senha enviados.');
                 }
                 closeAllModals();
                 await renderProfessoresPanel();
@@ -1641,7 +1659,17 @@ export async function handleProfessorFormSubmit(e) {
             return;
         }
         await logAudit('reactivate', 'professor', profileData?.id || null, { nome, email, vinculo, telefone });
-        showToast('Professor reativado. Abra o cadastro do professor e use “Resetar Senha” para enviar o link manualmente.', false);
+        const { error: confirmError } = await sendProfessorSignupConfirmation(email);
+        const { error: resetError } = await db.auth.resetPasswordForEmail(email, { redirectTo: getAuthRedirectUrl() });
+        if (confirmError && resetError) {
+            showToast('Professor reativado, mas falhou envio de confirmação e redefinição: ' + confirmError.message, true);
+        } else if (confirmError) {
+            showToast('Professor reativado. Link de senha enviado, mas falhou confirmação de conta: ' + confirmError.message, true);
+        } else if (resetError) {
+            showToast('Professor reativado. Confirmação enviada, mas falhou link de senha: ' + resetError.message, true);
+        } else {
+            showToast('Professor reativado com sucesso! Confirmação de conta e link para criar senha enviados.');
+        }
         closeAllModals();
         await renderProfessoresPanel();
         return;
