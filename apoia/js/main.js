@@ -117,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const correcaoTurmaSelect = document.getElementById('correcao-turma-select');
     const correcaoDataSelect = document.getElementById('correcao-data-select');
     const professorDataText = document.getElementById('professor-data-text');
+    const adminInfo = document.getElementById('admin-info');
     const assiduidadeAlunoLookup = new Map();
     const assiduidadeTurmaLookup = new Map();
     const assiduidadeProfessorLookup = new Map();
@@ -271,6 +272,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (professorDataText) {
         const [year, month, day] = getLocalDateString().split('-');
         professorDataText.textContent = `Hoje: ${day}/${month}/${year}`;
+    }
+
+    if (adminInfo && adminInfo.dataset.bound !== 'true') {
+        adminInfo.dataset.bound = 'true';
+        adminInfo.classList.add('cursor-pointer', 'hover:text-white', 'underline', 'decoration-dotted', 'underline-offset-2');
+        adminInfo.title = 'Clique para alterar sua senha';
+        adminInfo.addEventListener('click', () => {
+            if (!state.currentUser || !['admin', 'suporte'].includes(document.body.dataset.userRole || '')) return;
+            const resetModal = document.getElementById('reset-password-modal');
+            const errorEl = document.getElementById('reset-password-error');
+            const newPassword = document.getElementById('new-password');
+            const confirmPassword = document.getElementById('confirm-password');
+            if (errorEl) errorEl.textContent = '';
+            if (newPassword) newPassword.value = '';
+            if (confirmPassword) confirmPassword.value = '';
+            if (resetModal) resetModal.classList.remove('hidden');
+        });
     }
 
     initAuthHandlers();
