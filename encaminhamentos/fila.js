@@ -155,6 +155,35 @@ function sanitizeOcrName(value) {
     return text;
 }
 
+function scoreNameQuality(value) {
+    const text = sanitizeOcrName(value);
+    if (!text) return 0;
+    const words = text.split(' ').filter(Boolean);
+    const letters = (text.match(/[a-zà-ÿ]/gi) || []).length;
+    let score = 0;
+    score += Math.min(40, letters);
+    score += Math.min(20, words.length * 5);
+    if (words.length >= 2) score += 15;
+    if (!/\d/.test(text)) score += 10;
+    return score;
+}
+
+function pickBestNameField(currentValue, candidateValue) {
+    const current = sanitizeOcrName(currentValue);
+    const candidate = sanitizeOcrName(candidateValue);
+    if (!candidate) return current;
+    if (!current) return candidate;
+    return scoreNameQuality(candidate) >= scoreNameQuality(current) ? candidate : current;
+}
+
+function pickBestGenericField(currentValue, candidateValue) {
+    const current = String(currentValue || '').trim();
+    const candidate = String(candidateValue || '').trim();
+    if (!candidate) return current;
+    if (!current) return candidate;
+    return candidate.length >= current.length ? candidate : current;
+}
+
 function normalizeText(value) {
     return (value || '')
         .toLowerCase()
@@ -186,6 +215,31 @@ function extractMatricula(rawText) {
     return match ? match[1] : '';
 }
 
+function extractAlunoFromRawText(rawText) {
+    return extractLabelValue(
+        rawText,
+        /(?:aluno|estudante|alun0|estudant[ea3]?)/i,
+        /.*?(?:aluno|estudante|alun0|estudant[ea3]?)\s*[:;\-_.|]*/i
+    );
+}
+
+function extractProfessorFromRawText(rawText) {
+    return extractLabelValue(
+        rawText,
+        /(?:professor|professora|profes+sor|profe+sor|profes0r|profesor)/i,
+        /.*?(?:professor|professora|profes+sor|profe+sor|profes0r|profesor)\s*[:;\-_.|]*/i
+    );
+}
+
+function pickBestNameFromRawTexts(extractor, ...rawTexts) {
+    let best = '';
+    rawTexts.forEach(raw => {
+        const candidate = extractor(raw || '');
+        best = pickBestNameField(best, candidate);
+    });
+    return best;
+}
+
 function renderQueue() {
     const list = document.getElementById('queue-list');
     const countEl = document.getElementById('queue-count');
@@ -205,11 +259,18 @@ function renderQueue() {
         const disabled = status !== 'novo';
         const deleteDisabled = status === 'vinculado';
         const rawText = job.ocr_json?.raw_text || '';
+        const headerText = job.ocr_json?.header_text || '';
         const matriculaValue = job.aluno_matricula
             ? String(job.aluno_matricula)
             : (job.ocr_json?.fields?.matricula || extractMatricula(rawText) || '');
-        const alunoNomeRaw = job.ocr_json?.fields?.estudante || '';
-        const profNomeRaw = job.ocr_json?.fields?.professor || '';
+        const alunoNomeRaw = pickBestNameField(
+            job.ocr_json?.fields?.estudante || '',
+            pickBestNameFromRawTexts(extractAlunoFromRawText, headerText, rawText)
+        );
+        const profNomeRaw = pickBestNameField(
+            job.ocr_json?.fields?.professor || '',
+            pickBestNameFromRawTexts(extractProfessorFromRawText, headerText, rawText)
+        );
         const alunoNome = sanitizeOcrName(alunoNomeRaw);
         const profNome = sanitizeOcrName(profNomeRaw);
         const driveLink = job.drive_url ? `<a href="${job.drive_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir no Drive</a>` : '';
@@ -225,7 +286,6 @@ function renderQueue() {
                     <span>Status: <strong class="text-gray-700">${status}</strong></span>
                 </div>
                 ${sizeLabel ? `<div class="text-[11px] text-gray-500">Tamanho: <span class="font-semibold text-gray-700">${sizeLabel}</span></div>` : ''}
-                <div class="text-xs text-gray-500">Matrícula: <span class="font-semibold text-gray-700">${matriculaValue || '-'}</span></div>
                 <div class="text-xs text-gray-600">Aluno: <span class="font-semibold text-gray-800">${alunoNome || '-'}</span></div>
                 <div class="text-xs text-gray-600">Professor: <span class="font-semibold text-gray-800">${profNome || '-'}</span></div>
                 ${driveLink}
@@ -343,13 +403,43 @@ async function reprocessOcr(jobId, button) {
         const ocrJson = await runOcrFromBlob(blob);
         if (!ocrJson) throw new Error('OCR não retornou dados.');
         const visionOcr = await runVisionOcrForJob(job);
+        const baseFields = ocrJson.fields || {};
+        const visionFields = visionOcr?.fields || {};
+        const mergedRawText = visionOcr?.raw_text || visionOcr?.header_text || ocrJson.raw_text || '';
+        let mergedProfessor = pickBestNameField(baseFields.professor, visionFields.professor);
+        mergedProfessor = pickBestNameField(
+            mergedProfessor,
+            pickBestNameFromRawTexts(
+                extractProfessorFromRawText,
+                visionOcr?.header_text || '',
+                visionOcr?.raw_text || '',
+                ocrJson.header_text || '',
+                ocrJson.raw_text || ''
+            )
+        );
+        let mergedEstudante = pickBestNameField(baseFields.estudante, visionFields.estudante);
+        mergedEstudante = pickBestNameField(
+            mergedEstudante,
+            pickBestNameFromRawTexts(
+                extractAlunoFromRawText,
+                visionOcr?.header_text || '',
+                visionOcr?.raw_text || '',
+                ocrJson.header_text || '',
+                ocrJson.raw_text || ''
+            )
+        );
         const mergedFields = {
-            ...(ocrJson.fields || {}),
-            ...(visionOcr?.fields || {})
+            ...baseFields,
+            professor: mergedProfessor,
+            estudante: mergedEstudante,
+            matricula: pickBestGenericField(baseFields.matricula, visionFields.matricula),
+            data: pickBestGenericField(baseFields.data, visionFields.data),
+            turma: pickBestGenericField(baseFields.turma, visionFields.turma)
         };
         const mergedOcr = {
             ...ocrJson,
-            ...(visionOcr?.raw_text ? { raw_text: visionOcr.raw_text } : {}),
+            ...(visionOcr?.header_text ? { header_text: visionOcr.header_text } : {}),
+            ...(mergedRawText ? { raw_text: mergedRawText } : {}),
             fields: mergedFields
         };
         const updatePayload = { ocr_json: mergedOcr };
@@ -378,7 +468,6 @@ async function reprocessOcr(jobId, button) {
 
 async function runVisionOcrForJob(job) {
     if (!job?.storage_path) return null;
-    if (job?.ocr_json?.fields?.estudante && job?.ocr_json?.fields?.professor) return null;
     try {
         const { data: sessionData } = await db.auth.getSession();
         const accessToken = sessionData?.session?.access_token || '';
@@ -413,8 +502,96 @@ async function ensureOcrBeforeRedirect(jobId, button) {
     const job = state.jobs.find(item => String(item.id) === String(jobId));
     if (!job) return;
     const fields = job.ocr_json?.fields || {};
-    if (fields.estudante && fields.professor) return;
-    // Não bloqueia a navegação com OCR na seleção para manter o fluxo rápido.
+    const currentAluno = sanitizeOcrName(fields.estudante || extractAlunoFromRawText(job.ocr_json?.raw_text || ''));
+    const currentProfessor = sanitizeOcrName(fields.professor || extractProfessorFromRawText(job.ocr_json?.raw_text || ''));
+    if (currentAluno && currentProfessor) return;
+
+    const originalText = button?.textContent || 'Selecionar para cadastro';
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Buscando aluno/professor...';
+        button.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    try {
+        let localOcr = null;
+        const previewUrl = state.signedUrls.get(job.id);
+        if (previewUrl && window.Tesseract) {
+            try {
+                const resp = await fetch(previewUrl);
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    localOcr = await runOcrFromBlob(blob);
+                }
+            } catch (err) {
+                console.warn('Falha no OCR local antes do cadastro:', err?.message || err);
+            }
+        }
+
+        const visionOcr = await runVisionOcrForJob(job);
+        const localFields = localOcr?.fields || {};
+        const visionFields = visionOcr?.fields || {};
+        const rawLocal = localOcr?.raw_text || '';
+        const rawVisionHeader = visionOcr?.header_text || '';
+        const rawVision = visionOcr?.raw_text || '';
+        const mergedRawText = rawVision || rawVisionHeader || rawLocal || job.ocr_json?.raw_text || '';
+
+        let mergedProfessor = pickBestNameField(
+            pickBestNameField(fields.professor, localFields.professor),
+            visionFields.professor
+        );
+        mergedProfessor = pickBestNameField(
+            mergedProfessor,
+            pickBestNameFromRawTexts(extractProfessorFromRawText, rawVisionHeader, rawVision, rawLocal, job.ocr_json?.header_text || '', job.ocr_json?.raw_text || '')
+        );
+
+        let mergedEstudante = pickBestNameField(
+            pickBestNameField(fields.estudante, localFields.estudante),
+            visionFields.estudante
+        );
+        mergedEstudante = pickBestNameField(
+            mergedEstudante,
+            pickBestNameFromRawTexts(extractAlunoFromRawText, rawVisionHeader, rawVision, rawLocal, job.ocr_json?.header_text || '', job.ocr_json?.raw_text || '')
+        );
+
+        const mergedFields = {
+            ...fields,
+            professor: mergedProfessor,
+            estudante: mergedEstudante,
+            matricula: pickBestGenericField(
+                pickBestGenericField(fields.matricula, localFields.matricula),
+                visionFields.matricula
+            ),
+            data: pickBestGenericField(
+                pickBestGenericField(fields.data, localFields.data),
+                visionFields.data
+            ),
+            turma: pickBestGenericField(
+                pickBestGenericField(fields.turma, localFields.turma),
+                visionFields.turma
+            )
+        };
+
+        const mergedOcr = {
+            ...(job.ocr_json || {}),
+            ...(visionOcr?.header_text ? { header_text: visionOcr.header_text } : {}),
+            ...(mergedRawText ? { raw_text: mergedRawText } : {}),
+            fields: mergedFields
+        };
+
+        const updatePayload = { ocr_json: mergedOcr };
+        if (mergedFields?.matricula) updatePayload.aluno_matricula = mergedFields.matricula;
+        await safeQuery(db.from('enc_scan_jobs').update(updatePayload).eq('id', jobId));
+        job.ocr_json = mergedOcr;
+        if (mergedFields?.matricula) job.aluno_matricula = mergedFields.matricula;
+    } catch (err) {
+        console.warn('Falha ao forçar OCR antes do cadastro:', err?.message || err);
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
 }
 
 let zoomScale = 1;

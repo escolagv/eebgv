@@ -162,6 +162,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setSupportLink();
     setEncAppVersion();
     setupUserPasswordChange();
+    document.querySelectorAll('#admin-sidebar-nav .admin-nav-link').forEach((link) => {
+        const title = link.getAttribute('title') || link.textContent || '';
+        const label = String(title).trim();
+        if (label) {
+            link.setAttribute('data-tooltip', label);
+            if (!link.getAttribute('aria-label')) link.setAttribute('aria-label', label);
+            link.removeAttribute('title');
+        }
+    });
 
     const adminViewEl = document.getElementById('admin-view');
     const sidebar = document.querySelector('aside');

@@ -129,6 +129,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminViewEl = document.getElementById('admin-view');
     const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
     const sidebarCollapseIcon = document.getElementById('sidebar-collapse-icon');
+    document.querySelectorAll('#admin-sidebar-nav .admin-nav-link').forEach((link) => {
+        const title = link.getAttribute('title') || link.textContent || '';
+        const label = String(title).trim();
+        if (label) {
+            link.setAttribute('data-tooltip', label);
+            if (!link.getAttribute('aria-label')) link.setAttribute('aria-label', label);
+            link.removeAttribute('title');
+        }
+    });
     const assiduidadeAlunoLookup = new Map();
     const assiduidadeTurmaLookup = new Map();
     const assiduidadeProfessorLookup = new Map();

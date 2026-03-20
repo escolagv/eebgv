@@ -65,6 +65,41 @@ function normalizeText(value: string) {
     .trim();
 }
 
+function cleanHeaderName(value: string) {
+  return (value || '')
+    .replace(/[|_]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s:;.,|_-]+/, '')
+    .trim();
+}
+
+function isLikelyPersonName(value: string) {
+  const text = cleanHeaderName(value);
+  if (!text) return false;
+  if (/\d/.test(text)) return false;
+  if (/profissionais|unidade escolar|acima citado|direcionado|encaminhamento|orientacao|coordenacao|motivo/i.test(text)) return false;
+  const words = text.split(' ').filter(Boolean);
+  const letters = (text.match(/[a-zà-ÿ]/gi) || []).length;
+  if (words.length < 2) return text.length >= 5 && letters >= 4;
+  const meaningfulWords = words.filter(word => /[a-zà-ÿ]{2,}/i.test(word));
+  return meaningfulWords.length >= 2 && letters >= Math.max(6, Math.floor(text.length * 0.7));
+}
+
+function pickBestName(...candidates: string[]) {
+  const cleaned = candidates.map(cleanHeaderName).filter(Boolean);
+  const valid = cleaned.filter(isLikelyPersonName);
+  if (!valid.length) return cleaned[0] || '';
+  valid.sort((a, b) => b.length - a.length);
+  return valid[0];
+}
+
+function pickBestGeneric(...candidates: string[]) {
+  const cleaned = candidates.map(value => String(value || '').trim()).filter(Boolean);
+  if (!cleaned.length) return '';
+  cleaned.sort((a, b) => b.length - a.length);
+  return cleaned[0];
+}
+
 function extractValueAfterLabel(text: string, pattern: RegExp) {
   const match = (text || '').match(pattern);
   if (!match) return '';
@@ -77,10 +112,10 @@ function extractFieldFromLines(lines: string[], pattern: RegExp, labelPattern: R
     if (!raw) continue;
     const normalized = normalizeText(raw);
     const directValue = extractValueAfterLabel(raw, pattern);
-    if (directValue) return directValue;
+    if (directValue) return cleanHeaderName(directValue);
     if (!labelPattern.test(normalized)) continue;
     const next = (lines[i + 1] || '').trim();
-    if (next && !labelPattern.test(normalizeText(next))) return next;
+    if (next && !labelPattern.test(normalizeText(next))) return cleanHeaderName(next);
   }
   return '';
 }
@@ -117,7 +152,12 @@ function extractHeaderFields(rawText: string) {
   }
 
   if (matricula) matricula = matricula.replace(/\D+/g, '').trim();
-  return { professor, estudante, matricula, data };
+  return {
+    professor: cleanHeaderName(professor),
+    estudante: cleanHeaderName(estudante),
+    matricula,
+    data
+  };
 }
 
 type VisionWord = { text: string; x: number; y: number };
@@ -208,18 +248,20 @@ function buildWordBoxes(visionJson: any) {
 function extractLineValue(words: VisionWordBox[], label: VisionWordBox, lineThreshold: number) {
   const sameLine = words.filter(w => Math.abs(w.y - label.y) <= lineThreshold && w.x0 > (label.x1 + 4));
   if (!sameLine.length) return '';
-  return sameLine.sort((a, b) => a.x0 - b.x0).map(w => w.text).join(' ').trim();
+  return cleanHeaderName(sameLine.sort((a, b) => a.x0 - b.x0).map(w => w.text).join(' '));
 }
 
 function extractFieldsFromWordBoxes(visionJson: any) {
   const { words, height, width } = buildWordBoxes(visionJson);
   if (!words.length) return { professor: '', estudante: '', matricula: '', data: '' };
-  const headerMax = height ? height * 0.35 : Infinity;
-  const headerMin = height ? height * 0.12 : 0;
-  const headerWords = words.filter(w => w.y >= headerMin && w.y <= headerMax);
+  const headerMax = height ? height * 0.45 : Infinity;
+  const headerMin = height ? height * 0.08 : 0;
+  const headerWords = words
+    .filter(w => w.y >= headerMin && w.y <= headerMax)
+    .sort((a, b) => (a.y - b.y) || (a.x0 - b.x0));
   const lineThreshold = height ? Math.max(8, height * 0.015) : 10;
 
-  const labelMaxX = width ? width * 0.45 : Infinity;
+  const labelMaxX = width ? width * 0.5 : Infinity;
   const findLabel = (regex: RegExp) =>
     headerWords.find(w => regex.test(normalizeText(w.text)) && w.x0 <= labelMaxX);
 
@@ -241,7 +283,12 @@ function extractFieldsFromWordBoxes(visionJson: any) {
     data = extractDateFromText(data);
   }
 
-  return { professor, estudante, matricula, data };
+  return {
+    professor: cleanHeaderName(professor),
+    estudante: cleanHeaderName(estudante),
+    matricula,
+    data
+  };
 }
 
 serve(async (req) => {
@@ -330,12 +377,13 @@ serve(async (req) => {
     const rawTextFull = visionJson?.responses?.[0]?.fullTextAnnotation?.text || '';
     const headerText = extractHeaderTextFromVision(visionJson);
     const fieldsFromBoxes = extractFieldsFromWordBoxes(visionJson);
-    const fieldsFallback = extractHeaderFields(headerText || rawTextFull);
+    const fieldsFromHeader = extractHeaderFields(headerText);
+    const fieldsFromFull = extractHeaderFields(rawTextFull);
     const fields = {
-      professor: fieldsFromBoxes.professor || fieldsFallback.professor || '',
-      estudante: fieldsFromBoxes.estudante || fieldsFallback.estudante || '',
-      matricula: fieldsFromBoxes.matricula || fieldsFallback.matricula || '',
-      data: fieldsFromBoxes.data || fieldsFallback.data || ''
+      professor: pickBestName(fieldsFromBoxes.professor, fieldsFromHeader.professor, fieldsFromFull.professor),
+      estudante: pickBestName(fieldsFromBoxes.estudante, fieldsFromHeader.estudante, fieldsFromFull.estudante),
+      matricula: pickBestGeneric(fieldsFromBoxes.matricula, fieldsFromHeader.matricula, fieldsFromFull.matricula),
+      data: pickBestGeneric(fieldsFromBoxes.data, fieldsFromHeader.data, fieldsFromFull.data)
     };
 
     return new Response(JSON.stringify({

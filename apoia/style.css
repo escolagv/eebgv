@@ -122,6 +122,53 @@ h1, h2 {
     position: relative;
 }
 
+#admin-view.sidebar-collapsed .admin-nav-link::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #e2e8f0;
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    padding: 6px 10px;
+    box-shadow: 0 12px 28px rgba(2, 6, 23, 0.38);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 60;
+}
+
+#admin-view.sidebar-collapsed .admin-nav-link::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px) rotate(45deg);
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.96);
+    border-left: 1px solid rgba(148, 163, 184, 0.35);
+    border-top: 1px solid rgba(148, 163, 184, 0.35);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    z-index: 59;
+}
+
+#admin-view.sidebar-collapsed .admin-nav-link:hover::after,
+#admin-view.sidebar-collapsed .admin-nav-link:focus-visible::after,
+#admin-view.sidebar-collapsed .admin-nav-link:hover::before,
+#admin-view.sidebar-collapsed .admin-nav-link:focus-visible::before {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
 #admin-view.sidebar-collapsed .admin-nav-label {
     display: none;
 }
@@ -208,6 +255,11 @@ h1, h2 {
         border: none;
         text-align: left;
         border-radius: 0.375rem;
+    }
+
+    #admin-view.sidebar-collapsed .admin-nav-link::before,
+    #admin-view.sidebar-collapsed .admin-nav-link::after {
+        display: none;
     }
 
     #admin-view.sidebar-collapsed .admin-nav-label {
