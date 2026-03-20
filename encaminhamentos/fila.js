@@ -419,6 +419,11 @@ async function ensureOcrBeforeRedirect(jobId, button) {
 
 let zoomScale = 1;
 let zoomMeta = null;
+let zoomOffsetX = 0;
+let zoomOffsetY = 0;
+let zoomDragging = false;
+let zoomDragStartX = 0;
+let zoomDragStartY = 0;
 function openZoom(url, meta = null) {
     const modal = document.getElementById('zoom-modal');
     const img = document.getElementById('zoom-image');
@@ -426,8 +431,13 @@ function openZoom(url, meta = null) {
     if (!modal || !img || !url) return;
     img.src = url;
     zoomScale = 1;
+    zoomOffsetX = 0;
+    zoomOffsetY = 0;
     zoomMeta = meta;
-    img.style.transform = `scale(${zoomScale})`;
+    img.style.transform = `translate(0px, 0px) scale(${zoomScale})`;
+    img.style.cursor = 'grab';
+    img.style.userSelect = 'none';
+    img.style.touchAction = 'none';
     if (printBtn) {
         printBtn.onclick = () => printZoomImage(url, zoomMeta);
     }
@@ -443,25 +453,64 @@ function initZoomControls() {
     const reset = document.getElementById('zoom-reset-btn');
     if (!modal || !img) return;
 
-    const applyScale = () => {
-        img.style.transform = `scale(${zoomScale})`;
+    const applyTransform = () => {
+        img.style.transform = `translate(${zoomOffsetX}px, ${zoomOffsetY}px) scale(${zoomScale})`;
     };
 
     zoomIn?.addEventListener('click', () => {
         zoomScale = Math.min(3, zoomScale + 0.25);
-        applyScale();
+        applyTransform();
     });
     zoomOut?.addEventListener('click', () => {
         zoomScale = Math.max(0.75, zoomScale - 0.25);
-        applyScale();
+        applyTransform();
     });
     reset?.addEventListener('click', () => {
         zoomScale = 1;
-        applyScale();
+        zoomOffsetX = 0;
+        zoomOffsetY = 0;
+        applyTransform();
     });
-    closeBtn?.addEventListener('click', () => modal.classList.add('hidden'));
+
+    const closeZoom = () => {
+        zoomDragging = false;
+        modal.classList.add('hidden');
+    };
+
+    img.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        zoomDragging = true;
+        zoomDragStartX = event.clientX - zoomOffsetX;
+        zoomDragStartY = event.clientY - zoomOffsetY;
+        img.style.cursor = 'grabbing';
+        img.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+    });
+
+    img.addEventListener('pointermove', (event) => {
+        if (!zoomDragging) return;
+        zoomOffsetX = event.clientX - zoomDragStartX;
+        zoomOffsetY = event.clientY - zoomDragStartY;
+        applyTransform();
+        event.preventDefault();
+    });
+
+    const stopDrag = (event) => {
+        if (!zoomDragging) return;
+        zoomDragging = false;
+        img.style.cursor = 'grab';
+        if (event?.pointerId !== undefined) {
+            img.releasePointerCapture?.(event.pointerId);
+        }
+    };
+
+    img.addEventListener('pointerup', stopDrag);
+    img.addEventListener('pointercancel', stopDrag);
+    img.addEventListener('pointerleave', stopDrag);
+
+    closeBtn?.addEventListener('click', closeZoom);
     modal.addEventListener('click', (event) => {
-        if (event.target === modal) modal.classList.add('hidden');
+        if (event.target === modal) closeZoom();
     });
 }
 

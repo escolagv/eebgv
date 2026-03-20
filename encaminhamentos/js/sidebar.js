@@ -69,14 +69,17 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebar.classList.add('-translate-x-full');
         overlay.classList.add('hidden');
     };
-
-    toggleBtn.addEventListener('click', open);
-    overlay.addEventListener('click', close);
-
-    window.addEventListener('resize', () => {
-        if (window.innerWidth >= 768) {
-            overlay.classList.add('hidden');
-            sidebar.classList.remove('-translate-x-full');
+    const toggle = () => {
+        if (sidebar.classList.contains('-translate-x-full')) {
+            open();
+        } else {
+            close();
         }
-    });
+    };
+
+    // Inicia sempre minimizado (fechado) após login/carregamento da página
+    close();
+
+    toggleBtn.addEventListener('click', toggle);
+    overlay.addEventListener('click', close);
 });
