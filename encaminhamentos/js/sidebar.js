@@ -17,6 +17,7 @@ function compareVersions(a, b) {
 
 function setSupportLink() {
     const link = document.getElementById('support-link-enc');
+    const linkCollapsed = document.getElementById('support-link-enc-collapsed');
     if (!link) return;
     const numero = '5548991004780';
     const mensagem = 'Olá! Mensagem enviada do Sistema de chamadas da EEB Getúlio Vargas. Preciso de suporte.';
@@ -24,6 +25,111 @@ function setSupportLink() {
     link.href = url;
     link.target = '_blank';
     link.rel = 'noopener';
+    if (linkCollapsed) {
+        linkCollapsed.href = url;
+        linkCollapsed.target = '_blank';
+        linkCollapsed.rel = 'noopener';
+    }
+}
+
+function ensureResetPasswordModal() {
+    let modal = document.getElementById('enc-reset-password-modal');
+    if (modal) return modal;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+        <div id="enc-reset-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold text-gray-900">Alterar Senha</h3>
+                    <button type="button" id="enc-reset-password-close" class="text-gray-500 hover:text-gray-700 text-lg">&times;</button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label for="enc-new-password" class="text-sm font-medium text-gray-700">Nova Senha</label>
+                        <input type="password" id="enc-new-password" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm" autocomplete="new-password">
+                    </div>
+                    <div>
+                        <label for="enc-confirm-password" class="text-sm font-medium text-gray-700">Confirme a Nova Senha</label>
+                        <input type="password" id="enc-confirm-password" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm" autocomplete="new-password">
+                    </div>
+                    <p id="enc-reset-password-error" class="text-sm text-red-600 min-h-[20px]"></p>
+                </div>
+                <div class="mt-5 flex justify-end gap-2">
+                    <button type="button" id="enc-reset-password-cancel" class="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                    <button type="button" id="enc-reset-password-save" class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Salvar Nova Senha</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrapper.firstElementChild);
+    modal = document.getElementById('enc-reset-password-modal');
+    return modal;
+}
+
+function setupUserPasswordChange() {
+    const userNameEl = document.getElementById('user-name');
+    if (!userNameEl || userNameEl.dataset.bound === 'true') return;
+
+    const modal = ensureResetPasswordModal();
+    const newPasswordEl = document.getElementById('enc-new-password');
+    const confirmPasswordEl = document.getElementById('enc-confirm-password');
+    const errorEl = document.getElementById('enc-reset-password-error');
+    const closeBtn = document.getElementById('enc-reset-password-close');
+    const cancelBtn = document.getElementById('enc-reset-password-cancel');
+    const saveBtn = document.getElementById('enc-reset-password-save');
+
+    const closeModal = () => {
+        modal?.classList.add('hidden');
+    };
+
+    const openModal = () => {
+        if (newPasswordEl) newPasswordEl.value = '';
+        if (confirmPasswordEl) confirmPasswordEl.value = '';
+        if (errorEl) errorEl.textContent = '';
+        modal?.classList.remove('hidden');
+    };
+
+    userNameEl.dataset.bound = 'true';
+    userNameEl.classList.add('cursor-pointer', 'hover:text-white');
+    userNameEl.title = 'Clique para alterar sua senha';
+    userNameEl.addEventListener('click', openModal);
+
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+    });
+
+    saveBtn?.addEventListener('click', async () => {
+        const newPassword = String(newPasswordEl?.value || '');
+        const confirmPassword = String(confirmPasswordEl?.value || '');
+        if (errorEl) errorEl.textContent = '';
+
+        if (!newPassword || newPassword.length < 6) {
+            if (errorEl) errorEl.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            if (errorEl) errorEl.textContent = 'As senhas não conferem.';
+            return;
+        }
+
+        const originalText = saveBtn.textContent;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Salvando...';
+        try {
+            const { error } = await db.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            closeModal();
+            window.alert('Senha alterada com sucesso.');
+        } catch (err) {
+            if (errorEl) errorEl.textContent = err?.message || 'Não foi possível alterar a senha.';
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText || 'Salvar Nova Senha';
+        }
+    });
 }
 
 function setEncAppVersion() {
@@ -55,21 +161,60 @@ function setEncAppVersion() {
 document.addEventListener('DOMContentLoaded', () => {
     setSupportLink();
     setEncAppVersion();
+    setupUserPasswordChange();
 
+    const adminViewEl = document.getElementById('admin-view');
     const sidebar = document.querySelector('aside');
     const overlay = document.getElementById('sidebar-overlay');
     const toggleBtn = document.getElementById('mobile-menu-btn');
+    const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+    const sidebarCollapseIcon = document.getElementById('sidebar-collapse-icon');
     if (!sidebar || !overlay || !toggleBtn) return;
+
+    const SIDEBAR_COLLAPSED_KEY = 'enc_sidebar_collapsed';
+    const isMobile = () => window.innerWidth < 768;
+
+    const applySidebarCollapsed = (collapsed) => {
+        if (!adminViewEl) return;
+        adminViewEl.classList.toggle('sidebar-collapsed', !!collapsed);
+        if (sidebarCollapseIcon) sidebarCollapseIcon.textContent = collapsed ? '»' : '«';
+        if (sidebarCollapseBtn) {
+            sidebarCollapseBtn.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+            sidebarCollapseBtn.setAttribute('aria-label', collapsed ? 'Expandir menu' : 'Recolher menu');
+        }
+    };
 
     const open = () => {
         sidebar.classList.remove('-translate-x-full');
-        overlay.classList.remove('hidden');
+        if (isMobile()) overlay.classList.remove('hidden');
     };
     const close = () => {
         sidebar.classList.add('-translate-x-full');
         overlay.classList.add('hidden');
     };
-    const toggle = () => {
+
+    if (adminViewEl) {
+        // Igual ao chamadas: sempre inicia minimizado após login/carregamento.
+        applySidebarCollapsed(true);
+        try {
+            localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+        } catch (err) {
+            // ignore storage errors
+        }
+    }
+
+    const toggleDesktopCollapse = () => {
+        if (!adminViewEl) return;
+        const nextCollapsed = !adminViewEl.classList.contains('sidebar-collapsed');
+        applySidebarCollapsed(nextCollapsed);
+        try {
+            localStorage.setItem(SIDEBAR_COLLAPSED_KEY, nextCollapsed ? '1' : '0');
+        } catch (err) {
+            // ignore storage errors
+        }
+    };
+
+    const toggleMobileSidebar = () => {
         if (sidebar.classList.contains('-translate-x-full')) {
             open();
         } else {
@@ -77,9 +222,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Inicia sempre minimizado (fechado) após login/carregamento da página
-    close();
+    // Em mobile começa fechado; em desktop fica visível e recolhido por classe.
+    if (isMobile()) close();
+    else sidebar.classList.remove('-translate-x-full');
 
-    toggleBtn.addEventListener('click', toggle);
+    toggleBtn.addEventListener('click', () => {
+        if (isMobile()) toggleMobileSidebar();
+        else toggleDesktopCollapse();
+    });
     overlay.addEventListener('click', close);
+    sidebarCollapseBtn?.addEventListener('click', toggleDesktopCollapse);
+
+    window.addEventListener('resize', () => {
+        if (isMobile()) {
+            close();
+        } else {
+            overlay.classList.add('hidden');
+            sidebar.classList.remove('-translate-x-full');
+        }
+    });
 });
