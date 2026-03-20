@@ -17,7 +17,7 @@
 </head>
 <body class="bg-gray-200 text-gray-800">
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
-    <div id="admin-view" class="flex h-screen bg-gray-200">
+    <div id="admin-view" class="flex h-screen bg-gray-200 sidebar-collapsed">
         <aside id="admin-sidebar" class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
             <button id="sidebar-collapse-btn" class="hidden md:inline-flex items-center justify-center w-7 h-7 rounded-full border border-slate-500/60 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white shadow-lg" title="Recolher menu" aria-label="Recolher menu">
                 <span id="sidebar-collapse-icon" aria-hidden="true">«</span>
@@ -85,28 +85,24 @@
                     <div id="cadastros-message" class="hidden mb-4 text-sm"></div>
 
                     <div id="alunos-panel">
-                        <div class="flex flex-col gap-3 mb-4">
-                            <div class="relative w-full md:max-w-md">
+                        <div class="flex flex-col md:flex-row md:flex-nowrap gap-2 mb-4">
+                            <div class="relative w-full md:flex-[1.35] md:min-w-0">
                                 <input type="text" id="aluno-search" placeholder="Buscar aluno por nome ou matrícula..." class="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm">
                                 <button type="button" id="aluno-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 px-1" aria-label="Limpar busca">&times;</button>
                             </div>
-                            <div class="flex flex-wrap gap-2">
-                                <select id="aluno-filtro-turma" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                            <div class="flex flex-wrap md:flex-nowrap gap-2 w-full md:flex-[2.1] md:min-w-0">
+                                <select id="aluno-filtro-turma" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-full md:flex-1 md:min-w-0">
                                     <option value="">Todas as turmas</option>
                                 </select>
-                                <select id="aluno-filtro-status" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <select id="aluno-filtro-status" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-full md:flex-1 md:min-w-0">
+                                    <option value="ativo" selected>Ativos</option>
+                                    <option value="inativo">Inativos</option>
                                     <option value="">Todos os status</option>
-                                    <option value="ativo">Ativo</option>
-                                    <option value="inativo">Inativo</option>
                                 </select>
-                                <select id="aluno-filtro-origem" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <select id="aluno-filtro-origem" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-full md:flex-1 md:min-w-0">
                                     <option value="">Todas as origens</option>
                                     <option value="apoia">APOIA</option>
                                     <option value="manual">Manual</option>
-                                </select>
-                                <select id="aluno-ordenacao" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm">
-                                    <option value="turma">Ordenar por Turma</option>
-                                    <option value="nome">Ordenar por Nome</option>
                                 </select>
                             </div>
                         </div>
@@ -114,11 +110,11 @@
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr class="text-left border-b">
-                                        <th class="py-2">Aluno</th>
-                                        <th class="py-2">Matrícula</th>
-                                        <th class="py-2">Turma</th>
-                                        <th class="py-2">Status</th>
-                                        <th class="py-2">Origem</th>
+                                        <th class="py-2 sortable-th" data-sort="nome_completo">Aluno<span class="sort-indicator"></span></th>
+                                        <th class="py-2 sortable-th" data-sort="matricula">Matrícula<span class="sort-indicator"></span></th>
+                                        <th class="py-2 sortable-th" data-sort="turma">Turma<span class="sort-indicator"></span></th>
+                                        <th class="py-2 sortable-th" data-sort="status">Status<span class="sort-indicator"></span></th>
+                                        <th class="py-2 sortable-th" data-sort="origem">Origem<span class="sort-indicator"></span></th>
                                         <th class="py-2">Ações</th>
                                     </tr>
                                 </thead>
@@ -128,8 +124,28 @@
                     </div>
 
                     <div id="professores-panel" class="hidden">
-                        <div class="flex flex-col gap-3 mb-4">
-                            <input type="text" id="professor-search" placeholder="Buscar professor por nome ou email..." class="w-full md:max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                        <div class="flex flex-col md:flex-row md:flex-nowrap gap-2 mb-4">
+                            <div class="relative w-full md:flex-[1.35] md:min-w-0">
+                                <input type="text" id="professor-search" placeholder="Buscar professor por nome ou email..." class="w-full pr-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                                <button type="button" id="professor-search-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 px-1" aria-label="Limpar busca">&times;</button>
+                            </div>
+                            <div class="flex flex-wrap md:flex-nowrap gap-2 w-full md:flex-[2.1] md:min-w-0">
+                                <select id="professor-filtro-status" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-full md:flex-1 md:min-w-0">
+                                    <option value="ativo" selected>Ativos</option>
+                                    <option value="inativo">Inativos</option>
+                                    <option value="">Todos os status</option>
+                                </select>
+                                <select id="professor-filtro-vinculo" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-full md:flex-1 md:min-w-0">
+                                    <option value="">Todos os vínculos</option>
+                                    <option value="efetivo">Efetivo</option>
+                                    <option value="act">ACT</option>
+                                </select>
+                                <select id="professor-filtro-origem" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-full md:flex-1 md:min-w-0">
+                                    <option value="">Todas as origens</option>
+                                    <option value="apoia">APOIA</option>
+                                    <option value="manual">Manual</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="table-scroll">
                             <table class="w-full text-sm">

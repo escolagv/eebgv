@@ -19,6 +19,7 @@ const searchCodigo = document.getElementById('search-codigo');
 let allResults = [];
 let currentPage = 1;
 const recordsPerPage = 30;
+const scanStateByEncId = new Map();
 
 // ===================================================================
 // INICIALIZAÇÃO DA PÁGINA
@@ -206,6 +207,7 @@ async function handleSearch() {
 
         const { data } = await safeQuery(query);
         allResults = data || [];
+        await loadScanStates(allResults.map(item => item?.id).filter(Boolean));
 
         currentPage = 1;
         renderPage(currentPage);
@@ -253,17 +255,139 @@ function displayResults(results, startIndex) {
     let tableHTML = `<table><thead><tr><th>Código</th><th>Data</th><th>Estudante</th><th>Professor</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
     results.forEach(item => {
         const dataDisplay = formatDatePtBr(item.data_encaminhamento);
+        const scanState = scanStateByEncId.get(String(item.id)) || null;
+        const driveAction = renderDriveAction(item, scanState);
         tableHTML += `<tr>
                         <td>${item.codigo || ''}</td>
                         <td>${dataDisplay}</td>
                         <td>${item.aluno_nome || ''}</td>
                         <td>${item.professor_nome || ''}</td>
                         <td>${item.status || ''}</td>
-                        <td><button class="pagination-btn" onclick="redirectToEdit('${item.id}', '${item.data_encaminhamento || ''}')">Ver/Editar</button></td>
+                        <td class="enc-actions-cell">
+                            <button class="pagination-btn" onclick="redirectToEdit('${item.id}', '${item.data_encaminhamento || ''}')">Ver/Editar</button>
+                            ${driveAction}
+                        </td>
                       </tr>`;
     });
     tableHTML += '</tbody></table>';
     resultsTable.innerHTML = tableHTML;
+    bindRetryDriveActions();
+}
+
+function renderDriveAction(item, scanState) {
+    if (!scanState) return '<span class="enc-drive-pill enc-drive-pill-muted">Sem scan</span>';
+    if (scanState.drive_file_id || scanState.drive_url) {
+        return '<span class="enc-drive-pill enc-drive-pill-ok">Drive OK</span>';
+    }
+    if (scanState.storage_path) {
+        return `<button
+                    class="pagination-btn retry-drive-btn"
+                    data-enc-id="${String(item.id)}"
+                    data-codigo="${String(item.codigo || '')}"
+                    data-data="${String(item.data_encaminhamento || '')}"
+                >Reenviar Drive</button>`;
+    }
+    return '<span class="enc-drive-pill enc-drive-pill-muted">Sem arquivo</span>';
+}
+
+function bindRetryDriveActions() {
+    document.querySelectorAll('.retry-drive-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const encId = btn.dataset.encId || '';
+            const codigo = btn.dataset.codigo || '';
+            const data = btn.dataset.data || '';
+            await retryDriveUploadByEncId(encId, codigo, data, btn);
+        });
+    });
+}
+
+async function loadScanStates(encIds) {
+    scanStateByEncId.clear();
+    if (!Array.isArray(encIds) || !encIds.length) return;
+    const chunkSize = 100;
+    for (let i = 0; i < encIds.length; i += chunkSize) {
+        const chunk = encIds.slice(i, i + chunkSize).map(id => String(id));
+        const { data } = await safeQuery(
+            db.from('enc_scan_jobs')
+                .select('id, encaminhamento_id, storage_path, mime_type, drive_url, drive_file_id, created_at')
+                .in('encaminhamento_id', chunk)
+                .order('created_at', { ascending: false })
+        );
+        (data || []).forEach(job => {
+            const key = String(job?.encaminhamento_id || '');
+            if (!key || scanStateByEncId.has(key)) return;
+            scanStateByEncId.set(key, job);
+        });
+    }
+}
+
+async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhamento, buttonEl) {
+    if (!encaminhamentoId || !codigo || !dataEncaminhamento) {
+        alert('Dados insuficientes para reenviar ao Drive.');
+        return;
+    }
+
+    const originalText = buttonEl?.textContent || 'Reenviar Drive';
+    if (buttonEl) {
+        buttonEl.disabled = true;
+        buttonEl.textContent = 'Enviando...';
+    }
+
+    try {
+        const { data: jobs } = await safeQuery(
+            db.from('enc_scan_jobs')
+                .select('id, storage_path, mime_type, drive_url, drive_file_id, created_at')
+                .eq('encaminhamento_id', encaminhamentoId)
+                .order('created_at', { ascending: false })
+        );
+        const pending = (jobs || []).find(job => job?.storage_path && !job?.drive_file_id && !job?.drive_url);
+        if (!pending) {
+            alert('Não há scan pendente para este encaminhamento.');
+            return;
+        }
+
+        const payload = {
+            storage_path: pending.storage_path,
+            codigo,
+            data_encaminhamento: dataEncaminhamento,
+            mime_type: pending.mime_type || 'image/jpeg'
+        };
+        const { data, error } = await db.functions.invoke('enc_drive_upload', { body: payload });
+        if (error) throw error;
+
+        const driveUrl = data?.webViewLink || data?.drive_url || null;
+        const driveFileId = data?.file_id || null;
+        await safeQuery(
+            db.from('enc_scan_jobs')
+                .update({
+                    drive_url: driveUrl,
+                    drive_file_id: driveFileId,
+                    status: 'vinculado',
+                    storage_path: null
+                })
+                .eq('id', pending.id)
+        );
+
+        try {
+            await db.storage.from('enc_temp').remove([pending.storage_path]);
+        } catch (removeErr) {
+            console.warn('Falha ao remover arquivo temporário após upload:', removeErr?.message || removeErr);
+        }
+
+        if (data?.already_exists) {
+            alert('Arquivo já existia no Drive com este código. Apenas vinculamos o registro local.');
+        } else {
+            alert('Imagem enviada para o Drive com sucesso.');
+        }
+        await handleSearch();
+    } catch (err) {
+        alert(`Falha ao reenviar para o Drive: ${err?.message || err}`);
+    } finally {
+        if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.textContent = originalText;
+        }
+    }
 }
 
 function formatDatePtBr(value) {

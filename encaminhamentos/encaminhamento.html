@@ -17,7 +17,7 @@
 </head>
 <body class="bg-gray-200 text-gray-800 form-compact">
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
-    <div id="admin-view" class="flex h-screen bg-gray-200">
+    <div id="admin-view" class="flex h-screen bg-gray-200 sidebar-collapsed">
         <aside id="admin-sidebar" class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
             <button id="sidebar-collapse-btn" class="hidden md:inline-flex items-center justify-center w-7 h-7 rounded-full border border-slate-500/60 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white shadow-lg" title="Recolher menu" aria-label="Recolher menu">
                 <span id="sidebar-collapse-icon" aria-hidden="true">«</span>
@@ -113,12 +113,6 @@
                                         <p class="text-xs text-gray-500">Imagem disponível</p>
                                     </div>
                                 </div>
-                                <div class="mt-3 space-y-2">
-                                    <div id="scan-inline-preview" class="hidden">
-                                        <img id="scan-image" alt="Foto da fila" class="w-full max-h-72 object-contain rounded-md border border-gray-200">
-                                        <a id="scan-open-link" href="#" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir imagem em nova guia</a>
-                                    </div>
-                                </div>
                             </div>
                             <div id="scan-missing" class="hidden mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <div class="flex items-center justify-between gap-3">
@@ -143,10 +137,10 @@
                                 <div class="relative">
                                     <label for="estudante" class="text-sm font-medium text-gray-700">Estudante</label>
                                     <div class="relative">
-                                        <input type="text" id="estudante-filter" list="estudante-options" placeholder="Digite nome do estudante" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
+                                        <input type="text" id="estudante-filter" autocomplete="off" placeholder="Digite nome do estudante" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
                                         <button type="button" id="estudante-filter-clear" class="hidden name-clear-btn" aria-label="Limpar estudante">&times;</button>
+                                        <div id="estudante-suggestions" class="name-suggestions hidden"></div>
                                     </div>
-                                    <datalist id="estudante-options"></datalist>
                                     <select id="estudante" required class="hidden">
                                         <option value="">Carregando...</option>
                                     </select>
@@ -154,10 +148,10 @@
                                 <div class="relative">
                                     <label for="professor" class="text-sm font-medium text-gray-700">Professor(a) que encaminhou</label>
                                     <div class="relative">
-                                        <input type="text" id="professor-filter" list="professor-options" placeholder="Digite nome do professor" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
+                                        <input type="text" id="professor-filter" autocomplete="off" placeholder="Digite nome do professor" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
                                         <button type="button" id="professor-filter-clear" class="hidden name-clear-btn" aria-label="Limpar professor">&times;</button>
+                                        <div id="professor-suggestions" class="name-suggestions hidden"></div>
                                     </div>
-                                    <datalist id="professor-options"></datalist>
                                     <select id="professor" required class="hidden">
                                         <option value="">Carregando...</option>
                                     </select>
@@ -384,6 +378,27 @@
             </div>
             <div class="bg-gray-50 border border-gray-200 rounded-md p-2 overflow-auto max-h-[70vh]">
                 <img id="scan-zoom-image" alt="Imagem ampliada" class="mx-auto transition-transform duration-200" style="transform: scale(1);" />
+            </div>
+        </div>
+    </div>
+
+    <div id="scan-float-viewer" class="hidden scan-float-viewer" role="dialog" aria-modal="false">
+        <div id="scan-float-handle" class="scan-float-header">
+            <span class="text-sm font-semibold text-gray-800">Visualização da imagem</span>
+            <div class="flex items-center gap-2">
+                <button type="button" id="scan-float-zoom-out" class="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">-</button>
+                <button type="button" id="scan-float-zoom-reset" class="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Reset</button>
+                <button type="button" id="scan-float-zoom-in" class="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">+</button>
+                <button type="button" id="scan-float-close" class="px-2 py-1 text-xs font-semibold text-white bg-slate-700 rounded-md hover:bg-slate-800">Fechar</button>
+            </div>
+        </div>
+        <div class="scan-float-body">
+            <div id="scan-float-stage" class="scan-inline-stage">
+                <img id="scan-float-image" alt="Foto da fila" class="scan-inline-image">
+            </div>
+            <div class="mt-2 flex items-center justify-between gap-2">
+                <span class="text-[11px] text-gray-500">Scroll: zoom da imagem • Arraste no topo para mover • Arraste canto para redimensionar.</span>
+                <a id="scan-open-link" href="#" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir em nova guia</a>
             </div>
         </div>
     </div>

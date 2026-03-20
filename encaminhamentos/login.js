@@ -1,4 +1,7 @@
 import { signIn, signOut, requireAdminSession } from './js/auth.js';
+import { db, safeQuery } from './js/core.js';
+
+const ENC_LAST_SYNC_KEY = 'enc_last_sync_at';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const { session, profile } = await requireAdminSession();
@@ -46,6 +49,17 @@ async function handleLogin(e) {
         await signOut();
         errorEl.textContent = 'Acesso permitido apenas para administradores.';
         return;
+    }
+
+    try {
+        await safeQuery(db.rpc('sync_enc_cache'));
+        try {
+            localStorage.setItem(ENC_LAST_SYNC_KEY, new Date().toISOString());
+        } catch (err) {
+            // ignore storage errors
+        }
+    } catch (syncErr) {
+        console.warn('Falha ao sincronizar no login:', syncErr?.message || syncErr);
     }
 
     window.location.href = 'dashboard.html';

@@ -61,6 +61,22 @@ async function findOrCreateFolder(accessToken: string, name: string, parentId: s
   return createJson.id;
 }
 
+function escapeDriveQueryValue(value: string) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+async function findFileByNameInFolder(accessToken: string, name: string, parentId: string) {
+  const safeName = escapeDriveQueryValue(name);
+  const safeParent = escapeDriveQueryValue(parentId);
+  const q = encodeURIComponent(`name='${safeName}' and '${safeParent}' in parents and trashed=false`);
+  const resp = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,webViewLink)&pageSize=1`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  const json = await resp.json();
+  if (!resp.ok) throw new Error(json?.error?.message || 'Falha ao consultar arquivo no Drive.');
+  return (json?.files && json.files.length > 0) ? json.files[0] : null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -108,7 +124,7 @@ serve(async (req) => {
       .select('papel, status')
       .eq('user_uid', userData.user.id)
       .maybeSingle();
-    if (!adminProfile || adminProfile.papel !== 'admin' || adminProfile.status !== 'ativo') {
+    if (!adminProfile || !['admin', 'suporte'].includes(adminProfile.papel) || adminProfile.status !== 'ativo') {
       return new Response(JSON.stringify({ error: 'Forbidden.' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -145,6 +161,15 @@ serve(async (req) => {
     const monthFolder = await findOrCreateFolder(accessToken, month, yearFolder);
 
     const filename = `${codigo}.jpg`;
+    const existingFile = await findFileByNameInFolder(accessToken, filename, monthFolder);
+    if (existingFile?.id) {
+      return new Response(JSON.stringify({
+        file_id: existingFile.id,
+        webViewLink: existingFile.webViewLink || `https://drive.google.com/file/d/${existingFile.id}/view`,
+        already_exists: true
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const boundary = '-------supabase-boundary';
     const metadata = {
       name: filename,
@@ -188,7 +213,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       file_id: uploadJson.id,
-      webViewLink: uploadJson.webViewLink
+      webViewLink: uploadJson.webViewLink,
+      already_exists: false
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (err) {
     return new Response(JSON.stringify({ error: err?.message || 'Unexpected error.' }), {

@@ -8,8 +8,10 @@ const state = {
     anoLetivoAtual: null,
     lastSyncAt: null
 };
+const ENC_LAST_SYNC_KEY = 'enc_last_sync_at';
 
 const professoresSort = { key: 'nome', dir: 'asc' };
+const alunosSort = { key: 'turma', dir: 'asc' };
 
 document.addEventListener('DOMContentLoaded', async () => {
     const { session, profile } = await requireAdminSession();
@@ -91,12 +93,38 @@ function bindModals() {
             alunoSearchInput.focus();
         });
     }
-    document.getElementById('professor-search').addEventListener('input', renderProfessores);
-    ['aluno-filtro-turma', 'aluno-filtro-status', 'aluno-filtro-origem', 'aluno-ordenacao']
+    const professorSearchInput = document.getElementById('professor-search');
+    const professorSearchClear = document.getElementById('professor-search-clear');
+    const updateProfessorSearchClear = () => {
+        if (!professorSearchClear) return;
+        professorSearchClear.classList.toggle('hidden', !(professorSearchInput && professorSearchInput.value));
+    };
+    if (professorSearchInput) {
+        professorSearchInput.addEventListener('input', () => {
+            updateProfessorSearchClear();
+            renderProfessores();
+        });
+    }
+    if (professorSearchClear && professorSearchInput) {
+        professorSearchClear.addEventListener('click', () => {
+            professorSearchInput.value = '';
+            updateProfessorSearchClear();
+            renderProfessores();
+            professorSearchInput.focus();
+        });
+    }
+    updateProfessorSearchClear();
+    ['aluno-filtro-turma', 'aluno-filtro-status', 'aluno-filtro-origem']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', renderAlunos);
         });
+    ['professor-filtro-status', 'professor-filtro-vinculo', 'professor-filtro-origem']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', renderProfessores);
+        });
+    bindAlunoSortHeaders();
     bindProfessorSortHeaders();
 
     const syncBtn = document.getElementById('sync-status-btn');
@@ -207,7 +235,15 @@ async function loadSyncStatus() {
         if (alunosEl) alunosEl.textContent = String(alunos.length);
         if (alunosSemTurmaEl) alunosSemTurmaEl.textContent = String(alunosSemTurma.length);
         if (professoresEl) professoresEl.textContent = String(professoresRes.count ?? 0);
-        if (lastEl) lastEl.textContent = formatSyncDate(state.lastSyncAt);
+        let lastSyncValue = state.lastSyncAt;
+        if (!lastSyncValue) {
+            try {
+                lastSyncValue = localStorage.getItem(ENC_LAST_SYNC_KEY) || null;
+            } catch (err) {
+                lastSyncValue = null;
+            }
+        }
+        if (lastEl) lastEl.textContent = formatSyncDate(lastSyncValue);
     } catch (err) {
         showMessage('Erro ao carregar status do sync: ' + (err?.message || err), true);
     }
@@ -222,6 +258,11 @@ async function runSyncNow() {
     try {
         await safeQuery(db.rpc('sync_enc_cache'));
         state.lastSyncAt = new Date();
+        try {
+            localStorage.setItem(ENC_LAST_SYNC_KEY, state.lastSyncAt.toISOString());
+        } catch (err) {
+            // ignore storage errors
+        }
         await loadData();
         await loadSyncStatus();
         showMessage('Sincronização concluída.');
@@ -331,7 +372,6 @@ function renderAlunos() {
     const filtroTurma = document.getElementById('aluno-filtro-turma')?.value || '';
     const filtroStatus = document.getElementById('aluno-filtro-status')?.value || '';
     const filtroOrigem = document.getElementById('aluno-filtro-origem')?.value || '';
-    const ordenacao = document.getElementById('aluno-ordenacao')?.value || 'turma';
     const turmasById = new Map(state.turmas.map(t => [Number(t.id), t.nome_turma]));
     const filtered = state.alunos.filter(a => {
         if (!filtro) return true;
@@ -344,17 +384,8 @@ function renderAlunos() {
         return true;
     });
 
-    filtered.sort((a, b) => {
-        if (ordenacao === 'nome') {
-            return (a.nome_completo || '').localeCompare(b.nome_completo || '', undefined, { sensitivity: 'base' });
-        }
-        const turmaA = turmasById.get(Number(a.turma_id)) || '';
-        const turmaB = turmasById.get(Number(b.turma_id)) || '';
-        const turmaCompare = turmaA.localeCompare(turmaB, undefined, { numeric: true, sensitivity: 'base' });
-        if (turmaCompare !== 0) return turmaCompare;
-        return (a.nome_completo || '').localeCompare(b.nome_completo || '', undefined, { sensitivity: 'base' });
-    });
-    tbody.innerHTML = filtered.map(a => {
+    const sorted = sortAlunosTable(filtered, turmasById);
+    tbody.innerHTML = sorted.map(a => {
         const turmaNome = turmasById.get(Number(a.turma_id)) || '';
         const turmaLabel = turmaNome || (a.turma_id ? 'Turma não encontrada' : '-');
         return `
@@ -393,13 +424,89 @@ function renderAlunos() {
     });
 }
 
+function bindAlunoSortHeaders() {
+    const panel = document.getElementById('alunos-panel');
+    if (!panel) return;
+    const headers = panel.querySelectorAll('th[data-sort]');
+    if (!headers.length) return;
+    headers.forEach(th => {
+        if (th.dataset.sortBound === '1') return;
+        th.dataset.sortBound = '1';
+        th.addEventListener('click', () => {
+            const key = th.dataset.sort;
+            if (!key) return;
+            if (alunosSort.key === key) {
+                alunosSort.dir = alunosSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                alunosSort.key = key;
+                alunosSort.dir = 'asc';
+            }
+            updateAlunoSortIndicators(headers);
+            renderAlunos();
+        });
+    });
+    updateAlunoSortIndicators(headers);
+}
+
+function updateAlunoSortIndicators(headers) {
+    headers.forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === alunosSort.key) {
+            th.classList.add(alunosSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+}
+
+function sortAlunosTable(list, turmasById) {
+    const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+    const dir = alunosSort.dir === 'desc' ? -1 : 1;
+    const getValue = (item) => {
+        switch (alunosSort.key) {
+            case 'nome_completo':
+                return item.nome_completo || '';
+            case 'matricula':
+                return item.matricula || '';
+            case 'status':
+                return item.status || '';
+            case 'origem':
+                return item.origem || '';
+            case 'turma':
+            default:
+                return turmasById.get(Number(item.turma_id)) || '';
+        }
+    };
+    return [...list].sort((a, b) => {
+        const rankA = String(a.status || '').toLowerCase() === 'ativo' ? 0 : 1;
+        const rankB = String(b.status || '').toLowerCase() === 'ativo' ? 0 : 1;
+        if (rankA !== rankB) return rankA - rankB;
+
+        const cmp = collator.compare(String(getValue(a)), String(getValue(b)));
+        if (cmp !== 0) return cmp * dir;
+
+        const turmaA = turmasById.get(Number(a.turma_id)) || '';
+        const turmaB = turmasById.get(Number(b.turma_id)) || '';
+        const turmaCmp = collator.compare(turmaA, turmaB);
+        if (turmaCmp !== 0) return turmaCmp;
+
+        const nomeCmp = collator.compare(a.nome_completo || '', b.nome_completo || '');
+        if (nomeCmp !== 0) return nomeCmp;
+        return collator.compare(a.matricula || '', b.matricula || '');
+    });
+}
+
 function renderProfessores() {
     const tbody = document.getElementById('professores-table-body');
     const filtro = (document.getElementById('professor-search')?.value || '').toLowerCase();
+    const filtroStatus = document.getElementById('professor-filtro-status')?.value || '';
+    const filtroVinculo = document.getElementById('professor-filtro-vinculo')?.value || '';
+    const filtroOrigem = document.getElementById('professor-filtro-origem')?.value || '';
     const filtered = state.professores.filter(p => {
-        if (!filtro) return true;
-        return (p.nome || '').toLowerCase().includes(filtro) ||
-            (p.email || '').toLowerCase().includes(filtro);
+        if (filtro && !((p.nome || '').toLowerCase().includes(filtro) ||
+            (p.email || '').toLowerCase().includes(filtro))) return false;
+        if (filtroStatus && String(p.status || '') !== String(filtroStatus)) return false;
+        if (filtroVinculo && String(p.vinculo || '') !== String(filtroVinculo)) return false;
+        if (filtroOrigem && String(p.origem || '') !== String(filtroOrigem)) return false;
+        return true;
     });
     const sorted = sortProfessores(filtered);
     tbody.innerHTML = sorted.map(p => `

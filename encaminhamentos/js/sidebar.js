@@ -15,20 +15,72 @@ function compareVersions(a, b) {
     return 0;
 }
 
+function ensureSupportQrModal() {
+    let modal = document.getElementById('support-qr-modal');
+    if (modal) return modal;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+        <div id="support-qr-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-[2px]">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                <div class="px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-700 text-white flex items-center justify-between">
+                    <h3 class="text-base font-semibold">Suporte Técnico</h3>
+                    <button type="button" id="support-qr-close" class="text-white/80 hover:text-white" aria-label="Fechar">✕</button>
+                </div>
+                <div class="p-6 text-center">
+                    <div class="mx-auto w-48 h-48 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-center">
+                        <img src="../apoia/qr_code_altnix.png" alt="QR Code Suporte" class="h-40 w-40">
+                    </div>
+                    <p class="text-xs text-slate-500 mt-3">Aponte a câmera para abrir o WhatsApp</p>
+                    <a id="support-whats-link" href="#" target="_blank" rel="noopener" class="mt-3 inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-green-600 rounded-full hover:bg-green-700">
+                        Abrir no WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrapper.firstElementChild);
+    modal = document.getElementById('support-qr-modal');
+    return modal;
+}
+
 function setSupportLink() {
     const link = document.getElementById('support-link-enc');
     const linkCollapsed = document.getElementById('support-link-enc-collapsed');
-    if (!link) return;
+    if (!link && !linkCollapsed) return;
     const numero = '5548991004780';
-    const mensagem = 'Olá! Mensagem enviada do Sistema de chamadas da EEB Getúlio Vargas. Preciso de suporte.';
+    const mensagem = 'Olá! Mensagem enviada do sistema de encaminhamentos da EEB Getúlio Vargas. Preciso de suporte.';
     const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener';
-    if (linkCollapsed) {
-        linkCollapsed.href = url;
-        linkCollapsed.target = '_blank';
-        linkCollapsed.rel = 'noopener';
+    const modal = ensureSupportQrModal();
+    const closeBtn = document.getElementById('support-qr-close');
+    const whatsLink = document.getElementById('support-whats-link');
+
+    if (whatsLink) whatsLink.href = url;
+
+    const openModal = (event) => {
+        event?.preventDefault();
+        modal?.classList.remove('hidden');
+    };
+    const closeModal = () => modal?.classList.add('hidden');
+
+    [link, linkCollapsed].filter(Boolean).forEach((el) => {
+        el.href = url;
+        el.target = '_blank';
+        el.rel = 'noopener';
+        if (el.dataset.boundSupportModal === 'true') return;
+        el.dataset.boundSupportModal = 'true';
+        el.addEventListener('click', openModal);
+    });
+
+    if (closeBtn && closeBtn.dataset.boundSupportModal !== 'true') {
+        closeBtn.dataset.boundSupportModal = 'true';
+        closeBtn.addEventListener('click', closeModal);
+    }
+    if (modal && modal.dataset.boundSupportModal !== 'true') {
+        modal.dataset.boundSupportModal = 'true';
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) closeModal();
+        });
     }
 }
 

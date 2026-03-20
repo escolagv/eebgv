@@ -1,4 +1,4 @@
-import { db, safeQuery, formatDateTimeSP, SUPABASE_URL, SUPABASE_ANON_KEY } from './js/core.js';
+import { db, safeQuery, formatDateTimeSP, SUPABASE_URL, SUPABASE_ANON_KEY, getCurrentYear, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady } from './js/core.js';
 import { requireAdminSession, signOut } from './js/auth.js';
 
 const state = {
@@ -34,7 +34,13 @@ async function loadQueue() {
                 .order('created_at', { ascending: false })
         );
         const allJobs = data || [];
-        state.jobs = allJobs.filter(job => (job.status || 'novo') === 'novo');
+        state.jobs = allJobs.filter(job => {
+            const hasStorage = !!job.storage_path;
+            const hasDrive = !!job.drive_file_id || !!job.drive_url;
+            const isLinked = !!job.encaminhamento_id;
+            const isNovo = (job.status || 'novo') === 'novo';
+            return hasStorage && !hasDrive && !isLinked && isNovo;
+        });
         await buildSignedUrls();
         renderQueue();
     } catch (err) {
@@ -256,8 +262,11 @@ function renderQueue() {
         const preview = state.signedUrls.get(job.id);
         const created = formatDateTimeSP(job.created_at);
         const status = job.status || 'novo';
-        const disabled = status !== 'novo';
-        const deleteDisabled = status === 'vinculado';
+        const isLinked = !!job.encaminhamento_id;
+        const disabled = false;
+        const deleteDisabled = isLinked || status === 'vinculado';
+        const statusLabel = isLinked ? `${status} (pendente Drive)` : status;
+        const canRetryDrive = isLinked && !!job.storage_path && !job.drive_file_id && !job.drive_url;
         const rawText = job.ocr_json?.raw_text || '';
         const headerText = job.ocr_json?.header_text || '';
         const matriculaValue = job.aluno_matricula
@@ -283,7 +292,7 @@ function renderQueue() {
                 ${previewHtml}
                 <div class="flex items-center justify-between gap-2 text-xs text-gray-500">
                     <span>Enviado em: ${created}</span>
-                    <span>Status: <strong class="text-gray-700">${status}</strong></span>
+                    <span>Status: <strong class="text-gray-700">${statusLabel}</strong></span>
                 </div>
                 ${sizeLabel ? `<div class="text-[11px] text-gray-500">Tamanho: <span class="font-semibold text-gray-700">${sizeLabel}</span></div>` : ''}
                 <div class="text-xs text-gray-600">Aluno: <span class="font-semibold text-gray-800">${alunoNome || '-'}</span></div>
@@ -304,6 +313,12 @@ function renderQueue() {
                         data-id="${job.id}">
                         Reprocessar OCR
                     </button>
+                    ${canRetryDrive ? `
+                    <button type="button" class="queue-drive-btn w-full px-3 py-2 text-xs font-semibold rounded-md bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                        data-id="${job.id}">
+                        Reenviar ao Drive
+                    </button>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -313,7 +328,6 @@ document.querySelectorAll('.queue-select-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
         if (!id) return;
-        await ensureOcrBeforeRedirect(id, btn);
         const params = new URLSearchParams(window.location.search);
         const editId = params.get('editId');
         const target = editId
@@ -350,6 +364,14 @@ document.querySelectorAll('.queue-select-btn').forEach(btn => {
         });
     });
 
+    document.querySelectorAll('.queue-drive-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            if (!id) return;
+            await retryDriveUpload(id, btn);
+        });
+    });
+
     document.querySelectorAll('.queue-image').forEach(img => {
         img.addEventListener('click', () => {
             openZoom(img.getAttribute('data-url') || img.src, {
@@ -360,6 +382,97 @@ document.querySelectorAll('.queue-select-btn').forEach(btn => {
             });
         });
     });
+}
+
+async function retryDriveUpload(jobId, button) {
+    const job = state.jobs.find(item => String(item.id) === String(jobId));
+    if (!job || !job.storage_path) return;
+    if (!job.encaminhamento_id) {
+        alert('Este scan ainda não está vinculado a um encaminhamento.');
+        return;
+    }
+
+    const originalText = button?.textContent || 'Reenviar ao Drive';
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Enviando...';
+        button.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+
+    try {
+        const years = Array.from(new Set([
+            getYearFromDateString(job.created_at),
+            getCurrentYear()
+        ])).filter(Boolean);
+
+        let encData = null;
+        for (const year of years) {
+            try {
+                await ensureEncaminhamentosTableReady(year);
+                const table = getEncaminhamentosTableName(year);
+                const { data } = await safeQuery(
+                    db.from(table)
+                        .select('id,codigo,data_encaminhamento')
+                        .eq('id', job.encaminhamento_id)
+                        .maybeSingle()
+                );
+                if (data?.codigo && data?.data_encaminhamento) {
+                    encData = data;
+                    break;
+                }
+            } catch (err) {
+                // tenta próximo ano
+            }
+        }
+
+        if (!encData) {
+            throw new Error(`Não foi possível localizar o encaminhamento #${job.encaminhamento_id} para reenviar ao Drive.`);
+        }
+
+        const payload = {
+            storage_path: job.storage_path,
+            codigo: encData.codigo,
+            data_encaminhamento: encData.data_encaminhamento,
+            mime_type: job.mime_type || 'image/jpeg'
+        };
+        const { data, error } = await db.functions.invoke('enc_drive_upload', { body: payload });
+        if (error) throw error;
+
+        const driveUrl = data?.webViewLink || data?.drive_url || null;
+        const driveFileId = data?.file_id || null;
+        if (!driveFileId && !driveUrl) {
+            throw new Error('Drive não retornou file_id/link.');
+        }
+
+        await safeQuery(
+            db.from('enc_scan_jobs')
+                .update({
+                    drive_url: driveUrl,
+                    drive_file_id: driveFileId,
+                    status: 'vinculado',
+                    storage_path: null
+                })
+                .eq('id', job.id)
+        );
+
+        try {
+            await db.storage.from('enc_temp').remove([job.storage_path]);
+        } catch (err) {
+            console.warn('Falha ao limpar storage após upload drive:', err?.message || err);
+        }
+
+        await loadQueue();
+        alert(`Arquivo ${encData.codigo} reenviado ao Drive com sucesso.`);
+    } catch (err) {
+        alert(err?.message || 'Falha ao reenviar ao Drive.');
+        console.error('retryDriveUpload error:', err);
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
 }
 
 function renderQueueError() {

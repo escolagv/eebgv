@@ -23,7 +23,7 @@ const providenciasOptions = [
     "Advertência"
 ];
 
-const SYNC_INTERVAL_MS = 15 * 60 * 1000;
+const ENC_LAST_SYNC_KEY = 'enc_last_sync_at';
 
 const state = {
     currentUser: null,
@@ -36,12 +36,29 @@ const state = {
     turmasById: new Map(),
     turmasAnoAtual: new Set(),
     anoLetivoAtual: null,
-    syncTimer: null,
     encYear: null,
     editYear: null,
     currentCodigo: '',
     scanJob: null,
     scanUrl: ''
+};
+
+const inlineScanZoom = {
+    scale: 1,
+    minScale: 1,
+    maxScale: 4,
+    offsetX: 0,
+    offsetY: 0,
+    dragging: false,
+    dragStartX: 0,
+    dragStartY: 0
+};
+const floatViewerDrag = {
+    dragging: false,
+    startX: 0,
+    startY: 0,
+    originLeft: 0,
+    originTop: 0
 };
 
 // ===================================================================
@@ -58,6 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     createCheckboxes('acoes-container', acoesOptions, 'acao');
     createCheckboxes('providencias-container', providenciasOptions, 'providencia');
     initScanZoomControls();
+    initFloatingScanViewerControls();
 
     encaminhamentoForm.addEventListener('submit', saveRecord);
     salvarEdicaoButton.addEventListener('click', updateRecord);
@@ -73,7 +91,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     logoutBtn.addEventListener('click', async () => {
         await signOut();
-        clearSyncTimer();
         window.location.href = 'login.html';
     });
 
@@ -141,7 +158,6 @@ async function initApp() {
 
     db.auth.onAuthStateChange(async (event, session) => {
         if (!session) {
-            clearSyncTimer();
             window.location.href = 'login.html';
             return;
         }
@@ -165,30 +181,27 @@ async function loadApp(user, profile) {
     state.encYear = getYearFromDateString(document.getElementById('dataEncaminhamento').value);
     await ensureEncaminhamentosTableReady(state.encYear);
 
-    await syncEncCache();
+    updateSyncStatusFromStorage();
     await loadCaches();
     initNameSearchInputs();
     await loadScanJobFromParams();
     checkEditMode();
-    startSyncTimer();
     updateContatoResumo();
 }
 
 // ===================================================================
 // SINCRONIZAÇÃO
 // ===================================================================
-function startSyncTimer() {
-    clearSyncTimer();
-    state.syncTimer = setInterval(() => {
-        syncEncCache();
-    }, SYNC_INTERVAL_MS);
-}
-
-function clearSyncTimer() {
-    if (state.syncTimer) {
-        clearInterval(state.syncTimer);
-        state.syncTimer = null;
+function updateSyncStatusFromStorage() {
+    const statusEl = document.getElementById('sync-status');
+    if (!statusEl) return;
+    let lastSync = '';
+    try {
+        lastSync = localStorage.getItem(ENC_LAST_SYNC_KEY) || '';
+    } catch (err) {
+        lastSync = '';
     }
+    statusEl.textContent = lastSync ? `OK ${formatDateTimeSP(lastSync)}` : '-';
 }
 
 async function syncEncCache() {
@@ -196,7 +209,13 @@ async function syncEncCache() {
     try {
         if (statusEl) statusEl.textContent = 'Sincronizando...';
         await safeQuery(db.rpc('sync_enc_cache'));
-        if (statusEl) statusEl.textContent = `OK ${formatDateTimeSP(new Date().toISOString())}`;
+        const nowIso = new Date().toISOString();
+        try {
+            localStorage.setItem(ENC_LAST_SYNC_KEY, nowIso);
+        } catch (err) {
+            // ignore storage errors
+        }
+        if (statusEl) statusEl.textContent = `OK ${formatDateTimeSP(nowIso)}`;
     } catch (err) {
         if (statusEl) statusEl.textContent = 'Falha';
         console.error('Falha ao sincronizar:', err?.message || err);
@@ -240,8 +259,8 @@ function initNameSearchInputs() {
     setupNameSearchInput('search-estudante', 'search-estudante-options', 'search-estudante-clear', estudantes);
     setupNameSearchInput('search-professor', 'search-professor-options', 'search-professor-clear', professores);
     setupNameSearchInput('search-registrado', 'search-registrado-options', 'search-registrado-clear', registrados);
-    setupSelectFilterBinding('estudante-filter', 'estudante-options', 'estudante-filter-clear', getSelectableAlunos(), a => a?.nome_completo || '', 'estudante', a => String(a?.id ?? ''));
-    setupSelectFilterBinding('professor-filter', 'professor-options', 'professor-filter-clear', state.professores, p => p?.nome || '', 'professor', p => p?.user_uid || '');
+    setupSelectFilterBinding('estudante-filter', 'estudante-suggestions', 'estudante-filter-clear', getSelectableAlunos(), a => a?.nome_completo || '', 'estudante', a => String(a?.id ?? ''));
+    setupSelectFilterBinding('professor-filter', 'professor-suggestions', 'professor-filter-clear', state.professores, p => p?.nome || '', 'professor', p => p?.user_uid || '');
     syncSelectFilterInputs();
 }
 
@@ -273,28 +292,81 @@ function setupNameSearchInput(inputId, listId, clearId, options) {
     toggleClear();
 }
 
-function setupSelectFilterBinding(inputId, listId, clearId, items, labelFn, selectId, valueFn) {
+function setupSelectFilterBinding(inputId, suggestionsId, clearId, items, labelFn, selectId, valueFn) {
     const input = document.getElementById(inputId);
-    const list = document.getElementById(listId);
+    const suggestions = document.getElementById(suggestionsId);
     const clearBtn = document.getElementById(clearId);
     const select = document.getElementById(selectId);
-    if (!input || !list || !clearBtn || !select) return;
+    if (!input || !suggestions || !clearBtn || !select) return;
 
-    list.innerHTML = '';
-    const options = (items || [])
+    const selectableItems = (items || [])
         .filter(item => item?.status !== 'inativo')
-        .map(item => labelFn(item))
-        .filter(Boolean);
-    const uniqueOptions = Array.from(new Set(options)).sort((a, b) => a.localeCompare(b));
-    uniqueOptions.forEach(value => {
-        const option = document.createElement('option');
-        option.value = value;
-        list.appendChild(option);
-    });
-
+        .filter(item => !!labelFn(item));
     const normalize = (value) => normalizeText(value || '');
-    const getItemByValue = (value) => (items || []).find(item => String(valueFn(item)) === String(value));
-    const getItemByLabel = (label) => (items || []).find(item => normalize(labelFn(item)) === normalize(label));
+    const indexedItems = selectableItems
+        .map(item => {
+            const label = String(labelFn(item) || '').trim();
+            return { item, label, norm: normalize(label) };
+        })
+        .filter(entry => !!entry.label)
+        .sort((a, b) => a.label.localeCompare(b.label));
+    const getItemByValue = (value) => indexedItems.find(entry => String(valueFn(entry.item)) === String(value))?.item || null;
+    const getItemByLabel = (label) => {
+        const target = normalize(label);
+        return indexedItems.find(entry => entry.norm === target)?.item || null;
+    };
+    const uniqueByNorm = (entries) => {
+        const map = new Map();
+        entries.forEach(entry => {
+            if (!entry?.norm) return;
+            const current = map.get(entry.norm);
+            if (!current) {
+                map.set(entry.norm, entry);
+                return;
+            }
+            const currentHasAccent = /[^\u0000-\u007F]/.test(current.label);
+            const nextHasAccent = /[^\u0000-\u007F]/.test(entry.label);
+            if (!currentHasAccent && nextHasAccent) {
+                map.set(entry.norm, entry);
+            }
+        });
+        return Array.from(map.values());
+    };
+    const getStartsWithMatches = (label) => {
+        const target = normalize(label);
+        if (!target) return [];
+        return uniqueByNorm(indexedItems.filter(entry => entry.norm.startsWith(target)));
+    };
+    const getContainsMatches = (label) => {
+        const target = normalize(label);
+        if (!target) return [];
+        return uniqueByNorm(indexedItems.filter(entry => entry.norm.includes(target)));
+    };
+
+    const renderList = (rawValue = '', show = false) => {
+        const rawNorm = normalize(rawValue);
+        const filteredEntries = rawNorm.length < 1 ? [] : uniqueByNorm(indexedItems.filter(entry => entry.norm.includes(rawNorm)));
+        suggestions.innerHTML = '';
+        filteredEntries.slice(0, 25).forEach(entry => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'name-suggestion-item';
+            btn.textContent = entry.label;
+            btn.addEventListener('mousedown', (event) => {
+                event.preventDefault();
+            });
+            btn.addEventListener('click', () => {
+                input.value = entry.label;
+                select.value = String(valueFn(entry.item));
+                if (selectId === 'estudante') handleAlunoChange();
+                toggleClear();
+                suggestions.classList.add('hidden');
+                input.focus();
+            });
+            suggestions.appendChild(btn);
+        });
+        suggestions.classList.toggle('hidden', !show || filteredEntries.length === 0);
+    };
 
     const syncFromInput = () => {
         const raw = input.value.trim();
@@ -307,7 +379,19 @@ function setupSelectFilterBinding(inputId, listId, clearId, items, labelFn, sele
             select.value = valueFn(match);
             if (selectId === 'estudante') handleAlunoChange();
         } else {
-            select.value = '';
+            const starts = getStartsWithMatches(raw);
+            if (starts.length === 1) {
+                select.value = valueFn(starts[0].item);
+                if (selectId === 'estudante') handleAlunoChange();
+            } else {
+                const contains = getContainsMatches(raw);
+                if (contains.length === 1) {
+                    select.value = valueFn(contains[0].item);
+                    if (selectId === 'estudante') handleAlunoChange();
+                } else {
+                    select.value = '';
+                }
+            }
         }
     };
 
@@ -319,20 +403,33 @@ function setupSelectFilterBinding(inputId, listId, clearId, items, labelFn, sele
         input.value = '';
         select.value = '';
         if (selectId === 'estudante') handleAlunoChange();
+        suggestions.classList.add('hidden');
         toggleClear();
     });
 
     input.addEventListener('input', () => {
         toggleClear();
+        renderList(input.value, true);
         syncFromInput();
     });
 
     select.addEventListener('change', () => {
         const match = getItemByValue(select.value);
         input.value = match ? labelFn(match) : '';
+        renderList(input.value, false);
         toggleClear();
     });
 
+    input.addEventListener('focus', () => {
+        const raw = input.value.trim();
+        renderList(raw, raw.length >= 1);
+    });
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => suggestions.classList.add('hidden'), 120);
+    });
+
+    renderList('', false);
     toggleClear();
 }
 
@@ -775,9 +872,7 @@ function showScanPreview(job, url) {
     const container = document.getElementById('scan-preview');
     const meta = document.getElementById('scan-meta');
     const driveMeta = document.getElementById('scan-drive-meta');
-    const img = document.getElementById('scan-image');
     const link = document.getElementById('scan-open-link');
-    const inlinePreview = document.getElementById('scan-inline-preview');
     const missing = document.getElementById('scan-missing');
     const zoomBtn = document.getElementById('scan-zoom-btn');
     const clearBtn = document.getElementById('scan-clear-btn');
@@ -799,17 +894,16 @@ function showScanPreview(job, url) {
 
     if (missing) missing.classList.add('hidden');
     if (url) {
-        if (img) img.removeAttribute('src');
-        if (link) link.classList.add('hidden');
-        if (inlinePreview) inlinePreview.classList.add('hidden');
+        if (link) {
+            link.href = url;
+        }
+        closeFloatingScanViewer();
         if (zoomBtn) {
             zoomBtn.classList.remove('hidden');
-            zoomBtn.onclick = () => openScanZoom(url);
+            zoomBtn.onclick = () => openFloatingScanViewer(url);
         }
     } else {
-        if (img) img.removeAttribute('src');
-        if (link) link.classList.add('hidden');
-        if (inlinePreview) inlinePreview.classList.add('hidden');
+        closeFloatingScanViewer();
         if (zoomBtn) zoomBtn.classList.add('hidden');
     }
 
@@ -830,20 +924,17 @@ function clearScanPreview() {
     state.scanJob = null;
     state.scanUrl = '';
     const container = document.getElementById('scan-preview');
-    const img = document.getElementById('scan-image');
     const link = document.getElementById('scan-open-link');
     const meta = document.getElementById('scan-meta');
     const driveMeta = document.getElementById('scan-drive-meta');
     const zoomBtn = document.getElementById('scan-zoom-btn');
-    const inlinePreview = document.getElementById('scan-inline-preview');
     const missing = document.getElementById('scan-missing');
     if (container) container.classList.add('hidden');
-    if (img) img.removeAttribute('src');
-    if (link) link.classList.add('hidden');
+    if (link) link.href = '#';
     if (meta) meta.textContent = '-';
     if (driveMeta) driveMeta.textContent = 'Drive: -';
     if (zoomBtn) zoomBtn.classList.add('hidden');
-    if (inlinePreview) inlinePreview.classList.add('hidden');
+    closeFloatingScanViewer();
     if (missing) missing.classList.add('hidden');
     if (document.getElementById('editId')?.value) {
         showMissingScanPrompt();
@@ -977,6 +1068,8 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
     } catch (err) {
         if (err?.status === 401) {
             showStatusMessage('Sessão expirada. Faça login novamente para enviar a imagem ao Drive.', false);
+        } else {
+            showStatusMessage('⚠️ Encaminhamento salvo, mas o envio da imagem ao Drive falhou. Tente novamente ao abrir este registro.', false);
         }
         console.warn('Falha ao enviar para o Drive:', err?.message || err);
     }
@@ -1086,6 +1179,120 @@ function initScanZoomControls() {
     });
 }
 
+function initFloatingScanViewerControls() {
+    const viewer = document.getElementById('scan-float-viewer');
+    const handle = document.getElementById('scan-float-handle');
+    const stage = document.getElementById('scan-float-stage');
+    const image = document.getElementById('scan-float-image');
+    const closeBtn = document.getElementById('scan-float-close');
+    const zoomInBtn = document.getElementById('scan-float-zoom-in');
+    const zoomOutBtn = document.getElementById('scan-float-zoom-out');
+    const zoomResetBtn = document.getElementById('scan-float-zoom-reset');
+    if (!viewer || !handle || !stage || !image) return;
+
+    const applyTransform = () => {
+        image.style.transform = `translate(${inlineScanZoom.offsetX}px, ${inlineScanZoom.offsetY}px) scale(${inlineScanZoom.scale})`;
+    };
+
+    const clampOffsets = () => {
+        const stageRect = stage.getBoundingClientRect();
+        const maxX = Math.max(0, (stageRect.width * (inlineScanZoom.scale - 1)) / 2);
+        const maxY = Math.max(0, (stageRect.height * (inlineScanZoom.scale - 1)) / 2);
+        inlineScanZoom.offsetX = Math.min(maxX, Math.max(-maxX, inlineScanZoom.offsetX));
+        inlineScanZoom.offsetY = Math.min(maxY, Math.max(-maxY, inlineScanZoom.offsetY));
+    };
+
+    const setScale = (nextScale) => {
+        inlineScanZoom.scale = Math.min(inlineScanZoom.maxScale, Math.max(inlineScanZoom.minScale, nextScale));
+        clampOffsets();
+        applyTransform();
+    };
+
+    stage.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const delta = event.deltaY < 0 ? 0.18 : -0.18;
+        setScale(inlineScanZoom.scale + delta);
+    }, { passive: false });
+
+    stage.addEventListener('mousedown', (event) => {
+        if (event.button !== 0 || inlineScanZoom.scale <= 1) return;
+        inlineScanZoom.dragging = true;
+        inlineScanZoom.dragStartX = event.clientX - inlineScanZoom.offsetX;
+        inlineScanZoom.dragStartY = event.clientY - inlineScanZoom.offsetY;
+        stage.classList.add('is-dragging');
+    });
+
+    window.addEventListener('mousemove', (event) => {
+        if (inlineScanZoom.dragging) {
+            inlineScanZoom.offsetX = event.clientX - inlineScanZoom.dragStartX;
+            inlineScanZoom.offsetY = event.clientY - inlineScanZoom.dragStartY;
+            clampOffsets();
+            applyTransform();
+        }
+        if (floatViewerDrag.dragging) {
+            const dx = event.clientX - floatViewerDrag.startX;
+            const dy = event.clientY - floatViewerDrag.startY;
+            viewer.style.left = `${Math.max(8, floatViewerDrag.originLeft + dx)}px`;
+            viewer.style.top = `${Math.max(8, floatViewerDrag.originTop + dy)}px`;
+            viewer.style.right = 'auto';
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (inlineScanZoom.dragging) {
+            inlineScanZoom.dragging = false;
+            stage.classList.remove('is-dragging');
+        }
+        if (floatViewerDrag.dragging) {
+            floatViewerDrag.dragging = false;
+            document.body.classList.remove('scan-no-select');
+        }
+    });
+
+    handle.addEventListener('mousedown', (event) => {
+        if (event.button !== 0) return;
+        if (event.target instanceof HTMLElement && event.target.closest('button')) return;
+        const rect = viewer.getBoundingClientRect();
+        floatViewerDrag.dragging = true;
+        floatViewerDrag.startX = event.clientX;
+        floatViewerDrag.startY = event.clientY;
+        floatViewerDrag.originLeft = rect.left;
+        floatViewerDrag.originTop = rect.top;
+        document.body.classList.add('scan-no-select');
+    });
+
+    image.addEventListener('dragstart', (event) => event.preventDefault());
+    zoomInBtn?.addEventListener('click', () => setScale(inlineScanZoom.scale + 0.25));
+    zoomOutBtn?.addEventListener('click', () => setScale(inlineScanZoom.scale - 0.25));
+    zoomResetBtn?.addEventListener('click', () => resetInlineScanTransform());
+    closeBtn?.addEventListener('click', closeFloatingScanViewer);
+}
+
+function resetInlineScanTransform() {
+    const image = document.getElementById('scan-float-image');
+    if (!image) return;
+    inlineScanZoom.scale = 1;
+    inlineScanZoom.offsetX = 0;
+    inlineScanZoom.offsetY = 0;
+    image.style.transform = 'translate(0px, 0px) scale(1)';
+}
+
+function openFloatingScanViewer(url) {
+    const viewer = document.getElementById('scan-float-viewer');
+    const image = document.getElementById('scan-float-image');
+    if (!viewer || !image || !url) return;
+    image.src = url;
+    resetInlineScanTransform();
+    viewer.classList.remove('hidden');
+}
+
+function closeFloatingScanViewer() {
+    const viewer = document.getElementById('scan-float-viewer');
+    const image = document.getElementById('scan-float-image');
+    if (viewer) viewer.classList.add('hidden');
+    if (image) image.removeAttribute('src');
+}
+
 async function loadStoredScanPreview(storagePath, referenceDate) {
     if (!storagePath) return;
     try {
@@ -1103,9 +1310,10 @@ async function linkScanJob(encaminhamentoId) {
     try {
         await safeQuery(
             db.from('enc_scan_jobs')
-                .update({ status: 'vinculado', encaminhamento_id: encaminhamentoId })
+                .update({ encaminhamento_id: encaminhamentoId })
                 .eq('id', state.scanJob.id)
         );
+        state.scanJob = { ...state.scanJob, encaminhamento_id: encaminhamentoId };
     } catch (err) {
         console.warn('Falha ao vincular scan:', err?.message || err);
     }
