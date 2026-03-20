@@ -126,6 +126,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const correcaoDataSelect = document.getElementById('correcao-data-select');
     const professorDataText = document.getElementById('professor-data-text');
     const adminInfo = document.getElementById('admin-info');
+    const adminViewEl = document.getElementById('admin-view');
+    const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+    const sidebarCollapseIcon = document.getElementById('sidebar-collapse-icon');
     const assiduidadeAlunoLookup = new Map();
     const assiduidadeTurmaLookup = new Map();
     const assiduidadeProfessorLookup = new Map();
@@ -317,6 +320,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const SIDEBAR_COLLAPSED_KEY = 'apoia_sidebar_collapsed';
+    const applySidebarCollapsed = (collapsed) => {
+        if (!adminViewEl) return;
+        adminViewEl.classList.toggle('sidebar-collapsed', !!collapsed);
+        if (sidebarCollapseIcon) sidebarCollapseIcon.textContent = collapsed ? '»' : '«';
+        if (sidebarCollapseBtn) {
+            sidebarCollapseBtn.title = collapsed ? 'Expandir menu' : 'Recolher menu';
+            sidebarCollapseBtn.setAttribute('aria-label', collapsed ? 'Expandir menu' : 'Recolher menu');
+        }
+    };
+    if (adminViewEl) {
+        // Sempre inicia minimizado ao entrar no sistema
+        applySidebarCollapsed(true);
+        try {
+            localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+        } catch (err) {
+            // ignore storage errors
+        }
+    }
+    if (sidebarCollapseBtn && adminViewEl) {
+        sidebarCollapseBtn.addEventListener('click', () => {
+            const nextCollapsed = !adminViewEl.classList.contains('sidebar-collapsed');
+            applySidebarCollapsed(nextCollapsed);
+            try {
+                localStorage.setItem(SIDEBAR_COLLAPSED_KEY, nextCollapsed ? '1' : '0');
+            } catch (err) {
+                // ignore storage errors
+            }
+        });
+    }
+
     initAuthHandlers();
     ['click', 'mousemove', 'keypress', 'scroll'].forEach(event => document.addEventListener(event, resetInactivityTimer));
     db.auth.onAuthStateChange((event, session) => { handleAuthChange(event, session); });
@@ -375,8 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
         const linkProf = document.getElementById('support-link-prof');
         const linkAdmin = document.getElementById('support-link-admin');
+        const linkAdminCollapsed = document.getElementById('support-link-admin-collapsed');
         if (linkProf) { linkProf.href = url; linkProf.target = '_blank'; }
         if (linkAdmin) { linkAdmin.href = url; linkAdmin.target = '_blank'; }
+        if (linkAdminCollapsed) { linkAdminCollapsed.href = url; linkAdminCollapsed.target = '_blank'; }
     };
     setupSupportLinks();
 
@@ -858,6 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closest('#promover-turmas-btn')) handlePromoverTurmas();
         if (closest('#confirm-promocao-turmas-btn')) handleConfirmPromocaoTurmas();
         if (closest('#gerar-assiduidade-btn')) generateAssiduidadeReport();
+        if (closest('#open-promover-turmas-from-config-btn')) openPromoverTurmasModal();
 
         if (closest('#promover-turmas-toggle-all')) {
             const btn = closest('#promover-turmas-toggle-all');

@@ -40,7 +40,7 @@
         <div id="login-view" class="flex items-center justify-center min-h-screen hidden">
             <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
                 <img src="./logo.png" alt="Logo da Escola" class="w-32 h-32 mx-auto">
-                <h1 class="text-2xl font-bold text-center text-gray-900">Sistema de Faltas - APOIA</h1>
+                <h1 class="text-2xl font-bold text-center text-gray-900">Sistema de Chamadas - APOIA</h1>
                 <form id="login-form" class="space-y-6">
                     <div>
                         <label for="email" class="text-sm font-medium text-gray-700">Email</label>
@@ -163,27 +163,31 @@
         <div id="admin-view" class="hidden">
             <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
             <div class="flex h-screen bg-gray-200">
-                <aside class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
-                    <div class="p-4 border-b border-gray-700 flex flex-col items-center gap-3"><img src="./logo_admin.png" alt="Logo da Escola" class="h-16"><div><h1 class="text-xl font-bold">Chamada Admin</h1><p id="admin-info" class="text-sm text-gray-400 text-center"></p></div></div>
+                <aside id="admin-sidebar" class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
+                    <button id="sidebar-collapse-btn" class="hidden md:inline-flex items-center justify-center w-7 h-7 rounded-full border border-slate-500/60 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white shadow-lg" title="Recolher menu" aria-label="Recolher menu">
+                        <span id="sidebar-collapse-icon" aria-hidden="true">«</span>
+                    </button>
+                    <div class="p-4 border-b border-gray-700 flex flex-col items-center gap-3"><img src="./logo_admin.png" alt="Logo da Escola" class="h-16"><div><h1 class="text-xl font-bold">Chamada Admin</h1><p id="admin-info" class="text-[11px] text-gray-400 text-center"></p></div></div>
                     <nav id="admin-sidebar-nav" class="flex-1 p-4 space-y-2 overflow-y-auto">
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md bg-gray-700" data-target="admin-dashboard-panel">Dashboard</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-chamadas-panel">Chamadas</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-professores-panel">Professores</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-turmas-panel">Turmas</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-alunos-panel">Alunos</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-apoia-panel">APOIA</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-calendario-panel">Calendário</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-ano-letivo-panel">Ano Letivo</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-relatorios-panel">Relatórios Faltas</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-consistencia-panel">Consistência</a>
-                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-config-panel">Configurações</a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md bg-gray-700" data-target="admin-dashboard-panel" title="Dashboard"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.8V21h14V9.8"/></svg></span><span class="admin-nav-label">Dashboard</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-chamadas-panel" title="Chamadas"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><span class="admin-nav-label">Chamadas</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-professores-panel" title="Professores"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="admin-nav-label">Professores</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-turmas-panel" title="Turmas"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span><span class="admin-nav-label">Turmas</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-alunos-panel" title="Alunos"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><span class="admin-nav-label">Alunos</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-apoia-panel" title="APOIA"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 5.65-7 10-7 10Z"/></svg></span><span class="admin-nav-label">APOIA</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-calendario-panel" title="Calendário"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span><span class="admin-nav-label">Calendário</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-consistencia-panel" title="Consistência"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span><span class="admin-nav-label">Consistência</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-relatorios-panel" title="Relatórios"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-2"/></svg></span><span class="admin-nav-label">Relatórios</span></a>
+                        <a href="#" class="admin-nav-link block px-4 py-2 rounded-md hover:bg-gray-700" data-target="admin-config-panel" title="Configurações"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-.33-1A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 3.3 17l.06-.06A1.65 1.65 0 0 0 3.7 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1-.33H2a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1-.33A1.65 1.65 0 0 0 3.7 8a1.65 1.65 0 0 0-.33-1.82L3.3 6.12A2 2 0 1 1 6.12 3.3l.06.06A1.65 1.65 0 0 0 8 3.7a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .33-1V2a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 .33 1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 1 1 20.7 6.12l-.06.06A1.65 1.65 0 0 0 20.3 8c0 .39.14.76.4 1.05.28.31.66.5 1.08.54H22a2 2 0 0 1 0 4h-.09c-.42.04-.8.23-1.08.54-.26.29-.4.66-.4 1.05Z"/></svg></span><span class="admin-nav-label">Configurações</span></a>
+                        <a href="#" class="admin-nav-link hidden" data-target="admin-ano-letivo-panel" title="Ano Letivo"><span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg></span><span class="admin-nav-label">Ano Letivo</span></a>
                     </nav>
                     <div class="p-4 border-t border-gray-700 space-y-4">
-                        <div class="text-xs text-center text-gray-400">
+                        <div id="admin-support-block" class="text-xs text-center text-gray-400">
                             <p>Desenvolvido por:</p>
                             <p>Cristian Berão - Altnix Tecnologia</p>
                             <p>WhatsApp: (48) 99100-4780</p>
                             <a href="#" id="support-link-admin" class="text-blue-400 hover:underline">Suporte Técnico</a>
+                            <a href="#" id="support-link-admin-collapsed" class="hidden text-blue-300 hover:underline font-semibold">Suporte</a>
                         </div>
                         <div id="apoia-admin-version" class="text-xs text-center text-gray-400" data-version="1.0.11">V1.0.11</div>
                         <button id="admin-logout-btn" class="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">Sair</button>
@@ -536,7 +540,7 @@
                                 </div>
                             </div>
                             <div id="admin-config-panel" class="admin-panel hidden">
-                                <h2 class="text-2xl font-bold mb-4">Configurações de Alerta</h2>
+                                <h2 class="text-2xl font-bold mb-4">Configurações</h2>
                                 <form id="config-form" class="bg-white p-6 rounded-lg shadow-md space-y-6">
                                     <div>
                                         <h3 class="text-lg font-semibold">Regras de Faltas</h3>
@@ -600,6 +604,13 @@
                                         <button type="submit" class="px-6 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Salvar Configurações</button>
                                     </div>
                                 </form>
+                                <div class="bg-white p-6 rounded-lg shadow-md mt-6">
+                                    <h3 class="text-lg font-semibold mb-2">Gestão do Ano Letivo (manual)</h3>
+                                    <p class="text-sm text-gray-600 mb-4">Use esta opção apenas se a migração automática não for concluída no fechamento do ano letivo.</p>
+                                    <button id="open-promover-turmas-from-config-btn" type="button" class="px-5 py-2 font-semibold text-white bg-teal-600 rounded-md hover:bg-teal-700">
+                                        Promover Turmas
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -994,7 +1005,8 @@
             const closeBtn = document.getElementById('support-qr-close');
             const openLinks = [
                 document.getElementById('support-link-prof'),
-                document.getElementById('support-link-admin')
+                document.getElementById('support-link-admin'),
+                document.getElementById('support-link-admin-collapsed')
             ].filter(Boolean);
 
             const openModal = (event) => {
