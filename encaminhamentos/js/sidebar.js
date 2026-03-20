@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setSupportLink();
     setEncAppVersion();
     setupUserPasswordChange();
-    document.querySelectorAll('#admin-sidebar-nav .admin-nav-link').forEach((link) => {
+    document.querySelectorAll('#admin-sidebar-nav .admin-nav-link, #sidebar-sync-block .admin-nav-link').forEach((link) => {
         const title = link.getAttribute('title') || link.textContent || '';
         const label = String(title).trim();
         if (label) {
@@ -266,8 +266,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toggleDesktopCollapse = () => {
         if (!adminViewEl) return;
+        adminViewEl.classList.add('sidebar-is-toggling');
         const nextCollapsed = !adminViewEl.classList.contains('sidebar-collapsed');
         applySidebarCollapsed(nextCollapsed);
+        window.setTimeout(() => {
+            adminViewEl.classList.remove('sidebar-is-toggling');
+        }, 220);
         try {
             localStorage.setItem(SIDEBAR_COLLAPSED_KEY, nextCollapsed ? '1' : '0');
         } catch (err) {

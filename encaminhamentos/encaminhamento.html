@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
-<body class="bg-gray-200 text-gray-800 form-compact">
+<body class="bg-gray-200 text-gray-800 form-compact page-encaminhamento">
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
     <div id="admin-view" class="flex h-screen bg-gray-200 sidebar-collapsed">
         <aside id="admin-sidebar" class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
@@ -47,7 +47,14 @@
                     <span class="admin-nav-label">Fila de Scans</span>
                 </a>
             </nav>
-            <div class="p-4 border-t border-gray-700 space-y-4">
+            <div id="sidebar-sync-block">
+                <button type="button" id="sync-now-btn" class="admin-nav-link block w-full px-4 py-2 rounded-md hover:bg-gray-700 text-left" title="Sync">
+                    <span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 0 1-14.2 5"/><path d="M4 12a8 8 0 0 1 14.2-5"/><path d="M6 19v-4h4"/><path d="M18 5v4h-4"/></svg></span>
+                    <span class="admin-nav-label">Sync</span>
+                </button>
+                <p id="sidebar-sync-status" class="text-[11px] text-center text-gray-400">Status: <strong id="sync-status">-</strong></p>
+            </div>
+            <div class="p-4 pt-3 border-t border-gray-700 space-y-4">
                 <div id="admin-support-block" class="text-xs text-center text-gray-400">
                     <p>Desenvolvido por:</p>
                     <p>Altnix Tecnologia</p>
@@ -74,10 +81,6 @@
                             <div>
                                 <h2 class="text-2xl font-bold">Encaminhamentos</h2>
                                 <p id="form-title" class="text-sm text-gray-500">Registrar Encaminhamento</p>
-                                <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                                    <span>Sync: <strong id="sync-status">-</strong></span>
-                                    <button type="button" id="sync-now-btn" class="px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200">Sincronizar agora</button>
-                                </div>
                             </div>
                             <div class="text-sm text-gray-500">
                                 Registrado por: <strong id="registradoPorLabel"></strong>
@@ -97,7 +100,10 @@
                         <form id="encaminhamentoForm" class="space-y-6">
                         <input type="hidden" id="editId" name="editId">
                         <div>
-                            <h3 class="text-base font-semibold text-gray-900 border-b border-gray-200 pb-2">Dados do Encaminhamento</h3>
+                            <div class="flex items-center justify-between gap-3 border-b border-gray-200 pb-2">
+                                <h3 class="text-base font-semibold text-gray-900">Dados do Encaminhamento</h3>
+                                <span class="text-[11px] text-gray-500">Imagem vinculada da fila</span>
+                            </div>
                             <div id="scan-preview" class="hidden mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
@@ -280,10 +286,10 @@
                     </section>
 
                     <section id="tab-consultar" data-enc-panel="consultar" class="hidden">
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 consulta-filter-shell">
                             <h3 class="text-base font-semibold text-gray-900">Consultar Encaminhamentos</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-                                <div class="md:col-span-2">
+                            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mt-4 consulta-grid">
+                                <div class="md:col-span-3">
                                     <label for="search-estudante" class="text-sm font-medium text-gray-700">Buscar por Estudante</label>
                                     <div class="relative">
                                         <input type="text" id="search-estudante" list="search-estudante-options" placeholder="Digite nome do estudante" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
@@ -291,7 +297,7 @@
                                     </div>
                                     <datalist id="search-estudante-options"></datalist>
                                 </div>
-                                <div>
+                                <div class="md:col-span-3">
                                     <label for="search-professor" class="text-sm font-medium text-gray-700">Buscar por Professor(a)</label>
                                     <div class="relative">
                                         <input type="text" id="search-professor" list="search-professor-options" placeholder="Digite nome do professor" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
@@ -299,29 +305,29 @@
                                     </div>
                                     <datalist id="search-professor-options"></datalist>
                                 </div>
-                                <div>
+                                <div class="md:col-span-3">
                                     <label for="search-codigo" class="text-sm font-medium text-gray-700">Buscar por Código</label>
                                     <input type="text" id="search-codigo" placeholder="ENC-AAAA-000001" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                 </div>
-                                <div>
+                                <div class="md:col-span-3">
+                                    <label for="search-ano" class="text-sm font-medium text-gray-700">Ano</label>
+                                    <select id="search-ano" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
+                                </div>
+                                <div class="md:col-span-2">
                                     <label for="search-data-start" class="text-sm font-medium text-gray-700">Data inicial</label>
                                     <div class="relative">
                                         <input type="date" id="search-data-start" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-10">
                                         <button type="button" class="date-clear-btn" data-target="search-data-start" aria-label="Limpar data inicial">&times;</button>
                                     </div>
                                 </div>
-                                <div>
+                                <div class="md:col-span-2">
                                     <label for="search-data-end" class="text-sm font-medium text-gray-700">Data final</label>
                                     <div class="relative">
                                         <input type="date" id="search-data-end" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-10">
                                         <button type="button" class="date-clear-btn" data-target="search-data-end" aria-label="Limpar data final">&times;</button>
                                     </div>
                                 </div>
-                                <div>
-                                    <label for="search-ano" class="text-sm font-medium text-gray-700">Ano do Encaminhamento</label>
-                                    <select id="search-ano" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></select>
-                                </div>
-                                <div>
+                                <div class="md:col-span-3">
                                     <label for="search-registrado" class="text-sm font-medium text-gray-700">Buscar por Quem Registrou</label>
                                     <div class="relative">
                                         <input type="text" id="search-registrado" list="search-registrado-options" placeholder="Digite nome do usuário" class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 pr-9">
@@ -329,11 +335,11 @@
                                     </div>
                                     <datalist id="search-registrado-options"></datalist>
                                 </div>
-                            </div>
-                            <div class="mt-5 flex flex-col md:flex-row gap-3">
-                                <button type="button" id="search-button" class="w-full md:flex-1 py-2 px-4 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Buscar Encaminhamentos</button>
-                                <button id="simple-report-button" class="w-full md:flex-1 py-2 px-4 font-semibold text-white bg-slate-700 rounded-md hover:bg-slate-800">Relatório Simples</button>
-                                <button id="complete-report-button" class="w-full md:flex-1 py-2 px-4 font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-950">Relatório Completo</button>
+                                <div class="md:col-span-5 flex flex-col sm:flex-row gap-2 items-end consulta-action-wrap">
+                                    <button type="button" id="search-button" class="w-full sm:flex-1 py-2 px-3 text-[0.82rem] font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700">Buscar</button>
+                                    <button id="simple-report-button" class="w-full sm:flex-1 py-2 px-3 text-[0.82rem] font-semibold text-white bg-slate-700 rounded-md hover:bg-slate-800">Relatório Simples</button>
+                                    <button id="complete-report-button" class="w-full sm:flex-1 py-2 px-3 text-[0.82rem] font-semibold text-white bg-slate-900 rounded-md hover:bg-slate-950">Relatório Completo</button>
+                                </div>
                             </div>
                         </div>
 

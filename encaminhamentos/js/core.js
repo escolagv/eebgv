@@ -107,6 +107,81 @@ export function formatDateTimeSP(value) {
     }).format(date);
 }
 
+let noticeEls = null;
+let noticeTimer = null;
+
+function ensureNoticeElements() {
+    if (noticeEls) return noticeEls;
+    const overlay = document.createElement('div');
+    overlay.id = 'enc-notice-overlay';
+    overlay.className = 'enc-notice-overlay hidden';
+    overlay.innerHTML = `
+        <div class="enc-notice" role="alertdialog" aria-live="polite" aria-modal="false">
+            <div class="enc-notice-header">
+                <strong id="enc-notice-title">Mensagem</strong>
+            </div>
+            <div id="enc-notice-text" class="enc-notice-text"></div>
+            <div class="enc-notice-actions">
+                <button id="enc-notice-close" type="button" class="enc-notice-btn">Fechar</button>
+            </div>
+            <div class="enc-notice-progress">
+                <div id="enc-notice-progress-bar" class="enc-notice-progress-bar"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    noticeEls = {
+        overlay,
+        box: overlay.querySelector('.enc-notice'),
+        title: overlay.querySelector('#enc-notice-title'),
+        text: overlay.querySelector('#enc-notice-text'),
+        closeBtn: overlay.querySelector('#enc-notice-close'),
+        progress: overlay.querySelector('.enc-notice-progress'),
+        progressBar: overlay.querySelector('#enc-notice-progress-bar')
+    };
+    noticeEls.closeBtn.addEventListener('click', () => {
+        overlay.classList.add('hidden');
+    });
+    return noticeEls;
+}
+
+export function showAppMessage(message, options = {}) {
+    if (typeof document === 'undefined') return;
+    const type = options?.type === 'error' ? 'error' : 'success';
+    const autoCloseMs = Number.isFinite(options?.autoCloseMs)
+        ? Number(options.autoCloseMs)
+        : (type === 'success' ? 3000 : 0);
+    const titleText = String(options?.title || (type === 'success' ? 'Sucesso' : 'Atenção'));
+
+    const els = ensureNoticeElements();
+    if (noticeTimer) {
+        clearTimeout(noticeTimer);
+        noticeTimer = null;
+    }
+
+    els.title.textContent = titleText;
+    els.text.textContent = String(message || '');
+    els.box.classList.remove('is-success', 'is-error');
+    els.box.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    els.overlay.classList.remove('hidden');
+
+    if (type === 'success' && autoCloseMs > 0) {
+        els.progress.style.display = 'block';
+        els.progressBar.style.transition = 'none';
+        els.progressBar.style.transform = 'scaleX(1)';
+        // Force layout so the transition reliably starts.
+        void els.progressBar.offsetWidth;
+        els.progressBar.style.transition = `transform ${autoCloseMs}ms linear`;
+        els.progressBar.style.transform = 'scaleX(0)';
+        noticeTimer = setTimeout(() => {
+            els.overlay.classList.add('hidden');
+            noticeTimer = null;
+        }, autoCloseMs);
+    } else {
+        els.progress.style.display = 'none';
+    }
+}
+
 function enableUppercaseInputs() {
     document.addEventListener('input', (event) => {
         const el = event.target;

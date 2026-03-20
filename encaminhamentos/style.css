@@ -15,9 +15,11 @@ h1, h2 {
 }
 
 #admin-view aside {
-    transition: width 0.22s ease, transform 0.3s ease;
+    transition: width 0.18s ease, transform 0.22s ease;
     overflow: visible;
     position: relative;
+    will-change: width, transform;
+    backface-visibility: hidden;
 }
 
 #sidebar-collapse-btn {
@@ -102,8 +104,18 @@ h1, h2 {
     border-radius: 0.75rem;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: all 0.18s ease;
+    transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
     position: relative;
+}
+
+#admin-view.sidebar-is-toggling .admin-nav-link {
+    transition: none !important;
+}
+
+#admin-view.sidebar-is-toggling .admin-nav-link::before,
+#admin-view.sidebar-is-toggling .admin-nav-link::after {
+    opacity: 0 !important;
+    transform: translateY(-50%) translateX(-4px) !important;
 }
 
 #admin-view.sidebar-collapsed .admin-nav-link::after {
@@ -193,6 +205,38 @@ h1, h2 {
 
 #admin-view.sidebar-collapsed #support-link-enc-collapsed {
     display: inline;
+}
+
+#sidebar-sync-block {
+    margin-top: auto;
+    margin-bottom: 0;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 0.15rem;
+}
+
+#sidebar-sync-status {
+    margin-top: 0.05rem;
+}
+
+#admin-view.sidebar-collapsed #sidebar-sync-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0.1rem;
+}
+
+#admin-view.sidebar-collapsed #sidebar-sync-block .admin-nav-link {
+    width: 3.45rem;
+    height: 2.75rem;
+    padding: 0;
+    justify-content: center;
+}
+
+#admin-view.sidebar-collapsed #sidebar-sync-status {
+    display: none;
 }
 
 #admin-view.sidebar-collapsed aside h1 {
@@ -365,23 +409,154 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
 
 #status-message {
     margin-top: 16px;
+    display: none;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    animation: status-pop-in 180ms ease-out;
+}
+
+.status-message-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.4;
+    font-size: 0.92rem;
     font-weight: 600;
 }
 
-.success {
-    color: #166534;
-    background: #dcfce7;
-    border: 1px solid #bbf7d0;
-    padding: 12px;
-    border-radius: 8px;
+.status-message-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
 }
 
-.error {
+.status-message-text {
+    color: inherit;
+    white-space: pre-wrap;
+}
+
+#status-message.success {
+    color: #065f46;
+    background: linear-gradient(180deg, #ecfdf5 0%, #dcfce7 100%);
+    border-color: #a7f3d0;
+}
+
+#status-message.success .status-message-icon {
+    color: #065f46;
+    background: #a7f3d0;
+}
+
+#status-message.error {
     color: #991b1b;
-    background: #fee2e2;
-    border: 1px solid #fecaca;
-    padding: 12px;
-    border-radius: 8px;
+    background: linear-gradient(180deg, #fff1f2 0%, #fee2e2 100%);
+    border-color: #fecaca;
+}
+
+#status-message.error .status-message-icon {
+    color: #991b1b;
+    background: #fecaca;
+}
+
+@keyframes status-pop-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.enc-notice-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.enc-notice-overlay.hidden {
+    display: none;
+}
+
+.enc-notice {
+    width: min(460px, calc(100vw - 24px));
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.24);
+    overflow: hidden;
+}
+
+.enc-notice-header {
+    padding: 14px 16px 8px 16px;
+    font-size: 1.06rem;
+    color: #0f172a;
+}
+
+.enc-notice-text {
+    padding: 0 16px 12px 16px;
+    color: #0f172a;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+
+.enc-notice-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 0 16px 12px 16px;
+}
+
+.enc-notice-btn {
+    border: 1px solid #0f766e;
+    background: #0f766e;
+    color: #ffffff;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 7px 16px;
+    cursor: pointer;
+}
+
+.enc-notice-btn:hover {
+    background: #0d9488;
+    border-color: #0d9488;
+}
+
+.enc-notice.is-success {
+    border-color: #99f6e4;
+    background: linear-gradient(180deg, #f0fdfa 0%, #ecfeff 100%);
+}
+
+.enc-notice.is-error {
+    border-color: #fecaca;
+    background: linear-gradient(180deg, #fff1f2 0%, #fff7f7 100%);
+}
+
+.enc-notice-progress {
+    height: 4px;
+    background: rgba(15, 118, 110, 0.12);
+}
+
+.enc-notice-progress-bar {
+    width: 100%;
+    height: 100%;
+    transform-origin: left center;
+    background: linear-gradient(90deg, #14b8a6 0%, #0891b2 100%);
 }
 
 #results-table table {
@@ -408,6 +583,78 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     max-height: calc(100vh - 320px);
     overflow-y: auto;
     overflow-x: auto;
+}
+
+/* Páginas principais: ocupa toda a altura útil do viewport */
+body.page-cadastros #admin-view > main > .p-6,
+body.page-dashboard #admin-view > main > .p-6,
+body.page-fila #admin-view > main > .p-6,
+body.page-encaminhamento #admin-view > main > .p-6 {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#cadastros-card {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#cadastros-card > #alunos-panel:not(.hidden),
+#cadastros-card > #professores-panel:not(.hidden) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#cadastros-card > #alunos-panel .table-scroll,
+#cadastros-card > #professores-panel .table-scroll {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+}
+
+#dashboard-card,
+#fila-card {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#fila-card-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+#queue-list {
+    margin-top: 0 !important;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-content: start;
+    padding-right: 0.2rem;
+}
+
+#queue-list .queue-card {
+    content-visibility: auto;
+    contain: layout paint style;
+    contain-intrinsic-size: 360px;
+}
+
+#queue-list .queue-load-more-wrap {
+    text-align: center;
 }
 
 .table-scroll thead th {
@@ -446,6 +693,11 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     min-height: 0;
 }
 
+body.page-encaminhamento .enc-card {
+    flex: 1;
+    max-height: none;
+}
+
 .enc-card-body {
     overflow-y: auto;
     min-height: 0;
@@ -458,6 +710,26 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     background: #fff;
     padding-bottom: 0.75rem;
     margin-bottom: 0;
+}
+
+.consulta-filter-shell {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f8fafc;
+}
+
+.consulta-grid label {
+    font-size: 0.82rem;
+}
+
+.consulta-grid input,
+.consulta-grid select {
+    font-size: 0.84rem;
+}
+
+.consulta-action-wrap {
+    align-self: end;
 }
 
 @media (max-height: 900px) {
@@ -485,6 +757,22 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
 
     .table-scroll {
         max-height: calc(100vh - 280px);
+    }
+}
+
+@media (max-width: 1024px) {
+    body.page-cadastros #admin-view > main > .p-6,
+    body.page-dashboard #admin-view > main > .p-6,
+    body.page-fila #admin-view > main > .p-6,
+    body.page-encaminhamento #admin-view > main > .p-6 {
+        height: auto;
+        display: block;
+    }
+}
+
+@media (max-width: 1024px) {
+    .consulta-filter-shell {
+        position: static;
     }
 }
 
@@ -584,8 +872,8 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .air-datepicker.enc-dashboard {
-    width: 460px;
-    max-width: calc(100vw - 24px);
+    width: 530px;
+    max-width: calc(100vw - 16px);
     border-radius: 18px;
     border: 1px solid #e2e8f0;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
@@ -593,6 +881,7 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     font-size: 0.95rem;
     z-index: 40;
     overflow: hidden;
+    position: relative;
 }
 
 .air-datepicker.enc-dashboard .air-datepicker--navigation {
@@ -621,14 +910,16 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     background: #e2e8f0;
 }
 
-.air-datepicker.enc-dashboard .air-datepicker--day-names {
+.air-datepicker.enc-dashboard .air-datepicker--day-names,
+.air-datepicker.enc-dashboard .air-datepicker-body--day-names {
     margin: 0 12px 6px;
     padding: 8px 0;
     border-radius: 10px;
     background: #f1f5f9;
 }
 
-.air-datepicker.enc-dashboard .air-datepicker--day-name {
+.air-datepicker.enc-dashboard .air-datepicker--day-name,
+.air-datepicker.enc-dashboard .air-datepicker-body--day-name {
     color: #475569;
     font-weight: 600;
     text-transform: uppercase;
@@ -636,9 +927,54 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     letter-spacing: 0.04em;
 }
 
+.air-datepicker.enc-dashboard .dp-week-row-btn {
+    position: absolute;
+    left: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    border: 1px solid #60a5fa;
+    background: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 1px 4px rgba(30, 64, 175, 0.15);
+    cursor: pointer;
+    padding: 0;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.air-datepicker.enc-dashboard .dp-week-row-btn:hover {
+    background: #dbeafe;
+    border-color: #2563eb;
+}
+
+.air-datepicker.enc-dashboard .dp-week-row-btn svg {
+    width: 10px;
+    height: 10px;
+}
+
+.air-datepicker.enc-dashboard .air-datepicker-cell.dp-sunday-cell {
+    padding-left: 0;
+}
+
 .air-datepicker.enc-dashboard .air-datepicker-body--cells {
     grid-auto-rows: 54px;
-    padding: 4px 8px 14px;
+    padding: 4px 8px 14px 34px;
+    position: relative;
+}
+
+.air-datepicker.enc-dashboard .air-datepicker-body--cells::before {
+    content: '';
+    position: absolute;
+    left: 28px;
+    top: 8px;
+    bottom: 12px;
+    width: 1px;
+    background: rgba(226, 232, 240, 0.95);
+    pointer-events: none;
+    z-index: 2;
 }
 
 .air-datepicker.enc-dashboard .air-datepicker-cell {
@@ -648,6 +984,10 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     font-weight: 600;
     color: #0f172a;
     transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.air-datepicker.enc-dashboard .air-datepicker-cell.-weekend-:not(.-selected-):not(.-range-from-):not(.-range-to-) {
+    color: #dc2626;
 }
 
 .air-datepicker.enc-dashboard .air-datepicker-cell:hover {
@@ -684,10 +1024,32 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
 
     .air-datepicker.enc-dashboard .air-datepicker-body--cells {
         grid-auto-rows: 40px;
+        padding-left: 28px;
     }
 
     .air-datepicker.enc-dashboard .air-datepicker-cell {
         height: 40px;
+    }
+
+    .air-datepicker.enc-dashboard .dp-week-row-btn {
+        left: 4px;
+        width: 14px;
+        height: 14px;
+    }
+
+    .air-datepicker.enc-dashboard .dp-week-row-btn svg {
+        width: 8px;
+        height: 8px;
+    }
+
+    .air-datepicker.enc-dashboard .air-datepicker-cell.dp-sunday-cell {
+        padding-left: 0;
+    }
+
+    .air-datepicker.enc-dashboard .air-datepicker-body--cells::before {
+        left: 22px;
+        top: 6px;
+        bottom: 10px;
     }
 }
 

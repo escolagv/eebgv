@@ -16,7 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
-<body class="bg-gray-200 text-gray-800">
+<body class="bg-gray-200 text-gray-800 page-fila">
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
     <div id="admin-view" class="flex h-screen bg-gray-200 sidebar-collapsed">
         <aside id="admin-sidebar" class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
@@ -73,14 +73,21 @@
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-md">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div id="fila-card" class="bg-white p-6 rounded-lg shadow-md">
+                    <div id="fila-card-header" class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div>
                             <h2 class="text-2xl font-bold">Fila de Scans</h2>
                             <p class="text-sm text-gray-500">Selecione uma foto para abrir no cadastro.</p>
                         </div>
-                        <div class="text-sm text-gray-500">
-                            Total: <strong id="queue-count">0</strong>
+                        <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+                            <label for="queue-sort-order" class="text-xs text-gray-500">Ordenar:</label>
+                            <select id="queue-sort-order" class="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white text-gray-700">
+                                <option value="desc">Mais novos primeiro</option>
+                                <option value="asc">Mais antigos primeiro</option>
+                            </select>
+                            <div>
+                                Total: <strong id="queue-count">0</strong>
+                            </div>
                         </div>
                     </div>
 
@@ -91,7 +98,6 @@
     </div>
 
     <script type="module" src="js/sidebar.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
     <script type="module" src="fila.js"></script>
 
     <div id="zoom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">

@@ -145,14 +145,131 @@ function initDatepicker(dateInput, clearBtn) {
         },
         onRenderCell: ({ date, cellType }) => {
             if (cellType !== 'day') return null;
-            if (isSameDate(date, today)) {
-                return { classes: 'dp-today' };
-            }
-            return null;
+            const classes = [];
+            if (isSameDate(date, today)) classes.push('dp-today');
+            if (date.getDay() === 0) classes.push('dp-sunday-cell');
+            return classes.length ? { classes: classes.join(' ') } : null;
+        },
+        onShow: () => {
+            scheduleWeekRowButtons();
+        },
+        onChangeViewDate: () => {
+            scheduleWeekRowButtons();
         }
     });
 
+    bindWeekRowSelectors();
+    scheduleWeekRowButtons();
+
     if (clearBtn) clearBtn.classList.toggle('hidden', true);
+}
+
+function bindWeekRowSelectors() {
+    const dpEl = state.datepicker?.$datepicker || document.querySelector('.air-datepicker.enc-dashboard');
+    if (!dpEl) return;
+    if (dpEl.dataset.weekSelectorsBound === '1') return;
+    dpEl.dataset.weekSelectorsBound = '1';
+
+    dpEl.addEventListener('click', (event) => {
+        const btn = event.target?.closest?.('.dp-week-row-btn');
+        if (!btn) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const row = Number(btn.getAttribute('data-row'));
+        if (!Number.isFinite(row)) return;
+        selectWeekdaysByRow(row);
+    });
+}
+
+function scheduleWeekRowButtons() {
+    const delays = [0, 40, 120];
+    delays.forEach((delay) => {
+        setTimeout(() => renderWeekRowButtons(), delay);
+    });
+}
+
+function renderWeekRowButtons() {
+    const dpEl = state.datepicker?.$datepicker || document.querySelector('.air-datepicker.enc-dashboard');
+    if (!dpEl) return;
+    const cellsWrap = dpEl.querySelector('.air-datepicker-body--cells');
+    if (!cellsWrap) return;
+
+    cellsWrap.querySelectorAll('.dp-week-row-btn').forEach((node) => node.remove());
+
+    const dayCells = Array.from(cellsWrap.querySelectorAll('.air-datepicker-cell.-day-'));
+    if (dayCells.length < 7) return;
+
+    const rowCount = Math.floor(dayCells.length / 7);
+    const iconSize = 16;
+    for (let row = 0; row < rowCount; row += 1) {
+        const sundayCell = dayCells[row * 7];
+        if (!sundayCell) continue;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dp-week-row-btn';
+        btn.setAttribute('data-row', String(row));
+        btn.setAttribute('aria-label', 'Selecionar semana útil');
+        btn.title = 'Selecionar segunda a sexta desta semana';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 12 4 4 8-8"/></svg>';
+        const top = sundayCell.offsetTop + Math.round((sundayCell.offsetHeight - iconSize) / 2);
+        const left = 7;
+        btn.style.top = `${top}px`;
+        btn.style.left = `${left}px`;
+        cellsWrap.appendChild(btn);
+    }
+}
+
+function selectWeekdaysByRow(row) {
+    const viewDate = stripTime(state.datepicker?.viewDate || new Date());
+    const sunday = getGridStartSunday(viewDate);
+    sunday.setDate(sunday.getDate() + (row * 7));
+    const monday = new Date(sunday);
+    monday.setDate(sunday.getDate() + 1);
+    const friday = new Date(sunday);
+    friday.setDate(sunday.getDate() + 5);
+    const start = stripTime(monday);
+    const end = stripTime(friday);
+
+    const sameWeekAlreadySelected = (
+        state.selectionStart
+        && state.selectionEnd
+        && isSameDate(state.selectionStart, start)
+        && isSameDate(state.selectionEnd, end)
+    );
+
+    if (sameWeekAlreadySelected) {
+        const today = stripTime(new Date());
+        state.suppressSelect = true;
+        if (state.datepicker) {
+            state.datepicker.clear();
+            state.datepicker.selectDate(today, { silent: true });
+            if (typeof state.datepicker.setViewDate === 'function') {
+                state.datepicker.setViewDate(today);
+            }
+        }
+        state.suppressSelect = false;
+        setSelectionFromDates([today]);
+        return;
+    }
+
+    state.suppressSelect = true;
+    if (state.datepicker) {
+        state.datepicker.clear();
+        state.datepicker.selectDate([start, end], { silent: true });
+        if (typeof state.datepicker.setViewDate === 'function') {
+            state.datepicker.setViewDate(start);
+        }
+    }
+    state.suppressSelect = false;
+
+    setSelectionFromDates([start, end]);
+}
+
+function getGridStartSunday(viewDate) {
+    const firstOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const sunday = new Date(firstOfMonth);
+    sunday.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+    return stripTime(sunday);
 }
 
 function clearSelection(options = {}) {

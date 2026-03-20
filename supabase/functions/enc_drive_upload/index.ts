@@ -216,8 +216,7 @@ async function cleanupSupabaseResidue(
       .update({
         drive_file_id: driveFileId,
         drive_url: driveUrl,
-        status: 'vinculado',
-        storage_path: null
+        status: 'vinculado'
       })
       .in('storage_path', uniqCandidates);
   } catch (err) {
@@ -385,8 +384,19 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-      const yearFolder = await findOrCreateFolder(accessToken, year, driveRootFolder);
-      monthFolder = await findOrCreateFolder(accessToken, month, yearFolder);
+      const rootName = String(rootMeta?.name || '').trim();
+      const rootIsYearFolder = rootName === year;
+      const rootIsMonthFolder = rootName === month;
+
+      if (rootIsMonthFolder) {
+        monthFolder = driveRootFolder;
+      } else {
+        const yearFolder = rootIsYearFolder
+          ? driveRootFolder
+          : await findOrCreateFolder(accessToken, year, driveRootFolder);
+        monthFolder = await findOrCreateFolder(accessToken, month, yearFolder);
+      }
+
       existingFile = await findFileByNameInFolder(accessToken, filename, monthFolder);
     } catch (driveErr: any) {
       const driveMsg = String(driveErr?.message || '').trim();

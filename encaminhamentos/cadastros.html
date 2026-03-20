@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 </head>
-<body class="bg-gray-200 text-gray-800">
+<body class="bg-gray-200 text-gray-800 page-cadastros">
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"></div>
     <div id="admin-view" class="flex h-screen bg-gray-200 sidebar-collapsed">
         <aside id="admin-sidebar" class="w-64 bg-gray-800 text-white flex flex-col fixed inset-y-0 left-0 z-30 transform -translate-x-full transition-transform duration-300 ease-in-out md:relative md:translate-x-0">
@@ -47,6 +47,13 @@
                     <span class="admin-nav-label">Fila de Scans</span>
                 </a>
             </nav>
+            <div id="sidebar-sync-block">
+                <button type="button" id="sync-now-btn" class="admin-nav-link block w-full px-4 py-2 rounded-md hover:bg-gray-700 text-left" title="Sync">
+                    <span class="admin-nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 0 1-14.2 5"/><path d="M4 12a8 8 0 0 1 14.2-5"/><path d="M6 19v-4h4"/><path d="M18 5v4h-4"/></svg></span>
+                    <span class="admin-nav-label">Sync</span>
+                </button>
+                <p id="sidebar-sync-status" class="text-[11px] text-center text-gray-400">Status: <strong id="sync-status">-</strong></p>
+            </div>
             <div class="p-4 border-t border-gray-700 space-y-4">
                 <div id="admin-support-block" class="text-xs text-center text-gray-400">
                     <p>Desenvolvido por:</p>
@@ -68,7 +75,7 @@
                     </button>
                 </div>
 
-                <div class="bg-white p-6 rounded-lg shadow-md">
+                <div id="cadastros-card" class="bg-white p-6 rounded-lg shadow-md">
                     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                         <div class="flex flex-wrap items-center gap-2">
                             <button id="tab-alunos" class="px-4 py-2 rounded-md bg-slate-800 text-white text-sm font-semibold">Alunos</button>

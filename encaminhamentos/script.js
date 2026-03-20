@@ -295,7 +295,7 @@ function initNameSearchInputs() {
     setupNameSearchInput('search-estudante', 'search-estudante-options', 'search-estudante-clear', estudantes);
     setupNameSearchInput('search-professor', 'search-professor-options', 'search-professor-clear', professores);
     setupNameSearchInput('search-registrado', 'search-registrado-options', 'search-registrado-clear', registrados);
-    setupSelectFilterBinding('estudante-filter', 'estudante-suggestions', 'estudante-filter-clear', getSelectableAlunos(), a => a?.nome_completo || '', 'estudante', a => String(a?.id ?? ''));
+    setupSelectFilterBinding('estudante-filter', 'estudante-suggestions', 'estudante-filter-clear', getSelectableAlunos(), formatAlunoSelectLabel, 'estudante', a => String(a?.id ?? ''));
     setupSelectFilterBinding('professor-filter', 'professor-suggestions', 'professor-filter-clear', state.professores, p => p?.nome || '', 'professor', p => p?.user_uid || '');
     syncSelectFilterInputs();
 }
@@ -486,19 +486,24 @@ function populateSelects() {
 
     alunosOrdenados.forEach(a => {
         const option = document.createElement('option');
-        const turma = a.turma_id ? state.turmasById.get(Number(a.turma_id)) : null;
-        const turmaLabel = turma?.nome_turma ? ` • ${turma.nome_turma}` : '';
-        const matricula = a.matricula ? `${a.matricula} • ` : '';
         option.value = a.id;
-        option.textContent = `${matricula}${a.nome_completo || `Aluno ${a.id}`}${turmaLabel}`;
+        option.textContent = formatAlunoSelectLabel(a);
         alunoSelect.appendChild(option);
     });
     syncSelectFilterInputs();
 }
 
 function syncSelectFilterInputs() {
-    syncSelectFilterInputValue('estudante-filter', 'estudante', getSelectableAlunos(), a => a?.nome_completo || '', a => String(a?.id ?? ''));
+    syncSelectFilterInputValue('estudante-filter', 'estudante', getSelectableAlunos(), formatAlunoSelectLabel, a => String(a?.id ?? ''));
     syncSelectFilterInputValue('professor-filter', 'professor', state.professores, p => p?.nome || '', p => p?.user_uid || '');
+}
+
+function formatAlunoSelectLabel(aluno) {
+    if (!aluno) return '';
+    const turma = aluno.turma_id ? state.turmasById.get(Number(aluno.turma_id)) : null;
+    const nome = aluno.nome_completo || `Aluno ${aluno.id}`;
+    const turmaLabel = turma?.nome_turma ? ` • ${turma.nome_turma}` : ' • Sem turma';
+    return `${nome}${turmaLabel}`;
 }
 
 function syncSelectFilterInputValue(inputId, selectId, items, labelFn, valueFn) {
@@ -595,6 +600,12 @@ function createCheckboxes(containerId, options, groupName) {
 async function saveRecord(e) {
     e.preventDefault();
     const newRecord = getFormData();
+    const requiresDriveConfirmation = !!(
+        state.scanJob?.id
+        && state.scanJob?.storage_path
+        && !state.scanJob?.drive_file_id
+        && !state.scanJob?.drive_url
+    );
     if (!newRecord.registrado_por_uid) {
         showStatusMessage("Por favor, faça login novamente.", false);
         return;
@@ -610,7 +621,37 @@ async function saveRecord(e) {
         const tableName = getEncaminhamentosTableName(encYear);
         const { data: created } = await safeQuery(db.from(tableName).insert(newRecord).select().single());
         await linkScanJob(created?.id);
-        await sendScanToDrive(created?.id, created?.codigo || '', created?.data_encaminhamento || newRecord.data_encaminhamento);
+        if (requiresDriveConfirmation) {
+            try {
+                await sendScanToDrive(
+                    created?.id,
+                    created?.codigo || '',
+                    created?.data_encaminhamento || newRecord.data_encaminhamento,
+                    { strict: true }
+                );
+            } catch (driveErr) {
+                try {
+                    await safeQuery(db.from(tableName).delete().eq('id', created?.id));
+                } catch (rollbackErr) {
+                    console.warn('Falha no rollback do encaminhamento:', rollbackErr?.message || rollbackErr);
+                }
+                if (state.scanJob?.id) {
+                    try {
+                        await safeQuery(
+                            db.from('enc_scan_jobs')
+                                .update({ encaminhamento_id: null })
+                                .eq('id', state.scanJob.id)
+                        );
+                        state.scanJob = { ...state.scanJob, encaminhamento_id: null };
+                    } catch (unlinkErr) {
+                        console.warn('Falha ao desfazer vínculo do scan no rollback:', unlinkErr?.message || unlinkErr);
+                    }
+                }
+                throw new Error(`Falha ao enviar imagem ao Drive. Encaminhamento nao foi salvo. ${driveErr?.message || driveErr}`);
+            }
+        } else {
+            await sendScanToDrive(created?.id, created?.codigo || '', created?.data_encaminhamento || newRecord.data_encaminhamento);
+        }
         const codigoMsg = created?.codigo ? ` Código: ${created.codigo}` : '';
         showStatusMessage(`✅ Encaminhamento registrado com sucesso!${codigoMsg}`, true);
         resetForm();
@@ -625,8 +666,22 @@ async function updateRecord() {
     const recordId = document.getElementById('editId').value;
     if (!recordId) return;
     const updatedRecord = getFormData();
+    const requiresDriveConfirmation = !!(
+        state.scanJob?.id
+        && state.scanJob?.storage_path
+        && !state.scanJob?.drive_file_id
+        && !state.scanJob?.drive_url
+    );
     setLoadingState(true, 'Atualizando...', true);
     try {
+        if (requiresDriveConfirmation) {
+            await sendScanToDrive(
+                recordId,
+                updatedRecord.codigo || state.currentCodigo || '',
+                updatedRecord.data_encaminhamento,
+                { strict: true }
+            );
+        }
         const encYear = state.editYear || getYearFromDateString(updatedRecord.data_encaminhamento);
         await ensureEncaminhamentosTableReady(encYear);
         const tableName = getEncaminhamentosTableName(encYear);
@@ -636,7 +691,9 @@ async function updateRecord() {
                 .eq('id', recordId)
         );
         if (state.scanJob?.id) await linkScanJob(recordId);
-        await sendScanToDrive(recordId, updatedRecord.codigo || state.currentCodigo || '', updatedRecord.data_encaminhamento);
+        if (!requiresDriveConfirmation) {
+            await sendScanToDrive(recordId, updatedRecord.codigo || state.currentCodigo || '', updatedRecord.data_encaminhamento);
+        }
         showStatusMessage('✅ Encaminhamento atualizado com sucesso!', true);
         setTimeout(() => {
             window.location.href = 'results.html';
@@ -1028,12 +1085,6 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
             if (job.storage_path) {
                 try {
                     await removeFromEncTempWithFallback(job.storage_path);
-                    await safeQuery(
-                        db.from('enc_scan_jobs')
-                            .update({ storage_path: null })
-                            .eq('id', job.id)
-                    );
-                    job.storage_path = null;
                 } catch (err) {
                     console.warn('Falha ao limpar storage antigo:', err?.message || err);
                 }
@@ -1058,7 +1109,39 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
     }
 }
 
-async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
+async function extractInvokeErrorMessage(err) {
+    const fallback = err?.message || String(err) || 'Erro desconhecido';
+    try {
+        const ctx = err?.context;
+        if (!ctx) return fallback;
+        if (typeof Response !== 'undefined' && ctx instanceof Response) {
+            try {
+                const payload = await ctx.clone().json();
+                if (payload?.error) {
+                    const stage = payload?.stage ? ` [${payload.stage}]` : '';
+                    return `${payload.error}${stage}`;
+                }
+            } catch (_jsonErr) {
+                const text = await ctx.clone().text();
+                if (text) return text;
+            }
+            return fallback;
+        }
+        if (typeof ctx === 'string') {
+            const parsed = JSON.parse(ctx);
+            if (parsed?.error) {
+                const stage = parsed?.stage ? ` [${parsed.stage}]` : '';
+                return `${parsed.error}${stage}`;
+            }
+            return parsed?.message || fallback;
+        }
+    } catch (_err) {
+    }
+    return fallback;
+}
+
+async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento, options = {}) {
+    const strict = !!options?.strict;
     if (!state.scanJob?.id || !state.scanJob?.storage_path) return;
     if (state.scanJob.drive_file_id || state.scanJob.drive_url) return;
     try {
@@ -1080,8 +1163,7 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
                     drive_url: driveUrl || null,
                     drive_file_id: driveFileId || null,
                     status: 'vinculado',
-                    encaminhamento_id: encaminhamentoId,
-                    storage_path: null
+                    encaminhamento_id: encaminhamentoId
                 })
                 .eq('id', state.scanJob.id)
         );
@@ -1093,14 +1175,17 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
             drive_url: driveUrl,
             drive_file_id: driveFileId,
             status: 'vinculado',
-            encaminhamento_id: encaminhamentoId,
-            storage_path: null
+            encaminhamento_id: encaminhamentoId
         };
         if (driveFileId) {
             state.scanUrl = buildDriveImageUrl(driveFileId);
         }
         showScanPreview(state.scanJob, state.scanUrl);
     } catch (err) {
+        if (strict) {
+            const details = await extractInvokeErrorMessage(err);
+            throw new Error(details);
+        }
         if (err?.status === 401) {
             showStatusMessage('Sessão expirada. Faça login novamente para enviar a imagem ao Drive.', false);
         } else {
@@ -1534,8 +1619,16 @@ function switchToEditMode(isEditing) {
 
 function showStatusMessage(message, isSuccess) {
     const statusMessage = document.getElementById('status-message');
-    statusMessage.textContent = message;
+    const icon = isSuccess ? 'OK' : '!';
     statusMessage.className = isSuccess ? 'success' : 'error';
+    statusMessage.innerHTML = `
+        <div class="status-message-content">
+            <span class="status-message-icon">${icon}</span>
+            <span class="status-message-text"></span>
+        </div>
+    `;
+    const textNode = statusMessage.querySelector('.status-message-text');
+    if (textNode) textNode.textContent = message;
     statusMessage.style.display = 'block';
     setTimeout(() => {
         statusMessage.style.display = 'none';

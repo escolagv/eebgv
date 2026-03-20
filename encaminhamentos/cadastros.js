@@ -128,11 +128,18 @@ function bindModals() {
     bindProfessorSortHeaders();
 
     const syncBtn = document.getElementById('sync-status-btn');
+    const syncSidebarBtn = document.getElementById('sync-now-btn');
     const syncClose = document.getElementById('sync-close-btn');
     const syncRefresh = document.getElementById('sync-refresh-btn');
     const syncNow = document.getElementById('sync-now-cadastros');
     if (syncBtn) {
         syncBtn.addEventListener('click', async () => {
+            openModal('sync-modal');
+            await loadSyncStatus();
+        });
+    }
+    if (syncSidebarBtn) {
+        syncSidebarBtn.addEventListener('click', async () => {
             openModal('sync-modal');
             await loadSyncStatus();
         });
@@ -173,8 +180,16 @@ function bindModals() {
 async function loadData() {
     try {
         const [alunosRes, professoresRes, turmasRes] = await Promise.all([
-            safeQuery(db.from('enc_alunos').select('*').order('nome_completo')),
-            safeQuery(db.from('enc_professores').select('*').order('nome')),
+            safeQuery(
+                db.from('enc_alunos')
+                    .select('id, nome_completo, matricula, turma_id, nome_responsavel, telefone, status, origem, copied_at')
+                    .order('nome_completo')
+            ),
+            safeQuery(
+                db.from('enc_professores')
+                    .select('user_uid, nome, email, telefone, status, vinculo, origem, copied_at')
+                    .order('nome')
+            ),
             safeQuery(db.from('turmas').select('id, nome_turma, ano_letivo'))
         ]);
         state.alunos = alunosRes.data || [];
@@ -185,6 +200,7 @@ async function loadData() {
         populateFilters();
         renderAlunos();
         renderProfessores();
+        updateSidebarSyncStatus();
     } catch (err) {
         showMessage('Erro ao carregar dados: ' + (err?.message || err), true);
     }
@@ -214,25 +230,39 @@ function formatCreatedDate(value) {
     }).format(date);
 }
 
+function updateSidebarSyncStatus() {
+    const statusEl = document.getElementById('sync-status');
+    if (!statusEl) return;
+    let lastSyncValue = state.lastSyncAt;
+    if (!lastSyncValue) {
+        try {
+            lastSyncValue = localStorage.getItem(ENC_LAST_SYNC_KEY) || null;
+        } catch (err) {
+            lastSyncValue = null;
+        }
+    }
+    statusEl.textContent = lastSyncValue ? `OK ${formatSyncDate(lastSyncValue)}` : '-';
+}
+
 async function loadSyncStatus() {
     const lastEl = document.getElementById('sync-last');
     const alunosEl = document.getElementById('sync-alunos-total');
     const alunosSemTurmaEl = document.getElementById('sync-alunos-sem-turma');
     const professoresEl = document.getElementById('sync-professores-total');
     try {
-        const [alunosRes, turmasRes, professoresRes] = await Promise.all([
-            safeQuery(db.from('enc_alunos').select('id, turma_id, status')),
+        const [totalAlunosRes, turmasRes, professoresRes] = await Promise.all([
+            safeQuery(db.from('enc_alunos').select('*', { count: 'exact', head: true })),
             safeQuery(db.from('turmas').select('id')),
             safeQuery(db.from('enc_professores').select('*', { count: 'exact', head: true }))
         ]);
 
-        const alunos = alunosRes.data || [];
+        const alunosAtivos = await fetchAllAlunosAtivosForSync();
         const turmasById = new Set((turmasRes.data || []).map(t => Number(t.id)));
-        const alunosSemTurma = alunos.filter(a =>
+        const alunosSemTurma = alunosAtivos.filter(a =>
             (a.status || '') === 'ativo' && (!a.turma_id || !turmasById.has(Number(a.turma_id)))
         );
 
-        if (alunosEl) alunosEl.textContent = String(alunos.length);
+        if (alunosEl) alunosEl.textContent = String(totalAlunosRes.count ?? 0);
         if (alunosSemTurmaEl) alunosSemTurmaEl.textContent = String(alunosSemTurma.length);
         if (professoresEl) professoresEl.textContent = String(professoresRes.count ?? 0);
         let lastSyncValue = state.lastSyncAt;
@@ -244,9 +274,32 @@ async function loadSyncStatus() {
             }
         }
         if (lastEl) lastEl.textContent = formatSyncDate(lastSyncValue);
+        updateSidebarSyncStatus();
     } catch (err) {
         showMessage('Erro ao carregar status do sync: ' + (err?.message || err), true);
     }
+}
+
+async function fetchAllAlunosAtivosForSync() {
+    const pageSize = 1000;
+    let from = 0;
+    const rows = [];
+
+    while (true) {
+        const to = from + pageSize - 1;
+        const res = await safeQuery(
+            db.from('enc_alunos')
+                .select('id, turma_id, status')
+                .eq('status', 'ativo')
+                .range(from, to)
+        );
+        const page = res.data || [];
+        rows.push(...page);
+        if (page.length < pageSize) break;
+        from += pageSize;
+    }
+
+    return rows;
 }
 
 async function runSyncNow() {

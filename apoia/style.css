@@ -484,6 +484,43 @@ h1, h2 {
     overflow-x: auto;
 }
 
+/* Chamada (admin): card principal ocupa altura útil da janela */
+body.page-chamada-admin #admin-view > .flex.h-screen.bg-gray-200 > main > .p-6 {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.page-chamada-admin #admin-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) > .bg-white.p-6.rounded-lg.shadow-md,
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) > .bg-white.p-4.sm\:p-6.rounded-lg.shadow-md {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) .table-scroll,
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) .admin-card-scroll {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+}
+
 .table-scroll thead th {
     position: sticky;
     top: 0;
@@ -530,6 +567,15 @@ h1, h2 {
         right: 12px;
         top: 64px;
         width: min(90vw, 320px);
+    }
+
+    body.page-chamada-admin #admin-view > .flex.h-screen.bg-gray-200 > main > .p-6 {
+        height: auto;
+        display: block;
+    }
+
+    body.page-chamada-admin #admin-content {
+        display: block;
     }
 }
 

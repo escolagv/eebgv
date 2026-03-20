@@ -1,12 +1,23 @@
-import { db, safeQuery, formatDateTimeSP, SUPABASE_URL, SUPABASE_ANON_KEY, getCurrentYear, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady } from './js/core.js';
+import { db, safeQuery, formatDateTimeSP, SUPABASE_URL, SUPABASE_ANON_KEY, getCurrentYear, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady, showAppMessage } from './js/core.js';
 import { requireAdminSession, signOut } from './js/auth.js';
+
+const INITIAL_VISIBLE_ITEMS = 24;
+const LOAD_MORE_STEP = 24;
+const WARM_PREVIEW_LIMIT = 8;
+const WARM_PREVIEW_BATCH = 4;
 
 const state = {
     jobs: [],
+    jobsById: new Map(),
+    jobMetaById: new Map(),
     signedUrls: new Map(),
+    previewDisplayUrls: new Map(),
     previewMissing: new Set(),
     previewLoading: new Set(),
-    previewToken: 0
+    previewToken: 0,
+    visibleCount: INITIAL_VISIBLE_ITEMS,
+    queueEventsBound: false,
+    sortOrder: 'desc'
 };
 
 function normalizeStoragePath(path) {
@@ -23,11 +34,14 @@ function buildStoragePathCandidates(path) {
     return Array.from(new Set([raw, normalized, prefixed].filter(Boolean)));
 }
 
-async function createSignedUrlWithFallback(path, expiresIn = 60 * 60) {
+async function createSignedUrlWithFallback(path, expiresIn = 60 * 60, options = null) {
     const candidates = buildStoragePathCandidates(path);
     let lastError = null;
     for (const candidate of candidates) {
-        const { data, error } = await db.storage.from('enc_temp').createSignedUrl(candidate, expiresIn);
+        const params = options
+            ? [candidate, expiresIn, options]
+            : [candidate, expiresIn];
+        const { data, error } = await db.storage.from('enc_temp').createSignedUrl(...params);
         if (!error && data?.signedUrl) return { signedUrl: data.signedUrl, path: candidate };
         lastError = error || lastError;
     }
@@ -59,10 +73,117 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const refreshBtn = document.getElementById('queue-refresh-btn');
     if (refreshBtn) refreshBtn.addEventListener('click', loadQueue);
+    const sortSelect = document.getElementById('queue-sort-order');
+    if (sortSelect) {
+        sortSelect.value = state.sortOrder;
+        sortSelect.addEventListener('change', () => {
+            state.sortOrder = sortSelect.value === 'asc' ? 'asc' : 'desc';
+            applyQueueSortAndRender();
+        });
+    }
+    initQueueInteractions();
 
     await loadQueue();
     initQrModal();
 });
+
+function getJobIdKey(jobId) {
+    return String(jobId || '');
+}
+
+function getJobCreatedTimestamp(job) {
+    const time = Date.parse(job?.created_at || '');
+    return Number.isFinite(time) ? time : 0;
+}
+
+function sortJobsByDate(jobs, order = 'desc') {
+    const dir = order === 'asc' ? 1 : -1;
+    jobs.sort((a, b) => {
+        const diff = getJobCreatedTimestamp(a) - getJobCreatedTimestamp(b);
+        if (diff !== 0) return diff * dir;
+        const aId = Number(a?.id || 0);
+        const bId = Number(b?.id || 0);
+        return (aId - bId) * dir;
+    });
+}
+
+function getPreviewTransformOptions() {
+    return {
+        transform: {
+            width: 960,
+            quality: 60,
+            resize: 'contain'
+        }
+    };
+}
+
+function buildJobRenderMeta(job) {
+    const created = formatDateTimeSP(job.created_at);
+    const status = job.status || 'novo';
+    const isLinked = !!job.encaminhamento_id;
+    const deleteDisabled = isLinked || status === 'vinculado';
+    const statusLabel = isLinked ? `${status} (pendente Drive)` : status;
+    const canRetryDrive = isLinked && !!job.storage_path && !job.drive_file_id && !job.drive_url;
+    const rawText = job.ocr_json?.raw_text || '';
+    const headerText = job.ocr_json?.header_text || '';
+    const matriculaValue = job.aluno_matricula
+        ? String(job.aluno_matricula)
+        : (job.ocr_json?.fields?.matricula || extractMatricula(rawText) || '');
+    const alunoNomeRaw = pickBestNameField(
+        job.ocr_json?.fields?.estudante || '',
+        pickBestNameFromRawTexts(extractAlunoFromRawText, headerText, rawText)
+    );
+    const profNomeRaw = pickBestNameField(
+        job.ocr_json?.fields?.professor || '',
+        pickBestNameFromRawTexts(extractProfessorFromRawText, headerText, rawText)
+    );
+    const alunoNome = sanitizeOcrName(alunoNomeRaw);
+    const profNome = sanitizeOcrName(profNomeRaw);
+    const sizeLabel = formatFileSize(job.file_size_bytes);
+    const driveLink = job.drive_url
+        ? `<a href="${job.drive_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir no Drive</a>`
+        : '';
+
+    return {
+        created,
+        status,
+        deleteDisabled,
+        statusLabel,
+        canRetryDrive,
+        matriculaValue,
+        alunoNome,
+        profNome,
+        sizeLabel,
+        driveLink
+    };
+}
+
+function prepareQueueData(allJobs) {
+    const filteredJobs = (allJobs || []).filter(job => {
+        const hasStorage = !!job.storage_path;
+        const hasDrive = !!job.drive_file_id || !!job.drive_url;
+        const isLinked = !!job.encaminhamento_id;
+        const isNovo = (job.status || 'novo') === 'novo';
+        return hasStorage && !hasDrive && !isLinked && isNovo;
+    });
+    sortJobsByDate(filteredJobs, state.sortOrder);
+
+    state.jobs = filteredJobs;
+    state.jobsById.clear();
+    state.jobMetaById.clear();
+    filteredJobs.forEach(job => {
+        const key = getJobIdKey(job.id);
+        state.jobsById.set(key, job);
+        state.jobMetaById.set(key, buildJobRenderMeta(job));
+    });
+}
+
+function applyQueueSortAndRender() {
+    sortJobsByDate(state.jobs, state.sortOrder);
+    state.visibleCount = INITIAL_VISIBLE_ITEMS;
+    renderQueue();
+    void warmSignedUrls(state.previewToken);
+}
 
 async function loadQueue() {
     try {
@@ -71,17 +192,12 @@ async function loadQueue() {
                 .select('id, status, storage_path, mime_type, file_size_bytes, created_at, device_id, drive_url, drive_file_id, encaminhamento_id, aluno_matricula, ocr_json')
                 .order('created_at', { ascending: false })
         );
-        const allJobs = data || [];
-        state.jobs = allJobs.filter(job => {
-            const hasStorage = !!job.storage_path;
-            const hasDrive = !!job.drive_file_id || !!job.drive_url;
-            const isLinked = !!job.encaminhamento_id;
-            const isNovo = (job.status || 'novo') === 'novo';
-            return hasStorage && !hasDrive && !isLinked && isNovo;
-        });
+        prepareQueueData(data || []);
         state.signedUrls.clear();
+        state.previewDisplayUrls.clear();
         state.previewMissing.clear();
         state.previewLoading.clear();
+        state.visibleCount = INITIAL_VISIBLE_ITEMS;
         state.previewToken += 1;
         const currentToken = state.previewToken;
         renderQueue();
@@ -174,15 +290,27 @@ async function loadQrCode(forceNew = false) {
 
 async function ensureSignedUrlForJob(job) {
     if (!job?.storage_path) return false;
-    const key = String(job.id);
+    const key = getJobIdKey(job.id);
     if (state.signedUrls.has(key) || state.previewMissing.has(key)) return false;
     if (state.previewLoading.has(key)) return false;
 
     state.previewLoading.add(key);
     try {
-        const { signedUrl } = await createSignedUrlWithFallback(job.storage_path, 60 * 60);
-        if (signedUrl) {
-            state.signedUrls.set(key, signedUrl);
+        const original = await createSignedUrlWithFallback(job.storage_path, 60 * 60);
+        if (original?.signedUrl) {
+            state.signedUrls.set(key, original.signedUrl);
+            let previewUrl = original.signedUrl;
+            try {
+                const preview = await createSignedUrlWithFallback(
+                    job.storage_path,
+                    60 * 60,
+                    getPreviewTransformOptions()
+                );
+                if (preview?.signedUrl) previewUrl = preview.signedUrl;
+            } catch (_previewErr) {
+                previewUrl = original.signedUrl;
+            }
+            state.previewDisplayUrls.set(key, previewUrl);
             return true;
         }
         state.previewMissing.add(key);
@@ -196,15 +324,14 @@ async function ensureSignedUrlForJob(job) {
 }
 
 async function warmSignedUrls(token) {
-    const warmLimit = 4;
-    const batchSize = 4;
+    const warmLimit = Math.min(state.visibleCount, WARM_PREVIEW_LIMIT);
     const candidates = state.jobs
         .filter(job => !!job.storage_path)
         .slice(0, warmLimit);
 
-    for (let index = 0; index < candidates.length; index += batchSize) {
+    for (let index = 0; index < candidates.length; index += WARM_PREVIEW_BATCH) {
         if (token !== state.previewToken) return;
-        const batch = candidates.slice(index, index + batchSize);
+        const batch = candidates.slice(index, index + WARM_PREVIEW_BATCH);
         await Promise.all(batch.map(job => ensureSignedUrlForJob(job)));
         if (token !== state.previewToken) return;
         renderQueue();
@@ -212,8 +339,8 @@ async function warmSignedUrls(token) {
 }
 
 async function loadPreviewForJob(jobId, button) {
-    const key = String(jobId);
-    const job = state.jobs.find(item => String(item.id) === key);
+    const key = getJobIdKey(jobId);
+    const job = state.jobsById.get(key);
     if (!job) return;
     if (state.signedUrls.has(key) || state.previewMissing.has(key)) return;
 
@@ -332,162 +459,156 @@ function pickBestNameFromRawTexts(extractor, ...rawTexts) {
     return best;
 }
 
+function renderQueueCard(job) {
+    const key = getJobIdKey(job.id);
+    const previewUrl = state.previewDisplayUrls.get(key);
+    const fullPreviewUrl = state.signedUrls.get(key) || previewUrl || '';
+    const previewMissing = state.previewMissing.has(key);
+    const meta = state.jobMetaById.get(key) || buildJobRenderMeta(job);
+    const previewHtml = previewUrl
+        ? `<img src="${previewUrl}" loading="lazy" decoding="async" data-id="${key}" data-url="${fullPreviewUrl}" data-aluno="${meta.alunoNome || ''}" data-professor="${meta.profNome || ''}" data-matricula="${meta.matriculaValue || ''}" data-data="${meta.created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
+        : `
+            <div class="w-full h-40 flex flex-col items-center justify-center gap-2 bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-500">
+                <span>${previewMissing ? 'Imagem indisponível no storage' : 'Prévia sob demanda'}</span>
+                ${previewMissing ? '' : `<button type="button" class="queue-preview-btn px-2 py-1 text-xs font-semibold rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-id="${key}">Carregar prévia</button>`}
+            </div>
+        `;
+
+    return `
+        <div class="queue-card bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-2" data-id="${key}">
+            ${previewHtml}
+            <div class="space-y-1 text-xs leading-tight">
+                <div class="flex items-center justify-between gap-2 text-gray-500">
+                    <span>Enviado em: ${meta.created}</span>
+                    <span>Status: <strong class="text-gray-700">${meta.statusLabel}</strong></span>
+                </div>
+                ${meta.sizeLabel ? `<div class="text-[11px] text-gray-500">Tamanho: <span class="font-semibold text-gray-700">${meta.sizeLabel}</span></div>` : ''}
+                <div class="text-gray-600">Aluno: <span class="font-semibold text-gray-800">${meta.alunoNome || '-'}</span></div>
+                <div class="text-gray-600">Professor: <span class="font-semibold text-gray-800">${meta.profNome || '-'}</span></div>
+            </div>
+            ${meta.driveLink}
+            <div class="flex flex-col gap-2">
+                <div class="flex gap-2">
+                    <button type="button" class="queue-select-btn flex-1 px-3 py-2 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                        data-id="${key}">
+                        Selecionar para cadastro
+                    </button>
+                    <button type="button" class="queue-delete-btn px-3 py-2 text-xs font-semibold rounded-md ${meta.deleteDisabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}"
+                        data-id="${key}" data-path="${job.storage_path || ''}" ${meta.deleteDisabled ? 'disabled' : ''}>
+                        Excluir
+                    </button>
+                </div>
+                ${meta.canRetryDrive ? `
+                <button type="button" class="queue-drive-btn w-full px-3 py-2 text-xs font-semibold rounded-md bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
+                    data-id="${key}">
+                    Reenviar ao Drive
+                </button>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
 function renderQueue() {
     const list = document.getElementById('queue-list');
     const countEl = document.getElementById('queue-count');
     if (!list || !countEl) return;
 
-    countEl.textContent = state.jobs.length;
+    const total = state.jobs.length;
+    countEl.textContent = total;
 
-    if (state.jobs.length === 0) {
+    if (total === 0) {
         list.innerHTML = '<p class="text-sm text-gray-500">Nenhuma imagem na fila.</p>';
         return;
     }
 
-    list.innerHTML = state.jobs.map(job => {
-        const key = String(job.id);
-        const preview = state.signedUrls.get(key);
-        const previewMissing = state.previewMissing.has(key);
-        const created = formatDateTimeSP(job.created_at);
-        const status = job.status || 'novo';
-        const isLinked = !!job.encaminhamento_id;
-        const disabled = false;
-        const deleteDisabled = isLinked || status === 'vinculado';
-        const statusLabel = isLinked ? `${status} (pendente Drive)` : status;
-        const canRetryDrive = isLinked && !!job.storage_path && !job.drive_file_id && !job.drive_url;
-        const rawText = job.ocr_json?.raw_text || '';
-        const headerText = job.ocr_json?.header_text || '';
-        const matriculaValue = job.aluno_matricula
-            ? String(job.aluno_matricula)
-            : (job.ocr_json?.fields?.matricula || extractMatricula(rawText) || '');
-        const alunoNomeRaw = pickBestNameField(
-            job.ocr_json?.fields?.estudante || '',
-            pickBestNameFromRawTexts(extractAlunoFromRawText, headerText, rawText)
-        );
-        const profNomeRaw = pickBestNameField(
-            job.ocr_json?.fields?.professor || '',
-            pickBestNameFromRawTexts(extractProfessorFromRawText, headerText, rawText)
-        );
-        const alunoNome = sanitizeOcrName(alunoNomeRaw);
-        const profNome = sanitizeOcrName(profNomeRaw);
-        const driveLink = job.drive_url ? `<a href="${job.drive_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir no Drive</a>` : '';
-        const previewHtml = preview
-            ? `<img src="${preview}" loading="lazy" decoding="async" data-url="${preview}" data-aluno="${alunoNome || ''}" data-professor="${profNome || ''}" data-matricula="${matriculaValue || ''}" data-data="${created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
-            : `
-                <div class="w-full h-40 flex flex-col items-center justify-center gap-2 bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-500">
-                    <span>${previewMissing ? 'Imagem indisponível no storage' : 'Prévia sob demanda'}</span>
-                    ${previewMissing ? '' : `<button type="button" class="queue-preview-btn px-2 py-1 text-xs font-semibold rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-id="${job.id}">Carregar prévia</button>`}
-                </div>
-            `;
-        const sizeLabel = formatFileSize(job.file_size_bytes);
-        return `
-            <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
-                ${previewHtml}
-                <div class="flex items-center justify-between gap-2 text-xs text-gray-500">
-                    <span>Enviado em: ${created}</span>
-                    <span>Status: <strong class="text-gray-700">${statusLabel}</strong></span>
-                </div>
-                ${sizeLabel ? `<div class="text-[11px] text-gray-500">Tamanho: <span class="font-semibold text-gray-700">${sizeLabel}</span></div>` : ''}
-                <div class="text-xs text-gray-600">Aluno: <span class="font-semibold text-gray-800">${alunoNome || '-'}</span></div>
-                <div class="text-xs text-gray-600">Professor: <span class="font-semibold text-gray-800">${profNome || '-'}</span></div>
-                ${driveLink}
-                <div class="flex flex-col gap-2">
-                    <div class="flex gap-2">
-                        <button type="button" class="queue-select-btn flex-1 px-3 py-2 text-xs font-semibold rounded-md ${disabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}"
-                            data-id="${job.id}" ${disabled ? 'disabled' : ''}>
-                            Selecionar para cadastro
-                        </button>
-                        <button type="button" class="queue-delete-btn px-3 py-2 text-xs font-semibold rounded-md ${deleteDisabled ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}"
-                            data-id="${job.id}" data-path="${job.storage_path || ''}" ${deleteDisabled ? 'disabled' : ''}>
-                            Excluir
-                        </button>
-                    </div>
-                    <button type="button" class="queue-ocr-btn w-full px-3 py-2 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200"
-                        data-id="${job.id}">
-                        Reprocessar OCR
-                    </button>
-                    ${canRetryDrive ? `
-                    <button type="button" class="queue-drive-btn w-full px-3 py-2 text-xs font-semibold rounded-md bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
-                        data-id="${job.id}">
-                        Reenviar ao Drive
-                    </button>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
+    const visibleJobs = state.jobs.slice(0, state.visibleCount);
+    const remaining = Math.max(0, total - visibleJobs.length);
+    const cardsHtml = visibleJobs.map(renderQueueCard).join('');
+    const loadMoreHtml = remaining > 0
+        ? `
+        <div class="queue-load-more-wrap col-span-full py-2">
+            <button type="button" class="queue-load-more-btn px-3 py-2 text-xs font-semibold rounded-md bg-white text-slate-700 border border-slate-300 hover:bg-slate-100">
+                Carregar mais (${remaining})
+            </button>
+        </div>
+        `
+        : '';
+    list.innerHTML = `${cardsHtml}${loadMoreHtml}`;
+}
 
-document.querySelectorAll('.queue-select-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-id');
+function initQueueInteractions() {
+    if (state.queueEventsBound) return;
+    const list = document.getElementById('queue-list');
+    if (!list) return;
+
+    list.addEventListener('click', async (event) => {
+        const image = event.target.closest('.queue-image');
+        if (image) {
+            openZoom(image.getAttribute('data-url') || image.getAttribute('src') || '', {
+                aluno: image.getAttribute('data-aluno') || '',
+                professor: image.getAttribute('data-professor') || '',
+                matricula: image.getAttribute('data-matricula') || '',
+                data: image.getAttribute('data-data') || ''
+            });
+            return;
+        }
+
+        const button = event.target.closest('button');
+        if (!button) return;
+
+        if (button.classList.contains('queue-load-more-btn')) {
+            state.visibleCount = Math.min(state.jobs.length, state.visibleCount + LOAD_MORE_STEP);
+            renderQueue();
+            void warmSignedUrls(state.previewToken);
+            return;
+        }
+
+        const id = button.getAttribute('data-id');
         if (!id) return;
-        const params = new URLSearchParams(window.location.search);
-        const editId = params.get('editId');
-        const target = editId
-            ? `encaminhamento.html?scanId=${encodeURIComponent(id)}&editId=${encodeURIComponent(editId)}`
-            : `encaminhamento.html?scanId=${encodeURIComponent(id)}`;
-        window.location.href = target;
-    });
-});
 
-    document.querySelectorAll('.queue-delete-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            const path = btn.getAttribute('data-path');
-            if (!id) return;
+        if (button.classList.contains('queue-preview-btn')) {
+            await loadPreviewForJob(id, button);
+            return;
+        }
+
+        if (button.classList.contains('queue-select-btn')) {
+            const params = new URLSearchParams(window.location.search);
+            const editId = params.get('editId');
+            const target = editId
+                ? `encaminhamento.html?scanId=${encodeURIComponent(id)}&editId=${encodeURIComponent(editId)}`
+                : `encaminhamento.html?scanId=${encodeURIComponent(id)}`;
+            window.location.href = target;
+            return;
+        }
+
+        if (button.classList.contains('queue-delete-btn')) {
+            const path = button.getAttribute('data-path');
             if (!window.confirm('Deseja excluir esta imagem da fila?')) return;
             try {
                 await removeFromEncTempWithFallback(path);
                 await safeQuery(db.from('enc_scan_jobs').delete().eq('id', id));
                 await loadQueue();
             } catch (err) {
-                alert('Falha ao excluir da fila.');
+                showAppMessage('Falha ao excluir da fila.', { type: 'error', title: 'Fila de scans' });
                 console.error(err);
             }
-        });
+            return;
+        }
+
+        if (button.classList.contains('queue-drive-btn')) {
+            await retryDriveUpload(id, button);
+        }
     });
 
-    document.querySelectorAll('.queue-ocr-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            if (!id) return;
-            await reprocessOcr(id, btn);
-        });
-    });
-
-    document.querySelectorAll('.queue-drive-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            if (!id) return;
-            await retryDriveUpload(id, btn);
-        });
-    });
-
-    document.querySelectorAll('.queue-image').forEach(img => {
-        img.addEventListener('click', () => {
-            openZoom(img.getAttribute('data-url') || img.src, {
-                aluno: img.getAttribute('data-aluno') || '',
-                professor: img.getAttribute('data-professor') || '',
-                matricula: img.getAttribute('data-matricula') || '',
-                data: img.getAttribute('data-data') || ''
-            });
-        });
-    });
-
-    document.querySelectorAll('.queue-preview-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-id');
-            if (!id) return;
-            await loadPreviewForJob(id, btn);
-        });
-    });
+    state.queueEventsBound = true;
 }
 
 async function retryDriveUpload(jobId, button) {
-    const job = state.jobs.find(item => String(item.id) === String(jobId));
+    const job = state.jobsById.get(getJobIdKey(jobId));
     if (!job || !job.storage_path) return;
     if (!job.encaminhamento_id) {
-        alert('Este scan ainda não está vinculado a um encaminhamento.');
+        showAppMessage('Este scan ainda nao esta vinculado a um encaminhamento.', { type: 'error', title: 'Fila de scans' });
         return;
     }
 
@@ -548,8 +669,7 @@ async function retryDriveUpload(jobId, button) {
                 .update({
                     drive_url: driveUrl,
                     drive_file_id: driveFileId,
-                    status: 'vinculado',
-                    storage_path: null
+                    status: 'vinculado'
                 })
                 .eq('id', job.id)
         );
@@ -557,9 +677,9 @@ async function retryDriveUpload(jobId, button) {
         await removeFromEncTempWithFallback(job.storage_path);
 
         await loadQueue();
-        alert(`Arquivo ${encData.codigo} reenviado ao Drive com sucesso.`);
+        showAppMessage(`Arquivo ${encData.codigo} reenviado ao Drive com sucesso.`, { type: 'success', title: 'Concluido' });
     } catch (err) {
-        alert(err?.message || 'Falha ao reenviar ao Drive.');
+        showAppMessage(err?.message || 'Falha ao reenviar ao Drive.', { type: 'error', title: 'Falha no reenvio' });
         console.error('retryDriveUpload error:', err);
     } finally {
         if (button) {
@@ -588,10 +708,10 @@ function formatFileSize(bytes) {
 
 async function reprocessOcr(jobId, button) {
     if (!window.Tesseract) {
-        alert('OCR não disponível. Verifique a conexão e recarregue a página.');
+        showAppMessage('OCR nao disponivel. Verifique a conexao e recarregue a pagina.', { type: 'error', title: 'Reprocessar OCR' });
         return;
     }
-    const job = state.jobs.find(item => String(item.id) === String(jobId));
+    const job = state.jobsById.get(getJobIdKey(jobId));
     if (!job) return;
     let previewUrl = state.signedUrls.get(String(job.id));
     if (!previewUrl) {
@@ -599,7 +719,7 @@ async function reprocessOcr(jobId, button) {
         previewUrl = state.signedUrls.get(String(job.id));
     }
     if (!previewUrl) {
-        alert('Prévia não disponível para reprocessar.');
+        showAppMessage('Previa nao disponivel para reprocessar.', { type: 'error', title: 'Reprocessar OCR' });
         return;
     }
     const originalText = button?.textContent || 'Reprocessar OCR';
@@ -666,9 +786,9 @@ async function reprocessOcr(jobId, button) {
         job.ocr_json = mergedOcr;
         if (mergedFields?.matricula) job.aluno_matricula = mergedFields.matricula;
         await loadQueue();
-        alert('OCR reprocessado com sucesso.');
+        showAppMessage('OCR reprocessado com sucesso.', { type: 'success', title: 'Concluido' });
     } catch (err) {
-        alert(err?.message || 'Falha ao reprocessar OCR.');
+        showAppMessage(err?.message || 'Falha ao reprocessar OCR.', { type: 'error', title: 'Reprocessar OCR' });
     } finally {
         if (button) {
             button.disabled = false;
@@ -711,7 +831,7 @@ async function runVisionOcrForJob(job) {
 }
 
 async function ensureOcrBeforeRedirect(jobId, button) {
-    const job = state.jobs.find(item => String(item.id) === String(jobId));
+    const job = state.jobsById.get(getJobIdKey(jobId));
     if (!job) return;
     const fields = job.ocr_json?.fields || {};
     const currentAluno = sanitizeOcrName(fields.estudante || extractAlunoFromRawText(job.ocr_json?.raw_text || ''));

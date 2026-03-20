@@ -1,4 +1,4 @@
-import { db, safeQuery, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady, getCurrentYear } from './js/core.js';
+import { db, safeQuery, getYearFromDateString, getEncaminhamentosTableName, ensureEncaminhamentosTableReady, getCurrentYear, showAppMessage } from './js/core.js';
 import { requireAdminSession, signOut } from './js/auth.js';
 
 // ===================================================================
@@ -347,7 +347,7 @@ async function loadScanStates(encIds) {
 
 async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhamento, buttonEl) {
     if (!encaminhamentoId || !codigo || !dataEncaminhamento) {
-        alert('Dados insuficientes para reenviar ao Drive.');
+        showAppMessage('Dados insuficientes para reenviar ao Drive.', { type: 'error', title: 'Falha no reenvio' });
         return;
     }
 
@@ -366,7 +366,7 @@ async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhame
         );
         const pending = (jobs || []).find(job => job?.storage_path && !job?.drive_file_id && !job?.drive_url);
         if (!pending) {
-            alert('Não há scan pendente para este encaminhamento.');
+            showAppMessage('Nao ha scan pendente para este encaminhamento.', { type: 'error', title: 'Falha no reenvio' });
             return;
         }
 
@@ -386,8 +386,7 @@ async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhame
                 .update({
                     drive_url: driveUrl,
                     drive_file_id: driveFileId,
-                    status: 'vinculado',
-                    storage_path: null
+                    status: 'vinculado'
                 })
                 .eq('id', pending.id)
         );
@@ -395,14 +394,14 @@ async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhame
         await removeFromEncTempWithFallback(pending.storage_path);
 
         if (data?.already_exists) {
-            alert('Arquivo já existia no Drive com este código. Apenas vinculamos o registro local.');
+            showAppMessage('Arquivo ja existia no Drive com este codigo. Apenas vinculamos o registro local.', { type: 'success', title: 'Concluido' });
         } else {
-            alert('Imagem enviada para o Drive com sucesso.');
+            showAppMessage('Imagem enviada para o Drive com sucesso.', { type: 'success', title: 'Concluido' });
         }
         await handleSearch();
     } catch (err) {
         const details = await extractInvokeErrorMessage(err);
-        alert(`Falha ao reenviar para o Drive: ${details}`);
+        showAppMessage(`Falha ao reenviar para o Drive: ${details}`, { type: 'error', title: 'Falha no reenvio' });
     } finally {
         if (buttonEl) {
             buttonEl.disabled = false;
@@ -495,15 +494,15 @@ function openLayoutModal() {
 }
 
 function generateReport(reportType, layout = 'single') {
-    if (allResults.length === 0) { alert("Não há resultados para gerar um relatório."); return; }
+    if (allResults.length === 0) { showAppMessage('Nao ha resultados para gerar um relatorio.', { type: 'error', title: 'Relatorio' }); return; }
     try {
         localStorage.setItem('searchResults', JSON.stringify(allResults));
         localStorage.setItem('searchSummary', resultsSummary.textContent || '');
         localStorage.setItem('reportType', reportType);
         localStorage.setItem('reportLayout', layout);
         const reportWindow = window.open('report.html', '_blank');
-        if (!reportWindow) { alert('Seu navegador bloqueou a abertura da nova janela. Por favor, desative o bloqueador de pop-ups para este site.'); }
-    } catch (e) { alert("Ocorreu um erro: " + e.message); }
+        if (!reportWindow) { showAppMessage('Seu navegador bloqueou a abertura da nova janela. Desative o bloqueador de pop-ups para este site.', { type: 'error', title: 'Relatorio' }); }
+    } catch (e) { showAppMessage(`Ocorreu um erro: ${e.message}`, { type: 'error', title: 'Relatorio' }); }
 }
 
 window.redirectToEdit = function redirectToEdit(recordId, dataEncaminhamento) {
