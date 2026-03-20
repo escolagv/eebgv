@@ -43,6 +43,41 @@ const state = {
     scanUrl: ''
 };
 
+function normalizeStoragePath(path) {
+    const raw = String(path || '').trim().replace(/^\/+/, '');
+    if (!raw) return '';
+    return raw.replace(/^enc_temp\//i, '');
+}
+
+function buildStoragePathCandidates(path) {
+    const raw = String(path || '').trim().replace(/^\/+/, '');
+    if (!raw) return [];
+    const normalized = normalizeStoragePath(raw);
+    const prefixed = normalized ? `enc_temp/${normalized}` : '';
+    return Array.from(new Set([raw, normalized, prefixed].filter(Boolean)));
+}
+
+async function createSignedUrlWithFallback(path, expiresIn = 60 * 60) {
+    const candidates = buildStoragePathCandidates(path);
+    let lastError = null;
+    for (const candidate of candidates) {
+        const { data, error } = await db.storage.from('enc_temp').createSignedUrl(candidate, expiresIn);
+        if (!error && data?.signedUrl) return { signedUrl: data.signedUrl, path: candidate };
+        lastError = error || lastError;
+    }
+    throw lastError || new Error('Falha ao gerar signed URL.');
+}
+
+async function removeFromEncTempWithFallback(path) {
+    const candidates = buildStoragePathCandidates(path);
+    if (!candidates.length) return;
+    try {
+        await db.storage.from('enc_temp').remove(candidates);
+    } catch (err) {
+        console.warn('Falha ao remover arquivo do enc_temp:', err?.message || err, candidates);
+    }
+}
+
 const inlineScanZoom = {
     scale: 1,
     minScale: 1,
@@ -157,6 +192,7 @@ async function initApp() {
     }
 
     db.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'INITIAL_SESSION') return;
         if (!session) {
             window.location.href = 'login.html';
             return;
@@ -695,11 +731,11 @@ async function loadScanJobFromParams() {
         state.scanUrl = '';
 
         if (job.storage_path) {
-            const { data: signed, error } = await db.storage
-                .from('enc_temp')
-                .createSignedUrl(job.storage_path, 60 * 60);
-            if (!error && signed?.signedUrl) {
-                state.scanUrl = signed.signedUrl;
+            try {
+                const { signedUrl } = await createSignedUrlWithFallback(job.storage_path, 60 * 60);
+                state.scanUrl = signedUrl;
+            } catch (err) {
+                console.warn('Falha ao gerar signed URL do scan:', err?.message || err, job.storage_path);
             }
         }
         showScanPreview(job, state.scanUrl);
@@ -946,9 +982,7 @@ async function deleteScanJobIfPossible() {
     if (state.scanJob.status === 'vinculado' || state.scanJob.encaminhamento_id) return;
     const storagePath = state.scanJob.storage_path;
     try {
-        if (storagePath) {
-            await db.storage.from('enc_temp').remove([storagePath]);
-        }
+        await removeFromEncTempWithFallback(storagePath);
         await safeQuery(db.from('enc_scan_jobs').delete().eq('id', state.scanJob.id));
     } catch (err) {
         console.warn('Falha ao excluir scan pendente:', err?.message || err);
@@ -993,7 +1027,7 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
         if (job.drive_file_id) {
             if (job.storage_path) {
                 try {
-                    await db.storage.from('enc_temp').remove([job.storage_path]);
+                    await removeFromEncTempWithFallback(job.storage_path);
                     await safeQuery(
                         db.from('enc_scan_jobs')
                             .update({ storage_path: null })
@@ -1009,11 +1043,11 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
             return;
         }
         if (job.storage_path) {
-            const { data: signed, error } = await db.storage
-                .from('enc_temp')
-                .createSignedUrl(job.storage_path, 60 * 60);
-            if (!error && signed?.signedUrl) {
-                state.scanUrl = signed.signedUrl;
+            try {
+                const { signedUrl } = await createSignedUrlWithFallback(job.storage_path, 60 * 60);
+                state.scanUrl = signedUrl;
+            } catch (err) {
+                console.warn('Falha ao gerar signed URL de scan vinculado:', err?.message || err, job.storage_path);
             }
             showScanPreview(job, state.scanUrl);
             return;
@@ -1028,13 +1062,14 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
     if (!state.scanJob?.id || !state.scanJob?.storage_path) return;
     if (state.scanJob.drive_file_id || state.scanJob.drive_url) return;
     try {
+        const normalizedPath = normalizeStoragePath(state.scanJob.storage_path) || state.scanJob.storage_path;
         const payload = {
             storage_path: state.scanJob.storage_path,
             codigo,
             data_encaminhamento: dataEncaminhamento,
             mime_type: state.scanJob.mime_type || 'image/jpeg'
         };
-        const storagePath = state.scanJob.storage_path;
+        const storagePath = normalizedPath;
         const { data, error } = await db.functions.invoke('enc_drive_upload', { body: payload });
         if (error) throw error;
         const driveUrl = data?.webViewLink || data?.drive_url || '';
@@ -1051,7 +1086,7 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento) {
                 .eq('id', state.scanJob.id)
         );
         if (storagePath) {
-            await db.storage.from('enc_temp').remove([storagePath]);
+            await removeFromEncTempWithFallback(storagePath);
         }
         state.scanJob = {
             ...state.scanJob,
@@ -1296,9 +1331,9 @@ function closeFloatingScanViewer() {
 async function loadStoredScanPreview(storagePath, referenceDate) {
     if (!storagePath) return;
     try {
-        const { data, error } = await db.storage.from('enc_temp').createSignedUrl(storagePath, 60 * 60);
-        if (error || !data?.signedUrl) return;
-        state.scanUrl = data.signedUrl;
+        const { signedUrl } = await createSignedUrlWithFallback(storagePath, 60 * 60);
+        if (!signedUrl) return;
+        state.scanUrl = signedUrl;
         showScanPreview({ created_at: referenceDate || null, status: 'vinculado' }, state.scanUrl);
     } catch (err) {
         console.warn('Falha ao carregar imagem vinculada:', err?.message || err);

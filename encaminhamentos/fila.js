@@ -3,8 +3,46 @@ import { requireAdminSession, signOut } from './js/auth.js';
 
 const state = {
     jobs: [],
-    signedUrls: new Map()
+    signedUrls: new Map(),
+    previewMissing: new Set(),
+    previewLoading: new Set(),
+    previewToken: 0
 };
+
+function normalizeStoragePath(path) {
+    const raw = String(path || '').trim().replace(/^\/+/, '');
+    if (!raw) return '';
+    return raw.replace(/^enc_temp\//i, '');
+}
+
+function buildStoragePathCandidates(path) {
+    const raw = String(path || '').trim().replace(/^\/+/, '');
+    if (!raw) return [];
+    const normalized = normalizeStoragePath(raw);
+    const prefixed = normalized ? `enc_temp/${normalized}` : '';
+    return Array.from(new Set([raw, normalized, prefixed].filter(Boolean)));
+}
+
+async function createSignedUrlWithFallback(path, expiresIn = 60 * 60) {
+    const candidates = buildStoragePathCandidates(path);
+    let lastError = null;
+    for (const candidate of candidates) {
+        const { data, error } = await db.storage.from('enc_temp').createSignedUrl(candidate, expiresIn);
+        if (!error && data?.signedUrl) return { signedUrl: data.signedUrl, path: candidate };
+        lastError = error || lastError;
+    }
+    throw lastError || new Error('Falha ao gerar signed URL.');
+}
+
+async function removeFromEncTempWithFallback(path) {
+    const candidates = buildStoragePathCandidates(path);
+    if (!candidates.length) return;
+    try {
+        await db.storage.from('enc_temp').remove(candidates);
+    } catch (err) {
+        console.warn('Falha ao remover arquivo do enc_temp:', err?.message || err, candidates);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     const { session, profile } = await requireAdminSession();
@@ -41,8 +79,13 @@ async function loadQueue() {
             const isNovo = (job.status || 'novo') === 'novo';
             return hasStorage && !hasDrive && !isLinked && isNovo;
         });
-        await buildSignedUrls();
+        state.signedUrls.clear();
+        state.previewMissing.clear();
+        state.previewLoading.clear();
+        state.previewToken += 1;
+        const currentToken = state.previewToken;
         renderQueue();
+        void warmSignedUrls(currentToken);
     } catch (err) {
         console.error('Erro ao carregar fila:', err?.message || err);
         renderQueueError();
@@ -129,21 +172,64 @@ async function loadQrCode(forceNew = false) {
     }
 }
 
-async function buildSignedUrls() {
-    state.signedUrls.clear();
-    const tasks = state.jobs
+async function ensureSignedUrlForJob(job) {
+    if (!job?.storage_path) return false;
+    const key = String(job.id);
+    if (state.signedUrls.has(key) || state.previewMissing.has(key)) return false;
+    if (state.previewLoading.has(key)) return false;
+
+    state.previewLoading.add(key);
+    try {
+        const { signedUrl } = await createSignedUrlWithFallback(job.storage_path, 60 * 60);
+        if (signedUrl) {
+            state.signedUrls.set(key, signedUrl);
+            return true;
+        }
+        state.previewMissing.add(key);
+        return true;
+    } catch (_err) {
+        state.previewMissing.add(key);
+        return true;
+    } finally {
+        state.previewLoading.delete(key);
+    }
+}
+
+async function warmSignedUrls(token) {
+    const warmLimit = 4;
+    const batchSize = 4;
+    const candidates = state.jobs
         .filter(job => !!job.storage_path)
-        .map(async (job) => {
-            try {
-                const { data, error } = await db.storage.from('enc_temp').createSignedUrl(job.storage_path, 60 * 60);
-                if (!error && data?.signedUrl) {
-                    state.signedUrls.set(job.id, data.signedUrl);
-                }
-            } catch (err) {
-                console.warn('Falha ao gerar preview:', err?.message || err);
-            }
-        });
-    await Promise.all(tasks);
+        .slice(0, warmLimit);
+
+    for (let index = 0; index < candidates.length; index += batchSize) {
+        if (token !== state.previewToken) return;
+        const batch = candidates.slice(index, index + batchSize);
+        await Promise.all(batch.map(job => ensureSignedUrlForJob(job)));
+        if (token !== state.previewToken) return;
+        renderQueue();
+    }
+}
+
+async function loadPreviewForJob(jobId, button) {
+    const key = String(jobId);
+    const job = state.jobs.find(item => String(item.id) === key);
+    if (!job) return;
+    if (state.signedUrls.has(key) || state.previewMissing.has(key)) return;
+
+    const originalText = button?.textContent || 'Carregar prévia';
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Carregando...';
+    }
+
+    await ensureSignedUrlForJob(job);
+    renderQueue();
+
+    if (button) {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
 }
 
 function sanitizeOcrName(value) {
@@ -259,7 +345,9 @@ function renderQueue() {
     }
 
     list.innerHTML = state.jobs.map(job => {
-        const preview = state.signedUrls.get(job.id);
+        const key = String(job.id);
+        const preview = state.signedUrls.get(key);
+        const previewMissing = state.previewMissing.has(key);
         const created = formatDateTimeSP(job.created_at);
         const status = job.status || 'novo';
         const isLinked = !!job.encaminhamento_id;
@@ -284,8 +372,13 @@ function renderQueue() {
         const profNome = sanitizeOcrName(profNomeRaw);
         const driveLink = job.drive_url ? `<a href="${job.drive_url}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:underline">Abrir no Drive</a>` : '';
         const previewHtml = preview
-            ? `<img src="${preview}" data-url="${preview}" data-aluno="${alunoNome || ''}" data-professor="${profNome || ''}" data-matricula="${matriculaValue || ''}" data-data="${created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
-            : `<div class="w-full h-40 flex items-center justify-center bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-400">Sem prévia</div>`;
+            ? `<img src="${preview}" loading="lazy" decoding="async" data-url="${preview}" data-aluno="${alunoNome || ''}" data-professor="${profNome || ''}" data-matricula="${matriculaValue || ''}" data-data="${created || ''}" alt="Prévia" class="queue-image w-full h-40 object-cover rounded-md border border-gray-200 cursor-zoom-in">`
+            : `
+                <div class="w-full h-40 flex flex-col items-center justify-center gap-2 bg-gray-100 rounded-md border border-gray-200 text-xs text-gray-500">
+                    <span>${previewMissing ? 'Imagem indisponível no storage' : 'Prévia sob demanda'}</span>
+                    ${previewMissing ? '' : `<button type="button" class="queue-preview-btn px-2 py-1 text-xs font-semibold rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300" data-id="${job.id}">Carregar prévia</button>`}
+                </div>
+            `;
         const sizeLabel = formatFileSize(job.file_size_bytes);
         return `
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
@@ -344,9 +437,7 @@ document.querySelectorAll('.queue-select-btn').forEach(btn => {
             if (!id) return;
             if (!window.confirm('Deseja excluir esta imagem da fila?')) return;
             try {
-                if (path) {
-                    await db.storage.from('enc_temp').remove([path]);
-                }
+                await removeFromEncTempWithFallback(path);
                 await safeQuery(db.from('enc_scan_jobs').delete().eq('id', id));
                 await loadQueue();
             } catch (err) {
@@ -380,6 +471,14 @@ document.querySelectorAll('.queue-select-btn').forEach(btn => {
                 matricula: img.getAttribute('data-matricula') || '',
                 data: img.getAttribute('data-data') || ''
             });
+        });
+    });
+
+    document.querySelectorAll('.queue-preview-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-id');
+            if (!id) return;
+            await loadPreviewForJob(id, btn);
         });
     });
 }
@@ -455,11 +554,7 @@ async function retryDriveUpload(jobId, button) {
                 .eq('id', job.id)
         );
 
-        try {
-            await db.storage.from('enc_temp').remove([job.storage_path]);
-        } catch (err) {
-            console.warn('Falha ao limpar storage após upload drive:', err?.message || err);
-        }
+        await removeFromEncTempWithFallback(job.storage_path);
 
         await loadQueue();
         alert(`Arquivo ${encData.codigo} reenviado ao Drive com sucesso.`);
@@ -498,7 +593,11 @@ async function reprocessOcr(jobId, button) {
     }
     const job = state.jobs.find(item => String(item.id) === String(jobId));
     if (!job) return;
-    const previewUrl = state.signedUrls.get(job.id);
+    let previewUrl = state.signedUrls.get(String(job.id));
+    if (!previewUrl) {
+        await ensureSignedUrlForJob(job);
+        previewUrl = state.signedUrls.get(String(job.id));
+    }
     if (!previewUrl) {
         alert('Prévia não disponível para reprocessar.');
         return;
@@ -627,7 +726,11 @@ async function ensureOcrBeforeRedirect(jobId, button) {
     }
     try {
         let localOcr = null;
-        const previewUrl = state.signedUrls.get(job.id);
+        let previewUrl = state.signedUrls.get(String(job.id));
+        if (!previewUrl) {
+            await ensureSignedUrlForJob(job);
+            previewUrl = state.signedUrls.get(String(job.id));
+        }
         if (previewUrl && window.Tesseract) {
             try {
                 const resp = await fetch(previewUrl);

@@ -21,6 +21,30 @@ let currentPage = 1;
 const recordsPerPage = 30;
 const scanStateByEncId = new Map();
 
+function normalizeStoragePath(path) {
+    const raw = String(path || '').trim().replace(/^\/+/, '');
+    if (!raw) return '';
+    return raw.replace(/^enc_temp\//i, '');
+}
+
+function buildStoragePathCandidates(path) {
+    const raw = String(path || '').trim().replace(/^\/+/, '');
+    if (!raw) return [];
+    const normalized = normalizeStoragePath(raw);
+    const prefixed = normalized ? `enc_temp/${normalized}` : '';
+    return Array.from(new Set([raw, normalized, prefixed].filter(Boolean)));
+}
+
+async function removeFromEncTempWithFallback(path) {
+    const candidates = buildStoragePathCandidates(path);
+    if (!candidates.length) return;
+    try {
+        await db.storage.from('enc_temp').remove(candidates);
+    } catch (err) {
+        console.warn('Falha ao remover arquivo do enc_temp:', err?.message || err, candidates);
+    }
+}
+
 // ===================================================================
 // INICIALIZAÇÃO DA PÁGINA
 // ===================================================================
@@ -368,11 +392,7 @@ async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhame
                 .eq('id', pending.id)
         );
 
-        try {
-            await db.storage.from('enc_temp').remove([pending.storage_path]);
-        } catch (removeErr) {
-            console.warn('Falha ao remover arquivo temporário após upload:', removeErr?.message || removeErr);
-        }
+        await removeFromEncTempWithFallback(pending.storage_path);
 
         if (data?.already_exists) {
             alert('Arquivo já existia no Drive com este código. Apenas vinculamos o registro local.');
@@ -381,12 +401,52 @@ async function retryDriveUploadByEncId(encaminhamentoId, codigo, dataEncaminhame
         }
         await handleSearch();
     } catch (err) {
-        alert(`Falha ao reenviar para o Drive: ${err?.message || err}`);
+        const details = await extractInvokeErrorMessage(err);
+        alert(`Falha ao reenviar para o Drive: ${details}`);
     } finally {
         if (buttonEl) {
             buttonEl.disabled = false;
             buttonEl.textContent = originalText;
         }
+    }
+}
+
+async function extractInvokeErrorMessage(err) {
+    const fallback = err?.message || String(err) || 'Erro desconhecido';
+    try {
+        const ctx = err?.context;
+        if (!ctx) return fallback;
+        if (typeof Response !== 'undefined' && ctx instanceof Response) {
+            try {
+                const payload = await ctx.clone().json();
+                if (payload?.error) {
+                    const stage = payload?.stage ? ` [${payload.stage}]` : '';
+                    return `${payload.error}${stage}`;
+                }
+            } catch (_jsonErr) {
+                const text = await ctx.clone().text();
+                if (text) return text;
+            }
+            return fallback;
+        }
+        if (typeof ctx === 'string') {
+            const parsed = JSON.parse(ctx);
+            if (parsed?.error) {
+                const stage = parsed?.stage ? ` [${parsed.stage}]` : '';
+                return `${parsed.error}${stage}`;
+            }
+            return parsed?.message || fallback;
+        }
+        if (typeof ctx === 'object') {
+            if (ctx?.error) {
+                const stage = ctx?.stage ? ` [${ctx.stage}]` : '';
+                return `${ctx.error}${stage}`;
+            }
+            return ctx?.message || fallback;
+        }
+        return fallback;
+    } catch (_e) {
+        return fallback;
     }
 }
 
