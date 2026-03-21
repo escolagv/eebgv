@@ -565,6 +565,11 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     font-size: 0.875rem;
 }
 
+#results-table {
+    position: relative;
+    z-index: 1;
+}
+
 #results-table th {
     text-align: left;
     padding: 0.75rem;
@@ -572,6 +577,9 @@ body.form-compact input[type="date"]::-webkit-calendar-picker-indicator {
     border-bottom: 1px solid #e5e7eb;
     color: #4b5563;
     font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 8;
 }
 
 #results-table td {
@@ -657,13 +665,6 @@ body.page-encaminhamento #admin-view > main > .p-6 {
     text-align: center;
 }
 
-.table-scroll thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: #f9fafb;
-}
-
 .sortable-th {
     cursor: pointer;
     user-select: none;
@@ -699,9 +700,31 @@ body.page-encaminhamento .enc-card {
 }
 
 .enc-card-body {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-top: 0.4rem;
+}
+
+#encaminhamentoForm > div:first-of-type {
+    margin-top: 0 !important;
+}
+
+.enc-card-body > [data-enc-panel] {
+    min-height: 0;
+}
+
+#tab-registrar {
     overflow-y: auto;
     min-height: 0;
-    padding-top: 1rem;
+    padding-right: 0.2rem;
+}
+
+#tab-consultar:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .enc-sticky-header {
@@ -713,10 +736,24 @@ body.page-encaminhamento .enc-card {
 }
 
 .consulta-filter-shell {
-    position: sticky;
-    top: 0;
-    z-index: 3;
+    position: relative;
+    z-index: 2;
     background: #f8fafc;
+}
+
+#results-scroll-shell {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#results-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding-right: 0.2rem;
 }
 
 .consulta-grid label {
@@ -730,6 +767,7 @@ body.page-encaminhamento .enc-card {
 
 .consulta-action-wrap {
     align-self: end;
+    justify-content: flex-end;
 }
 
 @media (max-height: 900px) {
@@ -773,6 +811,25 @@ body.page-encaminhamento .enc-card {
 @media (max-width: 1024px) {
     .consulta-filter-shell {
         position: static;
+    }
+
+    .enc-card-body {
+        overflow: visible;
+        display: block;
+    }
+
+    #tab-registrar {
+        overflow: visible;
+        padding-right: 0;
+    }
+
+    #tab-consultar:not(.hidden),
+    #results-scroll-shell,
+    #results-area {
+        display: block;
+        min-height: auto;
+        overflow: visible;
+        padding-right: 0;
     }
 }
 

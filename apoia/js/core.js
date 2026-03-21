@@ -167,6 +167,10 @@ function enableUppercaseInputs() {
         const el = event.target;
         if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
         if (el.dataset.keepCase === 'true') return;
+        const id = String(el.id || '').toLowerCase();
+        const name = String(el.name || '').toLowerCase();
+        const autocomplete = String(el.autocomplete || '').toLowerCase();
+        if (id.includes('password') || name.includes('password') || autocomplete.includes('password')) return;
         const type = (el.type || '').toLowerCase();
         if (['email', 'password', 'date', 'time', 'tel', 'number', 'search', 'url'].includes(type)) return;
         const start = el.selectionStart;

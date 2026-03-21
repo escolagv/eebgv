@@ -29,6 +29,7 @@ let notificationsPollingId = null;
 let notificationsReloadTimer = null;
 let notificationsRealtimeStopping = false;
 let notificationsChannelToken = 0;
+let relatoriosPanelSignature = '';
 const professoresSort = { key: 'nome', dir: 'asc' };
 let consistenciaAnoLetivo = '';
 const professorConsultaSort = { key: 'nome', dir: 'asc' };
@@ -1930,15 +1931,62 @@ export async function handleTurmaFormSubmit(e) {
 // ===============================================================
 
 export async function renderRelatoriosPanel() {
+    const panel = document.getElementById('admin-relatorios-panel');
     const turmaFilter = document.getElementById('relatorio-turma-select');
     const alunoFilter = document.getElementById('relatorio-aluno-select');
     const profFilter = document.getElementById('relatorio-professor-select');
-    turmaFilter.innerHTML = '<option value="">Todas</option>';
-    alunoFilter.innerHTML = '<option value="">Todos</option>';
-    profFilter.innerHTML = '<option value="">Todos</option>';
-    state.turmasCache.forEach(t => turmaFilter.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
-    state.alunosCache.forEach(a => alunoFilter.innerHTML += `<option value="${a.id}">${a.nome_completo}</option>`);
-    state.usuariosCache.filter(u => u.papel === 'professor').forEach(p => profFilter.innerHTML += `<option value="${p.user_uid}">${p.nome}</option>`);
+    if (!panel || !turmaFilter || !alunoFilter || !profFilter) return;
+
+    const filtrosCard = panel.querySelector(':scope > .bg-white.p-6.rounded-lg.shadow-md');
+    const resultadosCard = document.getElementById('relatorio-resultados');
+    if (filtrosCard && resultadosCard) {
+        const grids = filtrosCard.querySelectorAll(':scope > .grid');
+        if (grids[0]) {
+            grids[0].classList.add('relatorios-filtros-grid');
+        }
+        if (grids[1]) {
+            grids[1].classList.add('relatorios-acoes-grid');
+        }
+
+        resultadosCard.classList.remove('bg-white', 'p-6', 'rounded-lg', 'shadow-md', 'mt-6');
+        resultadosCard.classList.add('relatorios-resultados-section');
+
+        if (resultadosCard.parentElement !== filtrosCard) {
+            filtrosCard.appendChild(resultadosCard);
+        }
+    }
+
+    const professores = state.usuariosCache.filter(u => u.papel === 'professor');
+    const signature = [
+        state.turmasCache.length,
+        state.alunosCache.length,
+        professores.length,
+        state.turmasCache[0]?.id ?? '',
+        state.alunosCache[0]?.id ?? '',
+        professores[0]?.user_uid ?? ''
+    ].join('|');
+
+    if (signature === relatoriosPanelSignature) return;
+    relatoriosPanelSignature = signature;
+
+    const turmaOptions = ['<option value="">Todas</option>'];
+    for (const turma of state.turmasCache) {
+        turmaOptions.push(`<option value="${turma.id}">${turma.nome_turma}</option>`);
+    }
+
+    const alunoOptions = ['<option value="">Todos</option>'];
+    for (const aluno of state.alunosCache) {
+        alunoOptions.push(`<option value="${aluno.id}">${aluno.nome_completo}</option>`);
+    }
+
+    const profOptions = ['<option value="">Todos</option>'];
+    for (const professor of professores) {
+        profOptions.push(`<option value="${professor.user_uid}">${professor.nome}</option>`);
+    }
+
+    turmaFilter.innerHTML = turmaOptions.join('');
+    alunoFilter.innerHTML = alunoOptions.join('');
+    profFilter.innerHTML = profOptions.join('');
 }
 
 // ===============================================================

@@ -20,6 +20,17 @@ let allResults = [];
 let currentPage = 1;
 const recordsPerPage = 30;
 const scanStateByEncId = new Map();
+const sortableColumns = {
+    codigo: { field: 'codigo', type: 'string' },
+    data: { field: 'data_encaminhamento', type: 'date' },
+    estudante: { field: 'aluno_nome', type: 'string' },
+    professor: { field: 'professor_nome', type: 'string' },
+    status: { field: 'status', type: 'string' }
+};
+const sortState = {
+    column: 'data',
+    direction: 'desc'
+};
 
 function normalizeStoragePath(path) {
     const raw = String(path || '').trim().replace(/^\/+/, '');
@@ -231,6 +242,7 @@ async function handleSearch() {
 
         const { data } = await safeQuery(query);
         allResults = data || [];
+        sortResultsInPlace();
         await loadScanStates(allResults.map(item => item?.id).filter(Boolean));
 
         currentPage = 1;
@@ -270,13 +282,60 @@ function renderPage(page) {
     renderPaginationControls(totalPages);
 }
 
+function compareByType(a, b, type) {
+    if (type === 'date') {
+        const timeA = Date.parse(a || '');
+        const timeB = Date.parse(b || '');
+        const safeA = Number.isFinite(timeA) ? timeA : 0;
+        const safeB = Number.isFinite(timeB) ? timeB : 0;
+        return safeA - safeB;
+    }
+    return String(a || '').localeCompare(String(b || ''), 'pt-BR', { numeric: true, sensitivity: 'base' });
+}
+
+function sortResultsInPlace() {
+    const config = sortableColumns[sortState.column];
+    if (!config || !Array.isArray(allResults)) return;
+    const directionFactor = sortState.direction === 'asc' ? 1 : -1;
+    allResults.sort((left, right) => {
+        const cmp = compareByType(left?.[config.field], right?.[config.field], config.type);
+        if (cmp !== 0) return cmp * directionFactor;
+        const leftId = Number(left?.id || 0);
+        const rightId = Number(right?.id || 0);
+        return (leftId - rightId) * directionFactor;
+    });
+}
+
+function buildSortableHeader(label, column) {
+    const isSorted = sortState.column === column;
+    const sortClass = isSorted ? ` sorted-${sortState.direction}` : '';
+    return `<th class="sortable-th${sortClass}" data-sort-column="${column}">${label}<span class="sort-indicator"></span></th>`;
+}
+
+function bindTableSortActions() {
+    document.querySelectorAll('#results-table .sortable-th[data-sort-column]').forEach(th => {
+        th.addEventListener('click', () => {
+            const column = th.dataset.sortColumn || '';
+            if (!sortableColumns[column]) return;
+            if (sortState.column === column) {
+                sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortState.column = column;
+                sortState.direction = column === 'data' ? 'desc' : 'asc';
+            }
+            sortResultsInPlace();
+            renderPage(1);
+        });
+    });
+}
+
 function displayResults(results, startIndex) {
     if (results.length === 0) {
         displayNoResults();
         return;
     }
     resultsSummary.textContent = `Mostrando registros ${startIndex + 1} a ${startIndex + results.length} de ${allResults.length} encontrado(s).`;
-    let tableHTML = `<table><thead><tr><th>Código</th><th>Data</th><th>Estudante</th><th>Professor</th><th>Status</th><th>Ações</th></tr></thead><tbody>`;
+    let tableHTML = `<table><thead><tr>${buildSortableHeader('Código', 'codigo')}${buildSortableHeader('Data', 'data')}${buildSortableHeader('Estudante', 'estudante')}${buildSortableHeader('Professor', 'professor')}${buildSortableHeader('Status', 'status')}<th>Ações</th></tr></thead><tbody>`;
     results.forEach(item => {
         const dataDisplay = formatDatePtBr(item.data_encaminhamento);
         const scanState = scanStateByEncId.get(String(item.id)) || null;
@@ -296,6 +355,7 @@ function displayResults(results, startIndex) {
     tableHTML += '</tbody></table>';
     resultsTable.innerHTML = tableHTML;
     bindRetryDriveActions();
+    bindTableSortActions();
 }
 
 function renderDriveAction(item, scanState) {

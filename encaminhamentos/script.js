@@ -39,6 +39,8 @@ const state = {
     encYear: null,
     editYear: null,
     currentCodigo: '',
+    originalRegistradoPorUid: null,
+    originalRegistradoPorNome: '',
     scanJob: null,
     scanUrl: ''
 };
@@ -76,6 +78,11 @@ async function removeFromEncTempWithFallback(path) {
     } catch (err) {
         console.warn('Falha ao remover arquivo do enc_temp:', err?.message || err, candidates);
     }
+}
+
+function isObjectNotFoundError(err) {
+    const msg = String(err?.message || err?.error || '').toLowerCase();
+    return msg.includes('object not found') || msg.includes('not found');
 }
 
 const inlineScanZoom = {
@@ -616,6 +623,7 @@ async function saveRecord(e) {
     }
     setLoadingState(true, 'Salvando...');
     try {
+        let driveRedirectUrl = '';
         const encYear = getYearFromDateString(newRecord.data_encaminhamento);
         await ensureEncaminhamentosTableReady(encYear);
         const tableName = getEncaminhamentosTableName(encYear);
@@ -623,7 +631,7 @@ async function saveRecord(e) {
         await linkScanJob(created?.id);
         if (requiresDriveConfirmation) {
             try {
-                await sendScanToDrive(
+                driveRedirectUrl = await sendScanToDrive(
                     created?.id,
                     created?.codigo || '',
                     created?.data_encaminhamento || newRecord.data_encaminhamento,
@@ -650,15 +658,18 @@ async function saveRecord(e) {
                 throw new Error(`Falha ao enviar imagem ao Drive. Encaminhamento nao foi salvo. ${driveErr?.message || driveErr}`);
             }
         } else {
-            await sendScanToDrive(created?.id, created?.codigo || '', created?.data_encaminhamento || newRecord.data_encaminhamento);
+            driveRedirectUrl = await sendScanToDrive(created?.id, created?.codigo || '', created?.data_encaminhamento || newRecord.data_encaminhamento);
         }
         const codigoMsg = created?.codigo ? ` Código: ${created.codigo}` : '';
         showStatusMessage(`✅ Encaminhamento registrado com sucesso!${codigoMsg}`, true);
+        if (driveRedirectUrl) {
+            window.open(driveRedirectUrl, '_blank', 'noopener');
+        }
         resetForm();
     } catch (err) {
         handleSupabaseError(err);
     } finally {
-        setLoadingState(false, 'Registrar Encaminhamento');
+        setLoadingState(false, 'Salvar');
     }
 }
 
@@ -674,8 +685,9 @@ async function updateRecord() {
     );
     setLoadingState(true, 'Atualizando...', true);
     try {
+        let driveRedirectUrl = '';
         if (requiresDriveConfirmation) {
-            await sendScanToDrive(
+            driveRedirectUrl = await sendScanToDrive(
                 recordId,
                 updatedRecord.codigo || state.currentCodigo || '',
                 updatedRecord.data_encaminhamento,
@@ -692,9 +704,12 @@ async function updateRecord() {
         );
         if (state.scanJob?.id) await linkScanJob(recordId);
         if (!requiresDriveConfirmation) {
-            await sendScanToDrive(recordId, updatedRecord.codigo || state.currentCodigo || '', updatedRecord.data_encaminhamento);
+            driveRedirectUrl = await sendScanToDrive(recordId, updatedRecord.codigo || state.currentCodigo || '', updatedRecord.data_encaminhamento);
         }
         showStatusMessage('✅ Encaminhamento atualizado com sucesso!', true);
+        if (driveRedirectUrl) {
+            window.open(driveRedirectUrl, '_blank', 'noopener');
+        }
         setTimeout(() => {
             window.location.href = 'results.html';
         }, 1500);
@@ -968,6 +983,7 @@ function showScanPreview(job, url) {
     const link = document.getElementById('scan-open-link');
     const missing = document.getElementById('scan-missing');
     const zoomBtn = document.getElementById('scan-zoom-btn');
+    const driveBtn = document.getElementById('scan-open-drive-btn');
     const clearBtn = document.getElementById('scan-clear-btn');
     if (!container || !meta) return;
 
@@ -985,17 +1001,43 @@ function showScanPreview(job, url) {
         clearBtn.classList.toggle('hidden', isEditing || isLinked || !job?.id);
     }
 
+    const previewUrl = url || (job?.drive_file_id ? buildDriveImageUrl(job.drive_file_id) : '');
+    const previewFallbackUrls = !url && job?.drive_file_id ? buildDriveImageFallbackUrls(job.drive_file_id) : [];
+    const driveUrl = job?.drive_url || (job?.drive_file_id ? buildDriveWebUrl(job.drive_file_id) : '');
+
+    if (driveBtn) {
+        if (driveUrl) {
+            driveBtn.classList.remove('hidden');
+            driveBtn.onclick = () => window.open(driveUrl, '_blank', 'noopener');
+        } else {
+            driveBtn.classList.add('hidden');
+            driveBtn.onclick = null;
+        }
+    }
+
     if (missing) missing.classList.add('hidden');
-    if (url) {
+    if (previewUrl) {
         if (link) {
-            link.href = url;
+            link.href = previewUrl;
+            link.textContent = 'Abrir em nova guia';
         }
         closeFloatingScanViewer();
         if (zoomBtn) {
             zoomBtn.classList.remove('hidden');
-            zoomBtn.onclick = () => openFloatingScanViewer(url);
+            zoomBtn.onclick = () => openFloatingScanViewer(previewUrl, previewFallbackUrls);
         }
+    } else if (driveUrl) {
+        if (link) {
+            link.href = driveUrl;
+            link.textContent = 'Abrir no Drive';
+        }
+        closeFloatingScanViewer();
+        if (zoomBtn) zoomBtn.classList.add('hidden');
     } else {
+        if (link) {
+            link.href = '#';
+            link.textContent = 'Abrir em nova guia';
+        }
         closeFloatingScanViewer();
         if (zoomBtn) zoomBtn.classList.add('hidden');
     }
@@ -1021,12 +1063,20 @@ function clearScanPreview() {
     const meta = document.getElementById('scan-meta');
     const driveMeta = document.getElementById('scan-drive-meta');
     const zoomBtn = document.getElementById('scan-zoom-btn');
+    const driveBtn = document.getElementById('scan-open-drive-btn');
     const missing = document.getElementById('scan-missing');
     if (container) container.classList.add('hidden');
-    if (link) link.href = '#';
+    if (link) {
+        link.href = '#';
+        link.textContent = 'Abrir em nova guia';
+    }
     if (meta) meta.textContent = '-';
     if (driveMeta) driveMeta.textContent = 'Drive: -';
     if (zoomBtn) zoomBtn.classList.add('hidden');
+    if (driveBtn) {
+        driveBtn.classList.add('hidden');
+        driveBtn.onclick = null;
+    }
     closeFloatingScanViewer();
     if (missing) missing.classList.add('hidden');
     if (document.getElementById('editId')?.value) {
@@ -1062,11 +1112,26 @@ function showMissingScanPrompt() {
 
 function buildDriveImageUrl(fileId) {
     if (!fileId) return '';
-    return `https://drive.google.com/uc?id=${encodeURIComponent(fileId)}`;
+    return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(fileId)}`;
 }
 
-async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
-    if (!encaminhamentoId) return;
+function buildDriveImageFallbackUrls(fileId) {
+    if (!fileId) return [];
+    const safeId = encodeURIComponent(fileId);
+    return [
+        `https://drive.google.com/thumbnail?id=${safeId}&sz=w2000`,
+        `https://lh3.googleusercontent.com/d/${safeId}=w2000`
+    ];
+}
+
+function buildDriveWebUrl(fileId) {
+    if (!fileId) return '';
+    return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
+}
+
+async function loadLinkedScanByEncaminhamentoId(encaminhamentoId, options = {}) {
+    const suppressMissing = !!options?.suppressMissing;
+    if (!encaminhamentoId) return false;
     try {
         const { data } = await safeQuery(
             db.from('enc_scan_jobs')
@@ -1077,35 +1142,34 @@ async function loadLinkedScanByEncaminhamentoId(encaminhamentoId) {
         );
         const job = Array.isArray(data) ? data[0] : data;
         if (!job) {
-            showMissingScanPrompt();
-            return;
+            if (!suppressMissing) showMissingScanPrompt();
+            return false;
         }
         state.scanJob = job;
-        if (job.drive_file_id) {
-            if (job.storage_path) {
-                try {
-                    await removeFromEncTempWithFallback(job.storage_path);
-                } catch (err) {
-                    console.warn('Falha ao limpar storage antigo:', err?.message || err);
-                }
-            }
-            state.scanUrl = buildDriveImageUrl(job.drive_file_id);
-            showScanPreview(job, state.scanUrl);
-            return;
+        state.scanUrl = '';
+        if (job.drive_file_id || job.drive_url) {
+            showScanPreview(job, '');
+            return true;
         }
         if (job.storage_path) {
             try {
                 const { signedUrl } = await createSignedUrlWithFallback(job.storage_path, 60 * 60);
                 state.scanUrl = signedUrl;
+                showScanPreview(job, state.scanUrl);
+                return true;
             } catch (err) {
-                console.warn('Falha ao gerar signed URL de scan vinculado:', err?.message || err, job.storage_path);
+                state.scanUrl = '';
+                if (!isObjectNotFoundError(err)) {
+                    console.warn('Falha ao gerar signed URL de scan vinculado:', err?.message || err, job.storage_path);
+                }
             }
-            showScanPreview(job, state.scanUrl);
-            return;
         }
-        showMissingScanPrompt();
+        if (!suppressMissing) showMissingScanPrompt();
+        return false;
     } catch (err) {
         console.warn('Falha ao carregar imagem vinculada:', err?.message || err);
+        if (!suppressMissing) showMissingScanPrompt();
+        return false;
     }
 }
 
@@ -1142,8 +1206,12 @@ async function extractInvokeErrorMessage(err) {
 
 async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento, options = {}) {
     const strict = !!options?.strict;
-    if (!state.scanJob?.id || !state.scanJob?.storage_path) return;
-    if (state.scanJob.drive_file_id || state.scanJob.drive_url) return;
+    if (!state.scanJob?.id || !state.scanJob?.storage_path) {
+        return state.scanJob?.drive_url || (state.scanJob?.drive_file_id ? buildDriveWebUrl(state.scanJob.drive_file_id) : '');
+    }
+    if (state.scanJob.drive_file_id || state.scanJob.drive_url) {
+        return state.scanJob.drive_url || buildDriveWebUrl(state.scanJob.drive_file_id);
+    }
     try {
         const normalizedPath = normalizeStoragePath(state.scanJob.storage_path) || state.scanJob.storage_path;
         const payload = {
@@ -1167,9 +1235,6 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento, opt
                 })
                 .eq('id', state.scanJob.id)
         );
-        if (storagePath) {
-            await removeFromEncTempWithFallback(storagePath);
-        }
         state.scanJob = {
             ...state.scanJob,
             drive_url: driveUrl,
@@ -1177,10 +1242,16 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento, opt
             status: 'vinculado',
             encaminhamento_id: encaminhamentoId
         };
-        if (driveFileId) {
-            state.scanUrl = buildDriveImageUrl(driveFileId);
+        if (!state.scanUrl && storagePath) {
+            try {
+                const { signedUrl } = await createSignedUrlWithFallback(storagePath, 60 * 60);
+                state.scanUrl = signedUrl || '';
+            } catch (_err) {
+                state.scanUrl = '';
+            }
         }
-        showScanPreview(state.scanJob, state.scanUrl);
+        showScanPreview(state.scanJob, state.scanUrl || '');
+        return driveUrl || (driveFileId ? buildDriveWebUrl(driveFileId) : '');
     } catch (err) {
         if (strict) {
             const details = await extractInvokeErrorMessage(err);
@@ -1192,6 +1263,7 @@ async function sendScanToDrive(encaminhamentoId, codigo, dataEncaminhamento, opt
             showStatusMessage('⚠️ Encaminhamento salvo, mas o envio da imagem ao Drive falhou. Tente novamente ao abrir este registro.', false);
         }
         console.warn('Falha ao enviar para o Drive:', err?.message || err);
+        return '';
     }
 }
 
@@ -1397,11 +1469,25 @@ function resetInlineScanTransform() {
     image.style.transform = 'translate(0px, 0px) scale(1)';
 }
 
-function openFloatingScanViewer(url) {
+function openFloatingScanViewer(url, fallbackUrls = []) {
     const viewer = document.getElementById('scan-float-viewer');
     const image = document.getElementById('scan-float-image');
     if (!viewer || !image || !url) return;
-    image.src = url;
+    const queue = [url, ...(Array.isArray(fallbackUrls) ? fallbackUrls : [])].filter(Boolean);
+    let index = 0;
+    image.onerror = () => {
+        index += 1;
+        if (index < queue.length) {
+            image.src = queue[index];
+            return;
+        }
+        image.onerror = null;
+        showStatusMessage('Nao foi possivel carregar a visualizacao interna desta imagem. Use "Abrir no Drive".', false);
+    };
+    image.onload = () => {
+        image.onerror = null;
+    };
+    image.src = queue[0];
     resetInlineScanTransform();
     viewer.classList.remove('hidden');
 }
@@ -1414,14 +1500,19 @@ function closeFloatingScanViewer() {
 }
 
 async function loadStoredScanPreview(storagePath, referenceDate) {
-    if (!storagePath) return;
+    if (!storagePath) return false;
     try {
         const { signedUrl } = await createSignedUrlWithFallback(storagePath, 60 * 60);
-        if (!signedUrl) return;
+        if (!signedUrl) return false;
         state.scanUrl = signedUrl;
         showScanPreview({ created_at: referenceDate || null, status: 'vinculado' }, state.scanUrl);
+        return true;
     } catch (err) {
-        console.warn('Falha ao carregar imagem vinculada:', err?.message || err);
+        state.scanUrl = '';
+        if (!isObjectNotFoundError(err)) {
+            console.warn('Falha ao carregar imagem vinculada:', err?.message || err);
+        }
+        return false;
     }
 }
 
@@ -1451,6 +1542,15 @@ function getFormData() {
     const professorNomeSelecionado = professorSelect.options[professorSelect.selectedIndex]?.text || '';
     const turma = aluno ? state.turmasById.get(Number(aluno.turma_id)) : null;
 
+    const defaultRegistradoPorUid = state.currentUser?.id || null;
+    const defaultRegistradoPorNome = state.profile?.nome || state.currentUser?.email || '';
+    const registradoPorUid = isEditing
+        ? (state.originalRegistradoPorUid || null)
+        : defaultRegistradoPorUid;
+    const registradoPorNome = isEditing
+        ? (state.originalRegistradoPorNome || document.getElementById('registradoPor')?.value || '')
+        : defaultRegistradoPorNome;
+
     return {
         codigo: isEditing ? (document.getElementById('codigoEncaminhamento')?.value || state.currentCodigo || null)?.toString().replace(/\s+/g, '') || null : null,
         data_encaminhamento: document.getElementById('dataEncaminhamento').value,
@@ -1475,14 +1575,16 @@ function getFormData() {
         solicitacao_comparecimento: buildSolicitacaoComparecimento(),
         status: document.getElementById('status').value,
         outras_informacoes: document.getElementById('outrasInformacoes').value,
-        registrado_por_uid: state.currentUser?.id || null,
-        registrado_por_nome: state.profile?.nome || state.currentUser?.email || '',
+        registrado_por_uid: registradoPorUid,
+        registrado_por_nome: registradoPorNome,
         foto_storage_path: state.scanJob?.storage_path || null
     };
 }
 
 async function populateForm(data) {
     state.currentCodigo = (data.codigo || '').toString().replace(/\s+/g, '');
+    state.originalRegistradoPorUid = data.registrado_por_uid || null;
+    state.originalRegistradoPorNome = data.registrado_por_nome || '';
     const codigoInput = document.getElementById('codigoEncaminhamento');
     if (codigoInput) codigoInput.value = state.currentCodigo;
     document.getElementById('dataEncaminhamento').value = data.data_encaminhamento || '';
@@ -1514,16 +1616,35 @@ async function populateForm(data) {
     document.getElementById('outrasInformacoes').value = data.outras_informacoes || '';
     document.getElementById('registradoPor').value = data.registrado_por_nome || '';
 
+    let linkedLoaded = false;
+    if (data.id) {
+        linkedLoaded = await loadLinkedScanByEncaminhamentoId(data.id, { suppressMissing: true });
+    }
+    if (linkedLoaded) {
+        return;
+    }
+
     if (data.foto_storage_path) {
+        const samePathAlreadyTried = !!(
+            state.scanJob?.storage_path
+            && normalizeStoragePath(state.scanJob.storage_path) === normalizeStoragePath(data.foto_storage_path)
+        );
+        if (samePathAlreadyTried) {
+            showMissingScanPrompt();
+            return;
+        }
         state.scanJob = {
             id: null,
             status: 'vinculado',
             storage_path: data.foto_storage_path,
             created_at: data.created_at || data.data_encaminhamento || null
         };
-        loadStoredScanPreview(data.foto_storage_path, data.created_at || data.data_encaminhamento || null);
-    } else if (!state.scanJob?.storage_path) {
-        await loadLinkedScanByEncaminhamentoId(data.id);
+        const loaded = await loadStoredScanPreview(data.foto_storage_path, data.created_at || data.data_encaminhamento || null);
+        if (!loaded) {
+            showMissingScanPrompt();
+        }
+    } else {
+        showMissingScanPrompt();
     }
 }
 
@@ -1565,7 +1686,7 @@ function ensureSelectOption(selectId, value, label) {
 
 function resetForm() {
     document.getElementById('encaminhamentoForm').reset();
-    document.getElementById('form-title').textContent = 'Registrar Encaminhamento';
+    document.getElementById('form-title').textContent = '';
     document.getElementById('dataEncaminhamento').value = getLocalDateString();
     document.getElementById('registradoPor').value = state.profile?.nome || state.currentUser?.email || '';
     const registradoLabel = document.getElementById('registradoPorLabel');
@@ -1589,6 +1710,8 @@ function resetForm() {
     document.getElementById('solicitacaoComparecimentoHora').value = '';
     updateContatoResumo();
     state.currentCodigo = '';
+    state.originalRegistradoPorUid = null;
+    state.originalRegistradoPorNome = '';
     clearScanPreview();
     loadCodigoPreview(true);
     syncSelectFilterInputs();

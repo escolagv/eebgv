@@ -4,6 +4,18 @@ body {
     font-family: 'Saira', sans-serif;
 }
 
+body.page-chamada-admin {
+    overflow-x: hidden;
+}
+
+html,
+body.page-chamada-admin #app-container,
+body.page-chamada-admin #admin-view,
+body.page-chamada-admin #admin-view > .flex.h-screen.bg-gray-200,
+body.page-chamada-admin #admin-view > .flex.h-screen.bg-gray-200 > main {
+    overflow-x: hidden;
+}
+
 h1, h2, h3, h4, h5, h6 {
     font-family: 'Sora', sans-serif;
     font-weight: 700;
@@ -18,6 +30,7 @@ h1, h2 {
     transition: width 0.22s ease, transform 0.3s ease;
     overflow: visible;
     position: relative;
+    z-index: 90;
 }
 
 #sidebar-collapse-btn {
@@ -103,6 +116,7 @@ h1, h2 {
     flex-direction: column;
     align-items: center;
     gap: 0.25rem;
+    overflow: visible;
 }
 
 #admin-view.sidebar-collapsed .admin-nav-link {
@@ -114,7 +128,7 @@ h1, h2 {
     align-items: center;
     justify-content: center;
     white-space: nowrap;
-    overflow: hidden;
+    overflow: visible;
     border-radius: 0.75rem;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -506,8 +520,8 @@ body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) {
     flex-direction: column;
 }
 
-body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) > .bg-white.p-6.rounded-lg.shadow-md,
-body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) > .bg-white.p-4.sm\:p-6.rounded-lg.shadow-md {
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden):not(#admin-relatorios-panel) > .bg-white.p-6.rounded-lg.shadow-md,
+body.page-chamada-admin #admin-content > .admin-panel:not(.hidden):not(#admin-relatorios-panel) > .bg-white.p-4.sm\:p-6.rounded-lg.shadow-md {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -519,6 +533,71 @@ body.page-chamada-admin #admin-content > .admin-panel:not(.hidden) .admin-card-s
     flex: 1;
     min-height: 0;
     max-height: none;
+}
+
+/* Relatórios de Faltas: padrão visual do cadastro (isolado) */
+body.page-chamada-admin #admin-content > #admin-relatorios-panel.admin-panel:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel > .bg-white.p-6.rounded-lg.shadow-md:first-of-type {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-filtros-grid {
+    margin-bottom: 0.5rem;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-acoes-grid {
+    margin-bottom: 0.25rem;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-resultados-section {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 0.85rem;
+    margin-top: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-resultados-section .printable-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-resultados-section .overflow-x-auto {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-resultados-section thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f9fafb;
+}
+
+@media (min-width: 1280px) {
+    body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-filtros-grid {
+        grid-template-columns: 0.95fr 0.95fr 0.9fr 1.35fr 1fr 0.9fr !important;
+        align-items: end;
+        gap: 0.75rem !important;
+    }
+
+    body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-filtros-grid > div {
+        min-width: 0;
+    }
 }
 
 .table-scroll thead th {
