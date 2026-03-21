@@ -129,6 +129,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminViewEl = document.getElementById('admin-view');
     const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
     const sidebarCollapseIcon = document.getElementById('sidebar-collapse-icon');
+
+    const openCorrecaoModal = ({ turmaId = '', data = getLocalDateString(), autoLoad = true } = {}) => {
+        const modal = document.getElementById('correcao-chamada-modal');
+        const sel = document.getElementById('correcao-turma-select');
+        const dataInput = document.getElementById('correcao-data-select');
+        if (!modal || !sel) return;
+
+        modal.classList.remove('hidden');
+        sel.innerHTML = '<option value="">Selecione uma turma...</option>';
+        state.turmasCache.forEach((t) => {
+            sel.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`;
+        });
+
+        if (turmaId) sel.value = String(turmaId);
+        if (dataInput) dataInput.value = data || getLocalDateString();
+
+        if (autoLoad && sel.value && dataInput && dataInput.value) {
+            loadCorrecaoChamada();
+        }
+    };
+
     document.querySelectorAll('#admin-sidebar-nav .admin-nav-link').forEach((link) => {
         const title = link.getAttribute('title') || link.textContent || '';
         const label = String(title).trim();
@@ -873,18 +894,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 adjusted: row.dataset.chamadaAjustada === '1'
             });
         }
+        if (closest('#editar-chamada-log-btn')) {
+            const btn = closest('#editar-chamada-log-btn');
+            const turmaId = btn?.dataset?.turmaId || '';
+            const data = btn?.dataset?.data || getLocalDateString();
+            closeModal(document.getElementById('chamada-log-modal'));
+            openCorrecaoModal({ turmaId, data, autoLoad: true });
+        }
         if (closest('#correcao-chamada-btn') || closest('#chamadas-correcao-btn')) {
-            document.getElementById('correcao-chamada-modal').classList.remove('hidden');
-            const sel = document.getElementById('correcao-turma-select');
-            sel.innerHTML = '<option value="">Selecione uma turma...</option>';
-            state.turmasCache.forEach(t => sel.innerHTML += `<option value="${t.id}">${t.nome_turma}</option>`);
-            const dataInput = document.getElementById('correcao-data-select');
-            if (dataInput) {
-                dataInput.value = getLocalDateString();
-            }
-            if (sel.value && dataInput && dataInput.value) {
-                loadCorrecaoChamada();
-            }
+            openCorrecaoModal({ autoLoad: true });
         }
         if (closest('#prev-month-btn')) { state.dashboardCalendar.month--; if (state.dashboardCalendar.month < 0) { state.dashboardCalendar.month = 11; state.dashboardCalendar.year--; } renderDashboardCalendar(); }
         if (closest('#next-month-btn')) { state.dashboardCalendar.month++; if (state.dashboardCalendar.month > 11) { state.dashboardCalendar.month = 0; state.dashboardCalendar.year++; } renderDashboardCalendar(); }

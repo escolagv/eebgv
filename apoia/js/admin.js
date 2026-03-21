@@ -30,6 +30,8 @@ let notificationsReloadTimer = null;
 let notificationsRealtimeStopping = false;
 let notificationsChannelToken = 0;
 let relatoriosPanelSignature = '';
+const relatoriosSort = { key: 'turma', dir: 'asc' };
+let relatoriosRowsCache = [];
 const professoresSort = { key: 'nome', dir: 'asc' };
 let consistenciaAnoLetivo = '';
 const professorConsultaSort = { key: 'nome', dir: 'asc' };
@@ -1930,6 +1932,164 @@ export async function handleTurmaFormSubmit(e) {
 // ADMIN - RELATORIOS
 // ===============================================================
 
+function formatRelatorioDateBrDash(value) {
+    if (!value) return '';
+    const raw = String(value).trim();
+    const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) return `${isoMatch[3]}-${isoMatch[2]}-${isoMatch[1]}`;
+    const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (slashMatch) return `${slashMatch[1]}-${slashMatch[2]}-${slashMatch[3]}`;
+    const dateObj = new Date(raw);
+    if (!Number.isNaN(dateObj.getTime())) {
+        const dd = String(dateObj.getDate()).padStart(2, '0');
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const yyyy = dateObj.getFullYear();
+        return `${dd}-${mm}-${yyyy}`;
+    }
+    return raw;
+}
+
+function formatRelatorioHora(value) {
+    return value ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
+}
+
+function normalizeRelatorioHeaderLabel(value) {
+    return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim();
+}
+
+function updateRelatoriosSortIndicators(headers) {
+    const headerList = headers || document.querySelectorAll('#admin-relatorios-panel #relatorio-resultados thead th[data-sort]');
+    headerList.forEach((th) => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === relatoriosSort.key) {
+            th.classList.add(relatoriosSort.dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+}
+
+function sortRelatoriosRows(list) {
+    const collator = new Intl.Collator('pt-BR', { sensitivity: 'base', numeric: true });
+    const dir = relatoriosSort.dir === 'desc' ? -1 : 1;
+    const toTs = (value) => {
+        if (!value) return 0;
+        const v = String(value);
+        if (/^\d{4}-\d{2}-\d{2}/.test(v)) return new Date(`${v.slice(0, 10)}T00:00:00`).getTime();
+        if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(v)) {
+            const parts = v.replace(/\//g, '-').split('-');
+            return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`).getTime();
+        }
+        const ts = new Date(v).getTime();
+        return Number.isNaN(ts) ? 0 : ts;
+    };
+    const getValue = (r) => {
+        switch (relatoriosSort.key) {
+            case 'data':
+                return toTs(r.data);
+            case 'hora':
+                return r.registrado_em ? new Date(r.registrado_em).getTime() : 0;
+            case 'aluno':
+                return r.alunos?.nome_completo || '';
+            case 'turma':
+                return r.turmas?.nome_turma || '';
+            case 'status':
+                return r.status || '';
+            case 'justificativa':
+                return r.justificativa || '';
+            case 'registrado_por':
+                return r.usuarios?.nome || '';
+            default:
+                return '';
+        }
+    };
+    return [...(list || [])].sort((a, b) => {
+        const valA = getValue(a);
+        const valB = getValue(b);
+        let cmp = 0;
+
+        if (typeof valA === 'number' || typeof valB === 'number') {
+            cmp = (Number(valA) || 0) - (Number(valB) || 0);
+        } else {
+            cmp = collator.compare(String(valA), String(valB));
+        }
+
+        if (cmp === 0 && relatoriosSort.key !== 'turma') {
+            cmp = collator.compare(String(a.turmas?.nome_turma || ''), String(b.turmas?.nome_turma || ''));
+        }
+        if (cmp === 0 && relatoriosSort.key !== 'aluno') {
+            cmp = collator.compare(String(a.alunos?.nome_completo || ''), String(b.alunos?.nome_completo || ''));
+        }
+        if (cmp === 0) {
+            cmp = (toTs(a.data) - toTs(b.data));
+        }
+        return cmp * dir;
+    });
+}
+
+function renderRelatoriosRowsFromCache() {
+    const relatorioTableBody = document.getElementById('relatorio-table-body');
+    if (!relatorioTableBody) return;
+    if (!Array.isArray(relatoriosRowsCache) || relatoriosRowsCache.length === 0) return;
+    const sortedRows = sortRelatoriosRows(relatoriosRowsCache);
+    relatorioTableBody.innerHTML = sortedRows.map((r) => `
+        <tr>
+            <td class="p-3">${formatRelatorioDateBrDash(r.data) || '-'}</td>
+            <td class="p-3">${formatRelatorioHora(r.registrado_em)}</td>
+            <td class="p-3">${r.alunos?.nome_completo || ''}</td>
+            <td class="p-3">${r.turmas?.nome_turma || ''}</td>
+            <td class="p-3">${r.status || ''}</td>
+            <td class="p-3">${r.justificativa || '-'}</td>
+            <td class="p-3">${r.usuarios?.nome || ''}</td>
+        </tr>
+    `).join('');
+}
+
+function bindRelatoriosSortHeaders() {
+    const panel = document.getElementById('admin-relatorios-panel');
+    if (!panel) return;
+    const headers = panel.querySelectorAll('#relatorio-resultados thead th');
+    if (!headers.length) return;
+
+    const headerMap = {
+        data: 'data',
+        hora: 'hora',
+        aluno: 'aluno',
+        turma: 'turma',
+        status: 'status',
+        justificativa: 'justificativa',
+        'registrado por': 'registrado_por'
+    };
+
+    headers.forEach((th) => {
+        const text = normalizeRelatorioHeaderLabel(th.textContent || '');
+        const key = headerMap[text];
+        if (!key) return;
+        th.dataset.sort = key;
+        th.classList.add('sortable-th');
+        if (!th.querySelector('.sort-indicator')) {
+            const indicator = document.createElement('span');
+            indicator.className = 'sort-indicator';
+            th.appendChild(indicator);
+        }
+        if (th.dataset.sortBound === '1') return;
+        th.dataset.sortBound = '1';
+        th.addEventListener('click', () => {
+            if (relatoriosSort.key === key) {
+                relatoriosSort.dir = relatoriosSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                relatoriosSort.key = key;
+                relatoriosSort.dir = (key === 'data' || key === 'hora') ? 'desc' : 'asc';
+            }
+            updateRelatoriosSortIndicators(headers);
+            renderRelatoriosRowsFromCache();
+        });
+    });
+    updateRelatoriosSortIndicators(headers);
+}
+
 export async function renderRelatoriosPanel() {
     const panel = document.getElementById('admin-relatorios-panel');
     const turmaFilter = document.getElementById('relatorio-turma-select');
@@ -1939,6 +2099,26 @@ export async function renderRelatoriosPanel() {
 
     const filtrosCard = panel.querySelector(':scope > .bg-white.p-6.rounded-lg.shadow-md');
     const resultadosCard = document.getElementById('relatorio-resultados');
+    const topBar = panel.querySelector(':scope > .flex.justify-between.items-center.mb-4');
+    const gerarBtn = document.getElementById('gerar-relatorio-btn');
+    const limparBtn = document.getElementById('limpar-relatorio-btn');
+
+    if (topBar && gerarBtn && limparBtn) {
+        topBar.classList.add('relatorios-top-bar');
+        let actions = topBar.querySelector('.relatorios-top-actions');
+        if (!actions) {
+            actions = document.createElement('div');
+            actions.className = 'relatorios-top-actions';
+            topBar.appendChild(actions);
+        }
+        gerarBtn.classList.remove('w-full');
+        limparBtn.classList.remove('w-full');
+        gerarBtn.classList.add('relatorios-top-btn');
+        limparBtn.classList.add('relatorios-top-btn');
+        if (gerarBtn.parentElement !== actions) actions.appendChild(gerarBtn);
+        if (limparBtn.parentElement !== actions) actions.appendChild(limparBtn);
+    }
+
     if (filtrosCard && resultadosCard) {
         const grids = filtrosCard.querySelectorAll(':scope > .grid');
         if (grids[0]) {
@@ -1966,7 +2146,10 @@ export async function renderRelatoriosPanel() {
         professores[0]?.user_uid ?? ''
     ].join('|');
 
-    if (signature === relatoriosPanelSignature) return;
+    if (signature === relatoriosPanelSignature) {
+        bindRelatoriosSortHeaders();
+        return;
+    }
     relatoriosPanelSignature = signature;
 
     const turmaOptions = ['<option value="">Todas</option>'];
@@ -1987,6 +2170,7 @@ export async function renderRelatoriosPanel() {
     turmaFilter.innerHTML = turmaOptions.join('');
     alunoFilter.innerHTML = alunoOptions.join('');
     profFilter.innerHTML = profOptions.join('');
+    bindRelatoriosSortHeaders();
 }
 
 // ===============================================================
@@ -2645,6 +2829,7 @@ export async function openChamadaLogModal(payload) {
     const modal = document.getElementById('chamada-log-modal');
     const subtitle = document.getElementById('chamada-log-subtitle');
     const subtitlePrint = document.getElementById('chamada-log-subtitle-print');
+    const editBtn = document.getElementById('editar-chamada-log-btn');
     const stamps = document.getElementById('chamada-log-stamps');
     const summary = document.getElementById('chamada-log-summary');
     const tableBody = document.getElementById('chamada-log-table-body');
@@ -2654,6 +2839,13 @@ export async function openChamadaLogModal(payload) {
     const subtitleText = `${formatChamadasFullDateDisplay(date)} • Turma ${turmaName || turmaId || '-' } • ${professorName || 'Professor'}`;
     subtitle.textContent = subtitleText;
     if (subtitlePrint) subtitlePrint.textContent = subtitleText;
+    if (editBtn) {
+        editBtn.dataset.turmaId = turmaId ? String(turmaId) : '';
+        editBtn.dataset.data = date || '';
+        editBtn.disabled = !turmaId || !date;
+        editBtn.classList.toggle('opacity-50', editBtn.disabled);
+        editBtn.classList.toggle('cursor-not-allowed', editBtn.disabled);
+    }
     stamps.innerHTML = `
         <span class="chamada-stamp chamada-stamp-original">Feita por: ${professorName || '-'}</span>
         <span class="chamada-stamp ${adjusted ? 'chamada-stamp-adjusted' : 'chamada-stamp-original'}">${adjusted ? 'Ajustada' : 'Sem ajuste'}</span>
@@ -2759,6 +2951,29 @@ export async function handleGerarRelatorio() {
     const status = document.getElementById('relatorio-status-select').value;
     const relatorioTableBody = document.getElementById('relatorio-table-body');
     const printBtn = document.getElementById('imprimir-relatorio-btn');
+    const tituloPrint = document.getElementById('relatorio-titulo-impressao');
+    const periodoPrint = document.getElementById('relatorio-periodo-impressao');
+    const turmaSel = document.getElementById('relatorio-turma-select');
+    const alunoSel = document.getElementById('relatorio-aluno-select');
+    const professorSel = document.getElementById('relatorio-professor-select');
+
+    if (tituloPrint) {
+        if (status === 'falta') tituloPrint.textContent = 'Relatório de Faltas';
+        else if (status === 'presente') tituloPrint.textContent = 'Relatório de Presenças';
+        else tituloPrint.textContent = 'Relatório de Frequência';
+    }
+
+    if (periodoPrint) {
+        const periodo = dataInicio || dataFim
+            ? `Período: ${formatRelatorioDateBrDash(dataInicio) || '...'} até ${formatRelatorioDateBrDash(dataFim) || '...'}`
+            : 'Período: Todos os registros';
+        const extras = [];
+        if (turmaId && turmaSel) extras.push(`Turma: ${turmaSel.options[turmaSel.selectedIndex]?.text || ''}`);
+        if (alunoId && alunoSel) extras.push(`Aluno: ${alunoSel.options[alunoSel.selectedIndex]?.text || ''}`);
+        if (professorId && professorSel) extras.push(`Registrado por: ${professorSel.options[professorSel.selectedIndex]?.text || ''}`);
+        periodoPrint.textContent = extras.length ? `${periodo} • ${extras.join(' • ')}` : periodo;
+    }
+
     relatorioTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">Gerando relatorio...</td></tr>';
 
     let queryBuilder = db.from('presencas')
@@ -2773,27 +2988,21 @@ export async function handleGerarRelatorio() {
 
     const { data, error } = await safeQuery(queryBuilder);
     if (error) {
+        relatoriosRowsCache = [];
         relatorioTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-red-500">Erro ao gerar relatorio.</td></tr>';
         if (printBtn) printBtn.classList.add('hidden');
         return;
     }
     if (!data || data.length === 0) {
+        relatoriosRowsCache = [];
         relatorioTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">Nenhum registro encontrado.</td></tr>';
         if (printBtn) printBtn.classList.add('hidden');
         return;
     }
-    const formatHora = (value) => value ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '-';
-    relatorioTableBody.innerHTML = data.map(r => `
-        <tr>
-            <td class="p-3">${r.data}</td>
-            <td class="p-3">${formatHora(r.registrado_em)}</td>
-            <td class="p-3">${r.alunos?.nome_completo || ''}</td>
-            <td class="p-3">${r.turmas?.nome_turma || ''}</td>
-            <td class="p-3">${r.status}</td>
-            <td class="p-3">${r.justificativa || '-'}</td>
-            <td class="p-3">${r.usuarios?.nome || ''}</td>
-        </tr>
-    `).join('');
+
+    relatoriosRowsCache = data;
+    bindRelatoriosSortHeaders();
+    renderRelatoriosRowsFromCache();
     if (printBtn) printBtn.classList.remove('hidden');
 }
 
@@ -2814,8 +3023,11 @@ export function handleLimparRelatorio() {
     if (tableBody) {
         tableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center">Nenhuma consulta realizada.</td></tr>';
     }
+    relatoriosRowsCache = [];
     const periodoEl = document.getElementById('relatorio-periodo-impressao');
-    if (periodoEl) periodoEl.textContent = '';
+    if (periodoEl) periodoEl.textContent = 'Período: Todos os registros';
+    const tituloEl = document.getElementById('relatorio-titulo-impressao');
+    if (tituloEl) tituloEl.textContent = 'Relatório de Frequência';
     const printBtn = document.getElementById('imprimir-relatorio-btn');
     if (printBtn) printBtn.classList.add('hidden');
 }
@@ -3674,6 +3886,31 @@ function injectSchoolInfoIntoPrintHeader(targetWindow, infoLine) {
     targetWindow.document.body.insertBefore(fallback, targetWindow.document.body.firstChild);
 }
 
+async function resolvePrintLogoSrc(primaryUrl, fallbackUrl) {
+    const toDataUrl = async (url) => {
+        if (!url) return null;
+        try {
+            const response = await fetch(url, { cache: 'no-store' });
+            if (!response.ok) return null;
+            const blob = await response.blob();
+            return await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+                reader.onerror = () => resolve(null);
+                reader.readAsDataURL(blob);
+            });
+        } catch (_) {
+            return null;
+        }
+    };
+
+    return (await toDataUrl(primaryUrl))
+        || (await toDataUrl(fallbackUrl))
+        || primaryUrl
+        || fallbackUrl
+        || '';
+}
+
 export async function handleImprimirRelatorio(reportType) {
     const reportSelectors = {
         faltas: '#relatorio-resultados .printable-area',
@@ -3683,11 +3920,162 @@ export async function handleImprimirRelatorio(reportType) {
     };
     const reportEl = document.querySelector(reportSelectors[reportType]);
     if (!reportEl) return;
-    const reportHtml = reportEl.outerHTML || '';
+    const cloned = reportEl.cloneNode(true);
+    const titleByType = {
+        faltas: document.getElementById('relatorio-titulo-impressao')?.textContent?.trim() || 'Relatório de Frequência',
+        apoia: document.getElementById('apoia-relatorio-titulo-impressao')?.textContent?.trim() || 'Relatório de Acompanhamento APOIA',
+        historico: document.getElementById('historico-titulo-impressao')?.textContent?.trim() || 'Histórico de Frequência do Aluno',
+        chamada: 'Detalhes da Chamada'
+    };
+    const subtitleByType = {
+        faltas: document.getElementById('relatorio-periodo-impressao')?.textContent?.trim() || 'Período: Todos os registros',
+        apoia: document.getElementById('apoia-relatorio-periodo-impressao')?.textContent?.trim() || '',
+        historico: document.getElementById('historico-aluno-nome-impressao')?.textContent?.trim() || '',
+        chamada: document.getElementById('chamada-log-subtitle-print')?.textContent?.trim()
+            || document.getElementById('chamada-log-subtitle')?.textContent?.trim()
+            || ''
+    };
+
+    const expectedTitle = titleByType[reportType] || 'Relatório';
+    const expectedSubtitle = subtitleByType[reportType] || '';
+    const printLogoUrl = new URL('./logo.png', window.location.href).href;
+    const printLogoFallbackUrl = new URL('./logo_admin.png', window.location.href).href;
+    const embeddedLogoSrc = await resolvePrintLogoSrc(printLogoUrl, printLogoFallbackUrl);
+    const ensurePrintHeaderLogo = (header) => {
+        if (!header) return;
+        let img = header.querySelector('img');
+        if (!img) {
+            img = document.createElement('img');
+            img.alt = 'Logo da Escola';
+            header.prepend(img);
+        }
+        img.src = embeddedLogoSrc || printLogoUrl;
+        img.alt = 'Logo da Escola';
+        img.setAttribute('onerror', `this.onerror=null;this.src='${printLogoFallbackUrl}'`);
+        img.style.minWidth = '56px';
+        img.style.minHeight = '56px';
+    };
+
+    let headerEl = cloned.querySelector('.print-header');
+    if (!headerEl) {
+        headerEl = document.createElement('div');
+        headerEl.className = 'print-header';
+        const img = document.createElement('img');
+        img.src = embeddedLogoSrc || printLogoUrl;
+        img.alt = 'Logo da Escola';
+        img.setAttribute('onerror', `this.onerror=null;this.src='${printLogoFallbackUrl}'`);
+        const info = document.createElement('div');
+        info.className = 'print-header-info';
+        const h2 = document.createElement('h2');
+        h2.textContent = expectedTitle;
+        const p = document.createElement('p');
+        p.textContent = expectedSubtitle;
+        info.appendChild(h2);
+        info.appendChild(p);
+        headerEl.appendChild(img);
+        headerEl.appendChild(info);
+        cloned.prepend(headerEl);
+    } else {
+        const h2 = headerEl.querySelector('h2');
+        const p = headerEl.querySelector('p');
+        if (h2) h2.textContent = expectedTitle;
+        if (p) p.textContent = expectedSubtitle;
+    }
+    ensurePrintHeaderLogo(headerEl);
+
+    if (reportType === 'faltas') {
+        cloned.classList.add('print-faltas-compact');
+        const normalizeLabel = (value) => String(value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+        const normalizeBrDashDate = (value) => {
+            if (!value) return '-';
+            const raw = String(value).trim();
+            const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (isoMatch) return `${isoMatch[3]}-${isoMatch[2]}-${isoMatch[1]}`;
+            const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (slashMatch) return `${slashMatch[1]}-${slashMatch[2]}-${slashMatch[3]}`;
+            const dashMatch = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (dashMatch) return raw;
+            const dateObj = new Date(raw);
+            if (!Number.isNaN(dateObj.getTime())) {
+                const dd = String(dateObj.getDate()).padStart(2, '0');
+                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const yyyy = dateObj.getFullYear();
+                return `${dd}-${mm}-${yyyy}`;
+            }
+            return raw;
+        };
+
+        const table = cloned.querySelector('table');
+        let dataInfo = '-';
+        let horaInfo = '-';
+        let registradoPorInfo = '-';
+
+        if (table) {
+            const headCells = Array.from(table.querySelectorAll('thead th'));
+            const dataIdx = headCells.findIndex((th) => normalizeLabel(th.textContent) === 'data');
+            const horaIdx = headCells.findIndex((th) => normalizeLabel(th.textContent) === 'hora');
+            const registradoIdx = headCells.findIndex((th) => normalizeLabel(th.textContent).startsWith('registrado por'));
+
+            const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+            const getColumnValues = (idx) => bodyRows
+                .map((row) => row.children[idx]?.textContent?.trim() || '')
+                .filter((text) => text && text !== '-');
+            const uniqueOrSummary = (values, multipleLabel) => {
+                const unique = [...new Set(values)];
+                if (unique.length === 0) return '-';
+                if (unique.length === 1) return unique[0];
+                return multipleLabel;
+            };
+
+            if (dataIdx >= 0) {
+                dataInfo = uniqueOrSummary(
+                    getColumnValues(dataIdx).map((v) => normalizeBrDashDate(v)),
+                    'Múltiplas datas'
+                );
+            }
+            if (horaIdx >= 0) {
+                horaInfo = uniqueOrSummary(getColumnValues(horaIdx), 'Múltiplos horários');
+            }
+            if (registradoIdx >= 0) {
+                registradoPorInfo = uniqueOrSummary(getColumnValues(registradoIdx), 'Múltiplos registros');
+            }
+
+            [registradoIdx, horaIdx, dataIdx]
+                .filter((idx) => idx >= 0)
+                .sort((a, b) => b - a)
+                .forEach((idx) => {
+                    const currentHeadCells = table.querySelectorAll('thead th');
+                    if (currentHeadCells[idx]) currentHeadCells[idx].remove();
+                    table.querySelectorAll('tbody tr').forEach((row) => {
+                        if (row.children[idx]) row.children[idx].remove();
+                    });
+                });
+        }
+
+        const headerInfo = headerEl?.querySelector('.print-header-info');
+        if (headerInfo) {
+            let meta = headerInfo.querySelector('.print-report-meta');
+            if (!meta) {
+                meta = document.createElement('p');
+                meta.className = 'print-report-meta';
+                headerInfo.appendChild(meta);
+            }
+            const dataHora = dataInfo === '-' && horaInfo === '-'
+                ? '-'
+                : `${dataInfo}${horaInfo !== '-' ? ` às ${horaInfo}` : ''}`;
+            meta.textContent = `Data/Hora: ${dataHora} • Registrado por: ${registradoPorInfo}`;
+        }
+    }
+
+    const reportHtml = cloned.outerHTML || '';
     if (!reportHtml.trim()) return;
     const schoolInfo = await getSchoolInfo();
     const schoolInfoLine = buildSchoolInfoLine(schoolInfo);
-    const reportTitle = reportType === 'chamada' ? 'Detalhes da Chamada' : 'Relatorio';
+    const reportTitle = expectedTitle;
     const baseHref = window.location.href.split('#')[0];
     const bodyContent = reportHtml.includes('printable-area')
         ? reportHtml
@@ -3699,21 +4087,73 @@ export async function handleImprimirRelatorio(reportType) {
             <base href="${baseHref}">
             <script src="https://cdn.tailwindcss.com"><\/script>
             <link rel="stylesheet" href="style.css">
-            <style>body { font-family: 'Inter', sans-serif; }</style>
+            <style>
+                body { font-family: 'Inter', sans-serif; background: #f3f4f6; padding: 24px; }
+                .print-header {
+                    display: flex !important;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding-bottom: 1rem;
+                    margin-bottom: 1.5rem;
+                    border-bottom: 2px solid #e5e7eb;
+                }
+                .print-header img { max-height: 60px; width: auto; }
+                .print-header-info { text-align: right; color: #1f2937; }
+                .print-header-info h2 { font-size: 1.25rem; font-weight: 700; margin: 0; }
+                .print-header-info p { font-size: 0.875rem; margin: 0; }
+                .print-header-info .print-report-meta { font-size: 0.72rem; margin-top: 0.22rem; color: #4b5563; }
+                .printable-area table thead th { background: #eef2f7 !important; }
+                .printable-area table tbody tr:nth-child(odd) td { background: #ffffff !important; }
+                .printable-area table tbody tr:nth-child(even) td { background: #f5f7fb !important; }
+                .print-faltas-compact table { font-size: 10px; line-height: 1.02; table-layout: auto; width: 100%; }
+                .print-faltas-compact th, .print-faltas-compact td { padding: 2px 4px !important; vertical-align: middle; }
+                .print-faltas-compact th:nth-child(1), .print-faltas-compact td:nth-child(1) { white-space: nowrap; }
+                .print-faltas-compact .print-header { margin-bottom: 0.75rem; padding-bottom: 0.55rem; }
+                .print-faltas-compact .print-header-info h2 { font-size: 1.05rem; }
+                .print-faltas-compact .print-header-info p { font-size: 0.72rem; }
+                .print-faltas-compact .print-school-line { font-size: 0.66rem; margin-bottom: 0.12rem; }
+                @media print {
+                    @page { size: A4 portrait; margin: 8mm; }
+                    body { background: #fff; padding: 0; }
+                    body, .printable-area, .printable-area * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .no-print { display: none !important; }
+                    .printable-area { width: 100%; }
+                    .printable-area .max-h-96,
+                    .printable-area .max-h-80,
+                    .printable-area .overflow-x-auto,
+                    .printable-area .overflow-y-auto,
+                    .printable-area .overflow-auto {
+                        max-height: none !important;
+                        overflow: visible !important;
+                    }
+                }
+            </style>
         </head>
         <body class="bg-gray-100 p-8">
             ${bodyContent}
         </body>
         </html>
     `;
-    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-    const newWindow = window.open(dataUrl, '_blank');
+    const newWindow = window.open('', '_blank');
     if (!newWindow) return;
-    newWindow.focus();
-    setTimeout(() => {
+    let printed = false;
+    const triggerPrint = () => {
+        if (printed || newWindow.closed) return;
+        printed = true;
         injectSchoolInfoIntoPrintHeader(newWindow, schoolInfoLine);
-        newWindow.print();
-    }, 400);
+        newWindow.focus();
+        setTimeout(() => {
+            if (!newWindow.closed) newWindow.print();
+        }, 120);
+    };
+    newWindow.document.open();
+    newWindow.document.write(html);
+    newWindow.document.close();
+    newWindow.addEventListener('load', triggerPrint, { once: true });
+    setTimeout(triggerPrint, 900);
 }
 
 export async function openAlunoHistoricoModal(alunoId) {

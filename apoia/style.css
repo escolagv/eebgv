@@ -542,6 +542,26 @@ body.page-chamada-admin #admin-content > #admin-relatorios-panel.admin-panel:not
     min-height: 0;
 }
 
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-top-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-top-btn {
+    min-width: 180px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
 body.page-chamada-admin #admin-content > #admin-relatorios-panel > .bg-white.p-6.rounded-lg.shadow-md:first-of-type {
     flex: 1 1 auto;
     min-height: 0;
@@ -555,7 +575,7 @@ body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-fil
 }
 
 body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-acoes-grid {
-    margin-bottom: 0.25rem;
+    display: none !important;
 }
 
 body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-resultados-section {
@@ -588,7 +608,7 @@ body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-res
     background: #f9fafb;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1024px) {
     body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-filtros-grid {
         grid-template-columns: 0.95fr 0.95fr 0.9fr 1.35fr 1fr 0.9fr !important;
         align-items: end;
@@ -597,6 +617,17 @@ body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-res
 
     body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-filtros-grid > div {
         min-width: 0;
+    }
+}
+
+@media (max-width: 900px) {
+    body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-top-actions {
+        width: 100%;
+    }
+
+    body.page-chamada-admin #admin-content > #admin-relatorios-panel .relatorios-top-btn {
+        min-width: 0;
+        flex: 1 1 auto;
     }
 }
 
